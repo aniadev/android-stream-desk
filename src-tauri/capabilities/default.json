@@ -1,0 +1,13 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/schema-capabilities.json",
+  "identifier": "default",
+  "description": "Default permissions for Android Stream Desk Companion",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "shell:default",
+    "shell:allow-open",
+    "shell:allow-execute",
+    "updater:default"
+  ]
+}

@@ -1,57 +1,57 @@
-# Product Brief: Android Stream Desk
+# Mô tả Sản phẩm: Android Stream Desk
 
-## Metadata
-- **Status**: Draft
-- **Created**: 2026-05-23
-- **Updated**: 2026-05-23
-- **Stakes**: Passion/Utility Project (Low-mid stakes)
+## Thông tin chung
+- **Trạng thái**: Bản thảo (Draft)
+- **Ngày tạo**: 23-05-2026
+- **Cập nhật**: 23-05-2026
+- **Mức độ ưu tiên**: Dự án tiện ích cá nhân (Mức độ vừa/nhỏ)
 
-## Executive Summary
-Android Stream Desk is a lightweight, self-hosted alternative to physical macro pads like the Elgato Stream Desk. Recognizing that many users have old or spare Android tablets and phones, this project provides a custom control interface running on Android that communicates with a companion application on Windows. 
+## Tóm tắt dự án (Executive Summary)
+Android Stream Desk là một giải pháp tự lưu trữ (self-hosted), dung lượng nhẹ thay thế cho các thiết bị điều khiển macro vật lý như Elgato Stream Deck. Nhược điểm lớn của các thiết bị này là giá thành cao, vì vậy dự án này tận dụng các điện thoại hoặc máy tính bảng Android cũ/dư thừa để làm màn hình điều khiển cảm ứng, kết nối và tương tác trực tiếp với máy tính Windows thông qua mạng Wi-Fi cục bộ.
 
-Using Tauri v2 as the cross-platform framework and Vue 3 for the user interface, the application enables low-latency event transmission over the local network (Wi-Fi). Users can trigger actions on their Windows PC (such as keypress simulations, media controls, app launching, and hotkeys) by pressing virtual buttons on their Android screen.
+Ứng dụng được xây dựng trên nền tảng Tauri v2 (kết hợp Rust backend) và Vue 3 cho giao diện người dùng, đảm bảo tốc độ truyền nhận tín hiệu cực nhanh với độ trễ cực thấp. Người dùng có thể nhấn các nút ảo trên thiết bị Android để kích hoạt các hành động trên máy tính Windows (như mô phỏng nhấn phím, tổ hợp phím tắt, điều khiển nhạc/media, khởi chạy ứng dụng nhanh).
 
-## The Problem
-Physical macro pads (e.g., Elgato Stream Deck) are expensive ($60 - $150+) and occupy physical desk space. Meanwhile, many users have spare, functional Android devices sitting idle in drawers. Existing software alternatives are either riddled with ads, possess outdated user interfaces, rely on cloud subscriptions, or are complicated to set up over local firewalls. There is a need for a free, open-source, lightweight, and modern local network stream deck utility.
+## Vấn đề cần giải quyết (The Problem)
+Các bàn phím macro vật lý (Elgato Stream Deck) rất đắt đỏ (từ $60 đến hơn $150) và chiếm diện tích bàn làm việc. Trong khi đó, hầu hết mọi người đều có thiết bị Android cũ không còn sử dụng nằm trong ngăn kéo. Các ứng dụng thay thế bằng phần mềm hiện tại thường có quá nhiều quảng cáo, giao diện lỗi thời, yêu cầu trả phí đăng ký đám mây hoặc quá phức tạp để cài đặt cấu hình qua tường lửa mạng cục bộ. Nhu cầu thực tế là một công cụ mã nguồn mở, miễn phí, hiện đại và hoạt động hoàn toàn offline trong mạng nội bộ.
 
-## The Solution
-A dual-component system built with a single Tauri v2 codebase:
-1. **Windows Companion (Server)**: A background-running system tray application implemented in Tauri (Rust backend / Vue frontend for settings) that listens for incoming connection requests via HTTP/WebSocket on the local network. Upon authorized requests, it executes system actions (key simulation, hotkey triggers, multimedia command dispatch, launching applications, volume control).
-2. **Android App (Client)**: A touchscreen-optimized Tauri v2 mobile application that connects to the Windows companion via local IP. It displays a customizable layout of cards/buttons (grids like 3x3, 4x5) representing user-defined macros/shortcuts.
+## Giải pháp (The Solution)
+Hệ thống gồm 2 thành phần phát triển chung trong một codebase sử dụng Tauri v2:
+1. **Windows Companion (Server)**: Ứng dụng chạy ngầm trên khay hệ thống Windows (Tauri với backend Rust, giao diện chỉnh cài đặt bằng Vue 3). Server lắng nghe các yêu cầu kết nối qua HTTP/WebSocket trong mạng nội bộ, sau khi xác thực sẽ thực thi các hành động hệ thống trên Windows (nhấn phím, phím tắt, điều khiển đa phương tiện, chạy phần mềm cấu hình sẵn).
+2. **Android App (Client)**: Ứng dụng di động viết bằng Tauri v2 tối ưu hóa cho màn hình cảm ứng, kết nối tới Windows Companion qua IP nội bộ. Ứng dụng hiển thị lưới các ô nút (ví dụ 3x3, 4x5) đại diện cho các macro, phím tắt do người dùng thiết lập.
 
-Technologies:
-- **Tauri v2**: Direct Rust integrations for system controls on Windows, multi-platform build targets (Desktop + Android), low resource footprint.
-- **Vue 3**: Reactive state management, quick configuration, custom layout builders, and drag-and-drop support.
+Công nghệ sử dụng:
+- **Tauri v2**: Tích hợp Rust để giao tiếp API hệ thống Windows hiệu năng cao, đóng gói ứng dụng đa nền tảng tối giản dung lượng.
+- **Vue 3**: Quản lý trạng thái giao diện phản hồi nhanh, hỗ trợ kéo thả thiết lập lưới nút nhanh chóng.
 
-## What Makes This Different
-- **Tauri v2 Native Performance**: Sub-megabyte package size, low memory consumption compared to Electron.
-- **Unified Codebase**: Shared UI components and types between Android client and Windows server setups.
-- **Privacy/Local-first**: Completely offline. No cloud account or external internet connectivity required.
-- **Vue 3 Component-Driven**: Dynamic grid layout builder that allows custom button icon packs and custom backgrounds.
+## Điểm khác biệt (What Makes This Different)
+- **Hiệu năng từ Tauri v2**: Dung lượng cài đặt siêu nhẹ (chỉ vài MB), tối ưu bộ nhớ RAM vượt trội so với các giải pháp dùng Electron.
+- **Dùng chung Codebase**: Tiết kiệm thời gian lập trình nhờ chia sẻ chung các component giao diện (UI) và kiểu dữ liệu (Types) giữa client Android và server Windows.
+- **Mạng cục bộ & Bảo mật**: Hoạt động hoàn toàn offline, không yêu cầu tạo tài khoản đám mây hay kết nối internet bên ngoài.
+- **Giao diện Vue 3 linh hoạt**: Cho phép chỉnh sửa lưới nút tùy biến với các bộ icon và hình nền tự chọn.
 
-## Who This Serves
-- **Streamers & Content Creators**: Quick deck for OBS scene switches, mic muting, start/stop stream actions.
-- **Software Developers & Power Users**: Quick triggers for IDE macros, workspace switching, or window management.
-- **General Stream Desk Enthusiasts**: Cost-effective alternative using existing tablets/phones.
+## Đối tượng sử dụng (Who This Serves)
+- **Streamer & Nhà sáng tạo nội dung**: Chuyển cảnh nhanh trên OBS, tắt/mở micro, bắt đầu/dừng stream.
+- **Lập trình viên & Người dùng nâng cao**: Kích hoạt nhanh các phím tắt IDE, chuyển không gian làm việc hoặc quản lý cửa sổ nhanh.
+- **Người đam mê công nghệ**: Tiết kiệm chi phí tự dựng bàn macro deck từ điện thoại/tablet cũ.
 
-## Success Criteria
-- **Ultra-low latency**: Delay between touching the Android button and Windows action execution is <50ms.
-- **Responsive design**: Grid UI resizes gracefully on phones and tablets.
-- **Battery-efficient**: Minimum background CPU cycles when the device screen is off or app is inactive.
-- **Stable local discovery**: Easy automatic pairing via local network search or QR scan.
+## Tiêu chí thành công (Success Criteria)
+- **Độ trễ tối thiểu**: Thời gian từ lúc chạm nút trên Android đến lúc Windows thực thi hành động < 50ms.
+- **Giao diện phản hồi tốt (Responsive)**: Lưới nút tự động co giãn đẹp mắt trên cả điện thoại màn hình nhỏ và máy tính bảng.
+- **Tiết kiệm pin**: Giảm thiểu việc tiêu thụ tài nguyên của Android khi tắt màn hình hoặc ứng dụng chạy nền.
+- **Kết nối ổn định**: Ghép đôi thiết bị dễ dàng qua nhập IP thủ công hoặc quét mã QR.
 
-## Scope
-### In-Scope (MVP)
-- **Establish Local Connection**: Manual IP entry and local WebSocket pairing between Android and Windows.
-- **Basic Key Simulation**: Simulated keystrokes, shortcuts (e.g., Ctrl+Shift+M), and system media controls (Play/Pause, volume control).
-- **Custom Grid Editor**: Layout configuration (Grid dimension, button labels, icons, background colors).
-- **App Launching**: Launch specified programs/executables on the Windows machine.
+## Phạm vi dự án (Scope)
+### Trong phạm vi (MVP)
+- **Kết nối nội bộ**: Kết nối trực tiếp bằng cách nhập địa chỉ IP thủ công và ghép nối bảo mật qua WebSocket cục bộ.
+- **Mô phỏng phím cơ bản**: Nhấn phím đơn lẻ, tổ hợp phím (Ctrl+Shift+M, v.v.), điều khiển nhạc (Play/Pause, tăng giảm âm lượng).
+- **Trình chỉnh sửa lưới**: Cấu hình kích thước lưới, nhãn trên nút bấm, chọn màu nền và icon.
+- **Khởi chạy ứng dụng**: Mở các phần mềm hoặc chạy file thực thi (`.exe`) đã cấu hình trên Windows.
 
-### Out-of-Scope (Future / Post-MVP)
-- **Automatic Discovery**: mDNS discovery of Windows server by Android client.
-- **OBS Studio direct integration**: WebSockets protocol connection to OBS.
-- **Plugins Ecosystem**: Integrations with Discord, Spotify, etc.
-- **Custom Icon Library upload**: Cloud syncing of icons.
+### Ngoài phạm vi (Nâng cấp sau MVP)
+- **Tự động quét tìm thiết bị**: Sử dụng giao thức mDNS để Android tự phát hiện ứng dụng máy chủ Windows.
+- **Tích hợp OBS Studio trực tiếp**: Kết nối qua giao thức WebSocket của OBS để thao tác chuyên sâu.
+- **Hệ sinh thái Plugin**: Hỗ trợ kết nối API trực tiếp với Discord, Spotify, v.v.
+- **Đồng bộ icon đám mây**: Tải lên bộ icon cá nhân riêng và đồng bộ giữa các máy.
 
-## Vision (2-3 Years)
-To become the leading open-source local-first control panel framework, hosting a rich ecosystem of custom plugins (written in TypeScript/Rust) that can interface with any local or remote API easily.
+## Tầm nhìn 2-3 năm tới (Vision)
+Trở thành khung nền tảng bảng điều khiển cục bộ mã nguồn mở phổ biến nhất, hỗ trợ kho thư viện plugin phong phú (lập trình bằng TypeScript/Rust) giúp điều khiển bất kỳ API thiết bị thông minh nào trong nhà hoặc hệ thống máy tính từ xa một cách nhanh chóng.
