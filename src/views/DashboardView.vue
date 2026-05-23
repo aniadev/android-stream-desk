@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
 import { useLayoutStore } from '../stores/layout';
+import { useConnectionStore } from '../stores/connection';
 import { useUpdaterStore } from '../stores/updater';
 import type { ButtonConfig, ActionType } from '../types';
 import { Icon } from '@iconify/vue';
@@ -21,6 +22,8 @@ const serverIp = ref<string>('—');
 const serverPort = ref<number>(8089);
 const copyHint = ref<string>('');
 const colorCopyHint = ref<string>('');
+const syncHint = ref<string>('');
+let syncTimer: ReturnType<typeof setTimeout> | null = null;
 const appVersion = ref<string>('1.0.0');
 
 const isMac = computed(() => {
@@ -186,6 +189,8 @@ const toggleRecording = () => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown, true);
+  if (syncTimer !== null) clearTimeout(syncTimer);
+  if (saveTimer !== null) clearTimeout(saveTimer);
 });
 
 onMounted(async () => {
@@ -278,8 +283,56 @@ const updateGridDimensions = (type: 'rows' | 'cols', delta: number) => {
   if (selectedButtonId.value && !newButtons.some(b => b.id === selectedButtonId.value)) {
     selectedButtonId.value = null;
   }
+};
 
+// --- Drag & Drop (ID-based tracking) ---
+const dragSourceId = ref<string | null>(null);
+
+const onDragStart = (_e: DragEvent, btn: ButtonConfig) => {
+  _e.dataTransfer?.setData('text/plain', btn.id);
+  _e.dataTransfer!.effectAllowed = 'move';
+  dragSourceId.value = btn.id;
+};
+
+const onDragOver = (e: DragEvent) => {
+  e.preventDefault();
+};
+
+const onDrop = (_e: DragEvent, targetBtn: ButtonConfig) => {
+  if (!dragSourceId.value) return;
+  if (dragSourceId.value === targetBtn.id) {
+    dragSourceId.value = null;
+    return;
+  }
+  const fromIdx = layoutStore.layout.buttons.findIndex(b => b.id === dragSourceId.value);
+  const toIdx = layoutStore.layout.buttons.findIndex(b => b.id === targetBtn.id);
+  if (fromIdx === -1 || toIdx === -1) {
+    dragSourceId.value = null;
+    return;
+  }
+  layoutStore.reorderButtons(fromIdx, toIdx);
+  dragSourceId.value = null;
+};
+
+const onGridDrop = () => {
+  dragSourceId.value = null;
+};
+
+const onDragEnd = () => {
+  dragSourceId.value = null;
+};
+
+// --- Manual Sync ---
+const syncLayout = () => {
+  const connectionStore = useConnectionStore();
   layoutStore.broadcastSync();
+  if (syncTimer !== null) clearTimeout(syncTimer);
+  const isConnected = connectionStore.status === 'connected';
+  syncHint.value = isConnected ? 'Đã đồng bộ!' : 'Đã đồng bộ cục bộ';
+  syncTimer = setTimeout(() => {
+    syncHint.value = '';
+    syncTimer = null;
+  }, 1500);
 };
 
 let saveTimer: number | null = null;
@@ -291,7 +344,6 @@ const saveButtonSettings = () => {
   if (saveTimer !== null) clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => {
     saveTimer = null;
-    layoutStore.broadcastSync();
   }, 250);
 };
 
@@ -364,6 +416,16 @@ const updateStatusText = computed(() => {
             {{ copyHint || 'Copy' }}
           </button>
         </div>
+
+        <!-- Sync button -->
+        <button
+          class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5 flex items-center gap-1.5"
+          @click="syncLayout"
+          title="Đồng bộ cấu hình sang thiết bị Android"
+        >
+          <Icon :icon="syncHint ? 'lucide:check' : 'lucide:refresh-cw'" class="text-xs" :class="{ 'animate-spin': !syncHint }" />
+          <span>{{ syncHint || 'Sync' }}</span>
+        </button>
 
         <button
           class="cyber-icon-btn h-10 w-10 cursor-pointer flex items-center justify-center"
@@ -624,6 +686,8 @@ const updateStatusText = computed(() => {
               gridTemplateColumns: `repeat(${layoutStore.layout.cols}, minmax(0, 1fr))`,
               gridTemplateRows: `repeat(${layoutStore.layout.rows}, minmax(0, 1fr))`,
             }"
+            @dragover="onDragOver"
+            @drop.prevent="onGridDrop"
           >
             <GridButton
               v-for="btn in layoutStore.layout.buttons"
@@ -631,7 +695,12 @@ const updateStatusText = computed(() => {
               :button="btn"
               :selected="selectedButtonId === btn.id"
               :compact="true"
+              :draggable="true"
+              :class="{ 'opacity-40': dragSourceId === btn.id }"
               @press="selectButton(btn.id)"
+              @drag-start="onDragStart"
+              @drop.prevent="onDrop($event, btn)"
+              @dragend="onDragEnd"
             />
           </div>
         </div>
@@ -1016,14 +1085,31 @@ const updateStatusText = computed(() => {
 
 <style>
 /* Global cyberpunk scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 240, 255, 0.1) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
 ::-webkit-scrollbar-thumb {
   background: rgba(0, 240, 255, 0.1);
-  border-radius: 4px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 240, 255, 0.04);
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 240, 255, 0.2);
 }
+
 ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-corner {
   background: transparent;
 }
 </style>

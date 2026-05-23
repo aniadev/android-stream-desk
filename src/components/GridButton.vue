@@ -7,10 +7,14 @@ const props = defineProps<{
   button: ButtonConfig;
   selected?: boolean;
   compact?: boolean;
+  draggable?: boolean;
 }>();
 
 const emit = defineEmits<{
   press: [button: ButtonConfig];
+  dragStart: [event: DragEvent, button: ButtonConfig];
+  drop: [event: DragEvent, button: ButtonConfig];
+  dragend: [event: DragEvent];
 }>();
 
 const bgColor = computed(() => props.button.backgroundColor || '#1e293b');
@@ -65,6 +69,10 @@ function handleClick() {
 <template>
   <button
     @click="handleClick"
+    @dragstart="(e) => emit('dragStart', e, props.button)"
+    @drop="(e) => { e.stopPropagation(); emit('drop', e, props.button); }"
+    @dragend="(e) => emit('dragend', e)"
+    :draggable="draggable ? 'true' : undefined"
     class="cyber-btn group relative w-full h-full min-w-0 min-h-0 flex flex-col items-center justify-center cursor-pointer select-none overflow-hidden transition-all duration-150 ease-out"
     :class="{
       'gap-1 p-1.5': !compact,

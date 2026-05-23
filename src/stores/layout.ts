@@ -122,12 +122,29 @@ export const useLayoutStore = defineStore('layout', () => {
     } catch (_) {}
   }
 
-  const updateLayout = (newLayout: Layout) => {
+  const updateLayout = (newLayout: Layout, skipBroadcast = false) => {
     layout.value = newLayout;
     localStorage.setItem('local_layout', JSON.stringify(newLayout));
+    if (!skipBroadcast) {
+      broadcastSync();
+    }
+  };
+
+  const reorderButtons = (fromIndex: number, toIndex: number) => {
+    const len = layout.value.buttons.length;
+    if (fromIndex === toIndex) return;
+    if (fromIndex < 0 || fromIndex >= len || toIndex < 0 || toIndex > len) return;
+    const buttons = [...layout.value.buttons];
+    const [moved] = buttons.splice(fromIndex, 1);
+    if (!moved) return;
+    const insertAt = toIndex > fromIndex ? toIndex - 1 : toIndex;
+    buttons.splice(insertAt, 0, moved);
+    updateLayout({ ...layout.value, buttons });
   };
 
   const broadcastSync = () => {
+    localStorage.setItem('local_layout', JSON.stringify(layout.value));
+
     try {
       // @ts-ignore
       if (window.__TAURI_INTERNALS__) {
@@ -157,7 +174,7 @@ export const useLayoutStore = defineStore('layout', () => {
             return b;
           });
         }
-        updateLayout(synced);
+        updateLayout(synced, true);
       } else if (message.type === 'toast' && message.payload) {
         lastToast.value = {
           kind: message.payload.kind === 'info' ? 'info' : 'error',
@@ -192,6 +209,7 @@ export const useLayoutStore = defineStore('layout', () => {
     lastToast,
     updateLayout,
     broadcastSync,
+    reorderButtons,
     pressButton,
   };
 });
