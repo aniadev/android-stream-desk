@@ -2,7 +2,7 @@
 title: 'Android Stream Desk MVP'
 type: 'feature'
 created: '2026-05-23'
-status: 'in-review'
+status: 'done'
 baseline_commit: 'dda653c5b09d28a0a57fc9d519efa603a0ed784d'
 context: []
 ---
@@ -91,6 +91,14 @@ context: []
 - **AC-3:** Given giao diện Dashboard trên Windows, when tăng số dòng/cột hoặc sửa màu nút và nhấn Save, then cấu hình tự cập nhật tức thì trên màn hình di động Android.
 - **AC-4:** Given nút bấm gán action "Launch App" với đường dẫn `notepad.exe`, when nhấn trên Android, then Windows khởi chạy Notepad ngay lập tức.
 - **AC-5:** Given ngắt kết nối mạng hoặc ngắt server, when Android gặp timeout ping/pong, then Android tự động nhảy trạng thái "Mất kết nối" và liên tục thử kết nối lại mỗi 3s.
+- **AC-6:** Given Windows Companion vừa khởi chạy, when user mở Dashboard, then UI hiển thị địa chỉ IPv4 LAN nội bộ của máy + Port (mặc định 8089) ngay tại HUD đầu trang để user nhập vào Android.
+- **AC-7:** Given user cấu hình shortcut, when nhập chuỗi chứa các phím sau (case-insensitive), then `simulate_shortcut` map đúng sang `enigo::Key`:
+  - **Modifiers**: `Ctrl`/`Control`, `Shift`, `Alt`, `Meta`/`Win`/`Super`/`Command`.
+  - **Function**: `F1`..`F12`.
+  - **Navigation**: `PgUp`/`PageUp`, `PgDn`/`PageDown`, `Home`, `End`, `Up`/`Down`/`Left`/`Right` (Arrow).
+  - **Editing**: `Space`, `Enter`/`Return`, `Tab`, `Escape`/`Esc`, `Backspace`, `Delete`/`Del`, `Insert`.
+  - **Alphanumeric**: `a`-`z`, `0`-`9`.
+  - Chuỗi không khớp → trả lỗi rõ ràng, không Press modifier mồ côi.
 
 ## Verification
 
@@ -103,3 +111,104 @@ context: []
 **Manual checks (if no CLI):**
 - Bấm nút trên Android kiểm tra xem có giả lập chính xác phím hệ thống của OS Windows.
 - Thử thay đổi kích thước lưới trên Windows Dashboard rồi kiểm tra xem Android có re-render lưới mới.
+
+## Spec Change Log
+
+### 2026-05-23 — Amendment after step-04 verify review
+
+**Triggering findings:**
+- AA-14 (bad_spec): Spec không có AC trực tiếp cho FR-1 PRD (Companion hiển thị IP + Port). Code DashboardView không show local IP → user không biết IP nhập trên Android. → Thêm **AC-6**.
+- BH-11 / AA-2 / AA-24 (bad_spec): Spec không liệt kê key set tối thiểu cho `simulate_shortcut`. Default layout dùng `Ctrl+PgUp` → fail silent vì map thiếu PgUp/PgDown/Home/End/Arrows/digits. → Thêm **AC-7**.
+
+**Amendments:**
+- Append AC-6 (IP/Port HUD trên Dashboard).
+- Append AC-7 (key map tối thiểu) với danh sách chính tả case-insensitive cụ thể.
+
+**Known-bad state avoided:**
+- Cấu hình button mặc định dùng phím navigation nhưng không nhấn được → demo MVP broken.
+- User mở Companion nhưng không biết IP để nhập trên Android client → setup flow tắc.
+
+**KEEP instructions (preserve qua re-derivation nếu có):**
+- Frontend wording "Đã kết nối/Đang kết nối.../Lỗi kết nối" giữ nguyên; chỉ đổi trạng thái disconnected sang "Mất kết nối" theo I/O matrix.
+- WebSocket port mặc định 8089 trong cả backend + frontend default.
+- Layout JSON ghi tại `app_config_dir()` (= `%APPDATA%\com.ania.android.stream.desk\` trên Windows).
+- Pinia store kiến trúc connection/layout giữ nguyên — chỉ thêm/sửa trong nội bộ.
+
+## Suggested Review Order
+
+**Security hardening (highest priority)**
+
+- Replaced shell wrapper with direct binary spawn + path existence check; eliminates LAN-injectable command chains.
+  [`lib.rs:271`](../../src-tauri/src/lib.rs#L271)
+- Capability surface trimmed to `core:default` + `updater:default`; no more `shell:allow-execute`.
+  [`default.json:6`](../../src-tauri/capabilities/default.json#L6)
+- Production CSP populated so any XSS path can't reach IPC freely.
+  [`tauri.conf.json:17`](../../src-tauri/tauri.conf.json#L17)
+
+**WS server reliability**
+
+- `start_ws_server` now surfaces bind failure to frontend via `server-error` event and signals readiness with `server-ready`.
+  [`websocket.rs:27`](../../src-tauri/src/websocket.rs#L27)
+- `handle_connection` matches `RecvError::Lagged` and re-sends the current layout, so slow clients can't lose sync silently.
+  [`websocket.rs:102`](../../src-tauri/src/websocket.rs#L102)
+- New `default_layout()` returns `rows*cols` buttons so fresh clients see a full grid instead of a 1-cell stub.
+  [`websocket.rs:186`](../../src-tauri/src/websocket.rs#L186)
+- Layout writes go through a tmp + rename pair to keep the on-disk JSON atomic.
+  [`lib.rs:41`](../../src-tauri/src/lib.rs#L41)
+
+**Shortcut engine (AC-7)**
+
+- `parse_shortcut` rejects modifier-only or unknown tokens and never presses orphan modifiers.
+  [`lib.rs:188`](../../src-tauri/src/lib.rs#L188)
+- `parse_key` covers F1–F12, navigation, arrows, editing keys, digits, alphas — the AC-7 token set.
+  [`lib.rs:155`](../../src-tauri/src/lib.rs#L155)
+- `simulate_shortcut` serialises calls through `ENIGO_LOCK` so concurrent presses can't interleave modifier state.
+  [`lib.rs:220`](../../src-tauri/src/lib.rs#L220)
+
+**Reconnect + lifecycle**
+
+- Connect path detaches stale socket handlers and clears auto-reconnect before opening a new socket.
+  [`connection.ts:34`](../../src/stores/connection.ts#L34)
+- `disconnect()` raises `userDisconnected` so onclose can't restart the reconnect loop after an explicit user action.
+  [`connection.ts:108`](../../src/stores/connection.ts#L108)
+- `isReconnecting` ref drives the new "Mất kết nối" wording per AC-5.
+  [`ConnectionStatus.vue:33`](../../src/components/ConnectionStatus.vue#L33)
+
+**FR-1 / AC-6 — IP HUD**
+
+- `get_server_info` command + `detect_local_ipv4` UDP-routing trick for an offline-safe IPv4 lookup.
+  [`lib.rs:82`](../../src-tauri/src/lib.rs#L82)
+- DashboardView fetches the address on mount and renders it with a Copy button.
+  [`DashboardView.vue:11`](../../src/views/DashboardView.vue#L11)
+
+**Tray + single instance**
+
+- `setup_tray` builds the system tray with Show/Quit, gated to desktop targets.
+  [`lib.rs:376`](../../src-tauri/src/lib.rs#L376)
+- Close button hides to tray instead of quitting the companion.
+  [`lib.rs:357`](../../src-tauri/src/lib.rs#L357)
+- `tauri-plugin-single-instance` focuses the existing window on duplicate launch.
+  [`lib.rs:321`](../../src-tauri/src/lib.rs#L321)
+
+**Toast + UX polish**
+
+- Server emits `broadcast_toast` after action failures so Android clients see the error.
+  [`websocket.rs:69`](../../src-tauri/src/websocket.rs#L69)
+- `useLayoutStore` exposes `lastToast` (module-level WS listener guard avoids HMR duplicates).
+  [`layout.ts:62`](../../src/stores/layout.ts#L62)
+- ClientView renders the toast and Dashboard debounces `broadcastSync` so keystrokes don't spam disk/WS.
+  [`DashboardView.vue:99`](../../src/views/DashboardView.vue#L99)
+
+**Release pipeline**
+
+- Release workflow builds Windows + Android, attaches to a GitHub release, then refreshes the updater manifest.
+  [`release.yml:1`](../../.github/workflows/release.yml#L1)
+- CI workflow runs type-check / build for frontend and clippy + tests for Rust.
+  [`ci.yml:1`](../../.github/workflows/ci.yml#L1)
+
+**Supporting peripherals**
+
+- Cargo manifest adds `tray-icon` feature + `tauri-plugin-single-instance`, drops `tauri-plugin-shell`.
+  [`Cargo.toml:14`](../../src-tauri/Cargo.toml#L14)
+- PostCSS config renamed to `.cjs` so the ESM build can load it.
+  [`postcss.config.cjs:1`](../../postcss.config.cjs#L1)

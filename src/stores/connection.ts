@@ -7,86 +7,133 @@ export const useConnectionStore = defineStore('connection', () => {
   const port = ref(localStorage.getItem('server_port') || '8089');
   const status = ref<ConnectionState>('disconnected');
   const socket = ref<WebSocket | null>(null);
-  
+  const isReconnecting = ref(false);
+  const isOnline = ref(typeof navigator !== 'undefined' ? navigator.onLine : true);
+
   let heartbeatInterval: number | null = null;
   let reconnectInterval: number | null = null;
   let isAlive = false;
+  let userDisconnected = false;
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('online', () => {
+      isOnline.value = true;
+      // Kick a reconnect attempt immediately once link returns.
+      if (!userDisconnected && status.value !== 'connected' && ipAddress.value) {
+        connect();
+      }
+    });
+    window.addEventListener('offline', () => {
+      isOnline.value = false;
+    });
+  }
+
+  const detachSocket = (target: WebSocket | null) => {
+    if (!target) return;
+    target.onopen = null;
+    target.onmessage = null;
+    target.onerror = null;
+    target.onclose = null;
+  };
+
+  const clearReconnect = () => {
+    if (reconnectInterval !== null) {
+      clearInterval(reconnectInterval);
+      reconnectInterval = null;
+    }
+    isReconnecting.value = false;
+  };
 
   const connect = () => {
     if (!ipAddress.value) {
       status.value = 'error';
       return;
     }
-    
-    // Save to local storage
+
+    if (!isOnline.value) {
+      // No network — skip the WS attempt entirely. `online` listener will
+      // re-trigger connect() once the link returns.
+      status.value = 'disconnected';
+      clearReconnect();
+      return;
+    }
+
+    userDisconnected = false;
+
     localStorage.setItem('server_ip', ipAddress.value);
     localStorage.setItem('server_port', port.value);
 
-    status.value = 'connecting';
-    
+    // Tear down any previous socket so its async close handler cannot
+    // overwrite the new socket's status mid-handshake.
     if (socket.value) {
+      detachSocket(socket.value);
       socket.value.close();
+      socket.value = null;
     }
+
+    clearReconnect();
+    status.value = 'connecting';
 
     try {
       const url = `ws://${ipAddress.value}:${port.value}`;
-      socket.value = new WebSocket(url);
+      const ws = new WebSocket(url);
+      socket.value = ws;
 
-      socket.value.onopen = () => {
+      ws.onopen = () => {
         status.value = 'connected';
         isAlive = true;
-        
-        // Clear reconnect loop if in progress
-        if (reconnectInterval) {
-          clearInterval(reconnectInterval);
-          reconnectInterval = null;
-        }
-
-        // Start WebSocket Heartbeat
+        clearReconnect();
         startHeartbeat();
       };
 
-      socket.value.onmessage = (event) => {
+      ws.onmessage = (event) => {
         isAlive = true;
         try {
           const data: WSMessage = JSON.parse(event.data);
           if (data.type === 'ping') {
             send({ type: 'pong' });
           } else if (data.type === 'pong') {
-            // Heartbeat check acknowledged
+            // Heartbeat ack — already marked alive.
           } else {
-            // Pass message globally to custom hook or event dispatcher
-            const eventObj = new CustomEvent('ws-message', { detail: data });
-            window.dispatchEvent(eventObj);
+            window.dispatchEvent(new CustomEvent('ws-message', { detail: data }));
           }
         } catch (e) {
           console.error('Failed parsing WS message:', e);
         }
       };
 
-      socket.value.onerror = () => {
+      ws.onerror = () => {
         status.value = 'error';
       };
 
-      socket.value.onclose = () => {
-        status.value = 'disconnected';
+      ws.onclose = () => {
+        if (socket.value !== ws) {
+          // Stale close from a superseded socket — ignore.
+          return;
+        }
+        socket.value = null;
         stopHeartbeat();
+        if (userDisconnected) {
+          status.value = 'disconnected';
+          return;
+        }
+        status.value = 'disconnected';
         triggerAutoReconnect();
       };
-
-    } catch (e) {
+    } catch (_) {
       status.value = 'error';
-      triggerAutoReconnect();
+      if (!userDisconnected) {
+        triggerAutoReconnect();
+      }
     }
   };
 
   const disconnect = () => {
-    if (reconnectInterval) {
-      clearInterval(reconnectInterval);
-      reconnectInterval = null;
-    }
+    userDisconnected = true;
+    clearReconnect();
     stopHeartbeat();
     if (socket.value) {
+      detachSocket(socket.value);
       socket.value.close();
       socket.value = null;
     }
@@ -104,35 +151,51 @@ export const useConnectionStore = defineStore('connection', () => {
     heartbeatInterval = window.setInterval(() => {
       if (!isAlive) {
         console.warn('Heartbeat dead. Reconnecting...');
-        disconnect();
-        connect();
+        // Drop the current socket and let auto-reconnect handle the next attempt
+        // so we don't recurse into connect() from the heartbeat tick.
+        if (socket.value) {
+          detachSocket(socket.value);
+          socket.value.close();
+          socket.value = null;
+        }
+        stopHeartbeat();
+        status.value = 'disconnected';
+        if (!userDisconnected) {
+          triggerAutoReconnect();
+        }
         return;
       }
       isAlive = false;
       send({ type: 'ping' });
-    }, 5000); // 5 seconds interval
+    }, 5000);
   };
 
   const stopHeartbeat = () => {
-    if (heartbeatInterval) {
+    if (heartbeatInterval !== null) {
       clearInterval(heartbeatInterval);
       heartbeatInterval = null;
     }
   };
 
   const triggerAutoReconnect = () => {
-    if (!reconnectInterval) {
-      reconnectInterval = window.setInterval(() => {
-        console.log('Attempting auto-reconnect...');
-        connect();
-      }, 3000); // Reconnect every 3s
-    }
+    if (reconnectInterval !== null || userDisconnected) return;
+    isReconnecting.value = true;
+    reconnectInterval = window.setInterval(() => {
+      if (userDisconnected) {
+        clearReconnect();
+        return;
+      }
+      console.log('Attempting auto-reconnect...');
+      connect();
+    }, 3000);
   };
 
   return {
     ipAddress,
     port,
     status,
+    isReconnecting,
+    isOnline,
     connect,
     disconnect,
     send,

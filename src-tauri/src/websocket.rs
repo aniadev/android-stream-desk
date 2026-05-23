@@ -3,12 +3,13 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use tauri::Emitter;
+use tauri::Manager;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::broadcast;
 use tokio::sync::Mutex;
 use tokio_tungstenite::accept_async;
 use tokio_tungstenite::tungstenite::protocol::Message;
-use tauri::Manager;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct WSMessage {
@@ -21,20 +22,29 @@ lazy_static::lazy_static! {
     static ref WS_MUTEX: Arc<Mutex<Option<broadcast::Sender<String>>>> = Arc::new(Mutex::new(None));
 }
 
-/// Runs WebSocket server under tokio runtime listening port 8089
+const BROADCAST_CAPACITY: usize = 256;
+
 pub async fn start_ws_server(port: u16, app_handle: tauri::AppHandle) {
     let addr = format!("0.0.0.0:{}", port);
     let listener = match TcpListener::bind(&addr).await {
         Ok(l) => l,
         Err(e) => {
-            eprintln!("Failed to bind WebSocket TCP port {}: {}", port, e);
+            let msg = format!("Failed to bind WebSocket TCP port {}: {}", port, e);
+            eprintln!("{}", msg);
+            let _ = app_handle.emit(
+                "server-error",
+                serde_json::json!({ "port": port, "error": msg }),
+            );
             return;
         }
     };
     println!("WebSocket server listening on ws://{}", addr);
+    let _ = app_handle.emit(
+        "server-ready",
+        serde_json::json!({ "port": port }),
+    );
 
-    // TX/RX channel matching multiple connected Android clients broadcast events
-    let (tx, _) = broadcast::channel::<String>(32);
+    let (tx, _) = broadcast::channel::<String>(BROADCAST_CAPACITY);
     {
         let mut global_tx = WS_MUTEX.lock().await;
         *global_tx = Some(tx.clone());
@@ -43,7 +53,7 @@ pub async fn start_ws_server(port: u16, app_handle: tauri::AppHandle) {
     while let Ok((stream, addr)) = listener.accept().await {
         let tx_clone = tx.clone();
         let app_handle_clone = app_handle.clone();
-        
+
         tokio::spawn(async move {
             if let Err(e) = handle_connection(stream, addr, tx_clone, app_handle_clone).await {
                 eprintln!("Error handling connection from {}: {}", addr, e);
@@ -52,17 +62,41 @@ pub async fn start_ws_server(port: u16, app_handle: tauri::AppHandle) {
     }
 }
 
-/// Broadcast a message to all connected clients
 pub async fn broadcast_layout_to_clients(layout_json: Value) {
+    broadcast_message("sync_layout", layout_json).await;
+}
+
+pub async fn broadcast_toast(payload: Value) {
+    broadcast_message("toast", payload).await;
+}
+
+async fn broadcast_message(msg_type: &str, payload: Value) {
     if let Some(ref tx) = *WS_MUTEX.lock().await {
         let msg = WSMessage {
-            msg_type: "sync_layout".to_string(),
-            payload: Some(layout_json),
+            msg_type: msg_type.to_string(),
+            payload: Some(payload),
         };
         if let Ok(serialized) = serde_json::to_string(&msg) {
             let _ = tx.send(serialized);
         }
     }
+}
+
+async fn send_current_layout(
+    ws_sender: &mut futures_util::stream::SplitSink<
+        tokio_tungstenite::WebSocketStream<TcpStream>,
+        Message,
+    >,
+    app_handle: &tauri::AppHandle,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let layout_val = get_cached_layout(app_handle).unwrap_or_else(|_| default_layout());
+    let sync_msg = WSMessage {
+        msg_type: "sync_layout".to_string(),
+        payload: Some(layout_val),
+    };
+    let sync_str = serde_json::to_string(&sync_msg)?;
+    ws_sender.send(Message::Text(sync_str)).await?;
+    Ok(())
 }
 
 async fn handle_connection(
@@ -77,28 +111,29 @@ async fn handle_connection(
     let (mut ws_sender, mut ws_receiver) = ws_stream.split();
     let mut rx = tx.subscribe();
 
-    // Broadcast current saved layout when a new connection opens
-    if let Ok(layout_val) = get_cached_layout(&app_handle) {
-        let sync_msg = WSMessage {
-            msg_type: "sync_layout".to_string(),
-            payload: Some(layout_val),
-        };
-        if let Ok(sync_str) = serde_json::to_string(&sync_msg) {
-            let _ = ws_sender.send(Message::Text(sync_str)).await;
-        }
-    }
+    // Seed the new client with the current layout, falling back to default.
+    let _ = send_current_layout(&mut ws_sender, &app_handle).await;
 
     let mut keep_running = true;
 
     while keep_running {
         tokio::select! {
-            // Receive outgoing messages broadcast from other threads
-            Ok(msg_str) = rx.recv() => {
-                if ws_sender.send(Message::Text(msg_str)).await.is_err() {
-                    break;
+            recv_result = rx.recv() => {
+                match recv_result {
+                    Ok(msg_str) => {
+                        if ws_sender.send(Message::Text(msg_str)).await.is_err() {
+                            keep_running = false;
+                        }
+                    }
+                    Err(broadcast::error::RecvError::Lagged(skipped)) => {
+                        eprintln!("Client {} lagged by {} messages — resyncing layout.", addr, skipped);
+                        let _ = send_current_layout(&mut ws_sender, &app_handle).await;
+                    }
+                    Err(broadcast::error::RecvError::Closed) => {
+                        keep_running = false;
+                    }
                 }
             }
-            // Read incoming frames from this client
             ws_msg = ws_receiver.next() => {
                 match ws_msg {
                     Some(Ok(Message::Text(text))) => {
@@ -111,9 +146,7 @@ async fn handle_connection(
                                     }
                                 }
                                 "press" => {
-                                    // Trigger OS action on main threads via Tauri IPC Command channel proxy
                                     if let Some(payload_val) = parsed_msg.payload {
-                                        use tauri::Emitter;
                                         let _ = app_handle.emit("trigger-macro", payload_val);
                                     }
                                 }
@@ -139,7 +172,6 @@ async fn handle_connection(
 }
 
 fn get_cached_layout(app_handle: &tauri::AppHandle) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
-    // Utility local storage helper reading synced AppData layout config to seed UI on connect
     let app_dir = app_handle.path().app_config_dir()?;
     let config_path = app_dir.join("layout.json");
     if config_path.exists() {
@@ -147,21 +179,29 @@ fn get_cached_layout(app_handle: &tauri::AppHandle) -> Result<Value, Box<dyn std
         let val: Value = serde_json::from_str(&content)?;
         Ok(val)
     } else {
-        // Return default layout JSON schema representation
-        let default_val = serde_json::json!({
-            "rows": 3,
-            "cols": 3,
-            "buttons": vec![
-                serde_json::json!({
-                    "id": "btn_0",
-                    "label": "Play/Pause",
-                    "emoji": "⏯️",
-                    "backgroundColor": "#1e293b",
-                    "actionType": "media",
-                    "mediaAction": "play_pause"
-                })
-            ]
-        });
-        Ok(default_val)
+        Ok(default_layout())
     }
+}
+
+fn default_layout() -> Value {
+    let rows = 3u32;
+    let cols = 3u32;
+    let total = (rows * cols) as usize;
+    let buttons: Vec<Value> = (0..total)
+        .map(|i| {
+            serde_json::json!({
+                "id": format!("btn_{}", i),
+                "label": format!("Button {}", i + 1),
+                "emoji": "🎮",
+                "backgroundColor": "#1e293b",
+                "actionType": "shortcut",
+                "shortcutValue": "Ctrl+Tab"
+            })
+        })
+        .collect();
+    serde_json::json!({
+        "rows": rows,
+        "cols": cols,
+        "buttons": buttons,
+    })
 }

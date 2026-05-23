@@ -4,10 +4,6 @@
   "description": "Default permissions for Android Stream Desk Companion",
   "windows": ["main"],
   "permissions": [
-    "core:default",
-    "shell:default",
-    "shell:allow-open",
-    "shell:allow-execute",
-    "updater:default"
+    "core:default"
   ]
 }

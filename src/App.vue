@@ -1,9 +1,4 @@
-<script setup lang="ts">
-import { computed } from 'vue';
-import { useRoute } from 'vue-router';
-
-const route = useRoute();
-</script>
+<script setup lang="ts"></script>
 
 <template>
   <main class="h-screen w-screen bg-brand-dark antialiased overflow-hidden">

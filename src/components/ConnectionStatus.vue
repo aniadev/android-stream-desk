@@ -1,7 +1,30 @@
 <script setup lang="ts">
+import { onMounted } from 'vue';
 import { useConnectionStore } from '../stores/connection';
 
 const connectionStore = useConnectionStore();
+
+// On first launch, prefill the IP input with the device's own LAN subnet —
+// Companion almost always lives on the same /24, so the user only edits the
+// last octet instead of typing the whole address.
+onMounted(async () => {
+  if (connectionStore.ipAddress) return;
+  try {
+    // @ts-ignore
+    if (!window.__TAURI_INTERNALS__) return;
+    const { invoke } = await import('@tauri-apps/api/core');
+    const info = await invoke<{ ip: string; port: number }>('get_server_info');
+    const parts = info.ip.split('.');
+    if (parts.length === 4 && info.ip !== '127.0.0.1') {
+      connectionStore.ipAddress = `${parts[0]}.${parts[1]}.${parts[2]}.`;
+    }
+    if (info.port) {
+      connectionStore.port = String(info.port);
+    }
+  } catch (_) {
+    // ignore — input stays empty, user types manually
+  }
+});
 </script>
 
 <template>
@@ -30,9 +53,10 @@ const connectionStore = useConnectionStore();
           ></span>
         </span>
         <span class="text-sm font-semibold capitalize tracking-wide">
-          {{ connectionStore.status === 'connected' ? 'Đã kết nối' : 
-             connectionStore.status === 'connecting' ? 'Đang kết nối...' : 
-             connectionStore.status === 'error' ? 'Lỗi kết nối' : 'Chưa kết nối' }}
+          {{ connectionStore.status === 'connected' ? 'Đã kết nối' :
+             connectionStore.status === 'connecting' ? 'Đang kết nối...' :
+             connectionStore.status === 'error' ? 'Lỗi kết nối' :
+             connectionStore.isReconnecting ? 'Mất kết nối' : 'Chưa kết nối' }}
         </span>
       </div>
 

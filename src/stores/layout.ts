@@ -3,19 +3,28 @@ import { ref } from 'vue';
 import type { Layout, ButtonConfig } from '../types';
 import { useConnectionStore } from './connection';
 
+const DEFAULT_SHORTCUT = 'Ctrl+Tab';
+
+const defaultLayout = (): Layout => ({
+  rows: 3,
+  cols: 3,
+  buttons: Array.from({ length: 9 }, (_, index) => ({
+    id: `btn_${index}`,
+    label: `Button ${index + 1}`,
+    emoji: '🎮',
+    backgroundColor: '#1e293b',
+    actionType: 'shortcut',
+    shortcutValue: DEFAULT_SHORTCUT,
+  })),
+});
+
+// Module-level guard so the global ws-message listener is attached at most
+// once even across HMR / test reloads of the store factory.
+let wsListenerAttached = false;
+
 export const useLayoutStore = defineStore('layout', () => {
-  const layout = ref<Layout>({
-    rows: 3,
-    cols: 3,
-    buttons: Array.from({ length: 9 }, (_, index) => ({
-      id: `btn_${index}`,
-      label: `Button ${index + 1}`,
-      emoji: '🎮',
-      backgroundColor: '#1e293b',
-      actionType: 'shortcut',
-      shortcutValue: 'Ctrl+PgUp',
-    })),
-  });
+  const layout = ref<Layout>(defaultLayout());
+  const lastToast = ref<{ kind: 'error' | 'info'; message: string; at: number } | null>(null);
 
   const connectionStore = useConnectionStore();
 
@@ -27,15 +36,12 @@ export const useLayoutStore = defineStore('layout', () => {
     } catch (_) {}
   }
 
-  // Update layout and sync to local storage/or websocket
   const updateLayout = (newLayout: Layout) => {
     layout.value = newLayout;
     localStorage.setItem('local_layout', JSON.stringify(newLayout));
   };
 
-  // Broadcast layout change to Android client (invoked by Windows Dashboard)
   const broadcastSync = () => {
-    // 1. Save Locally on Windows using Tauri app save config API
     try {
       // @ts-ignore
       if (window.__TAURI_INTERNALS__) {
@@ -47,32 +53,35 @@ export const useLayoutStore = defineStore('layout', () => {
       }
     } catch (_) {}
 
-    // 2. Broadcast via WS server to active clients
     connectionStore.send({
       type: 'sync_layout',
       payload: layout.value,
     });
   };
 
-  // Setup Listener for synchronous updates from server (on Android client)
-  window.addEventListener('ws-message', (event: any) => {
-    const message = event.detail;
-    if (message.type === 'sync_layout' && message.payload) {
-      updateLayout(message.payload);
-    }
-  });
+  if (!wsListenerAttached) {
+    wsListenerAttached = true;
+    window.addEventListener('ws-message', (event: any) => {
+      const message = event.detail;
+      if (message.type === 'sync_layout' && message.payload) {
+        updateLayout(message.payload);
+      } else if (message.type === 'toast' && message.payload) {
+        lastToast.value = {
+          kind: message.payload.kind === 'info' ? 'info' : 'error',
+          message: message.payload.error || message.payload.message || 'Lỗi không xác định',
+          at: Date.now(),
+        };
+      }
+    });
+  }
 
-  // Action execution: triggers event to Tauri invoke or WebSocket send
   const pressButton = (button: ButtonConfig) => {
-    // Front UI triggering actual click event
     if (connectionStore.status === 'connected') {
-      // Send directly over WebSockets to trigger Enigo execution on Windows Companions
       connectionStore.send({
         type: 'press',
         payload: button,
       });
     } else {
-      // Offline fallback: try executing locally if this client screen runs on tauri windows dashboard
       try {
         // @ts-ignore
         if (window.__TAURI_INTERNALS__) {
@@ -87,6 +96,7 @@ export const useLayoutStore = defineStore('layout', () => {
 
   return {
     layout,
+    lastToast,
     updateLayout,
     broadcastSync,
     pressButton,

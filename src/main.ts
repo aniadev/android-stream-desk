@@ -1,6 +1,6 @@
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
-import { createRouter, createWebHistory } from 'vue-router';
+import { createRouter, createWebHashHistory } from 'vue-router';
 
 // Styles loading
 import './assets/tailwind.css';
@@ -17,8 +17,18 @@ const routes = [
 ];
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHashHistory(),
   routes
+});
+
+// Tự động điều hướng Dashboard trên Desktop Companion, Pad trên di động
+router.beforeEach((to, _from, next) => {
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  if (to.path === '/' && !isMobile) {
+    next('/dashboard');
+  } else {
+    next();
+  }
 });
 
 // App Initiation
