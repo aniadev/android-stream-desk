@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "skills": {
+    "frontend-design": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "skillPath": "skills/frontend-design/SKILL.md",
+      "computedHash": "063a0e6448123cd359ad0044cc46b0e490cc7964d45ef4bb9fd842bd2ffbca67"
+    },
+    "rust-best-practices": {
+      "source": "apollographql/skills",
+      "sourceType": "github",
+      "skillPath": "skills/rust-best-practices/SKILL.md",
+      "computedHash": "fd336f2f772eb46ddf8658de5f9dd8faa1f35615b316665307fc82eeb4b2e658"
+    },
+    "shadcn": {
+      "source": "shadcn/ui",
+      "sourceType": "github",
+      "skillPath": "skills/shadcn/SKILL.md",
+      "computedHash": "80a6226e78f6d1fe464214ae0ef449d49d8ffaa3e7704f011e9b418c678ad4d1"
+    },
+    "vue": {
+      "source": "antfu/skills",
+      "sourceType": "github",
+      "skillPath": "skills/vue/SKILL.md",
+      "computedHash": "9c241141e07e836e4f0537c63e8f929fba3767c2997250be38e699f19b75e3f2"
+    }
+  }
+}

@@ -3,23 +3,101 @@ import { ref } from 'vue';
 import type { Layout, ButtonConfig } from '../types';
 import { useConnectionStore } from './connection';
 
-const DEFAULT_SHORTCUT = 'Ctrl+Tab';
+// Detect platform dynamically at runtime
+const detectOs = (): 'macos' | 'windows' => {
+  const userAgent = navigator.userAgent.toLowerCase();
+  if (userAgent.includes('mac') || navigator.platform.toLowerCase().includes('mac')) {
+    return 'macos';
+  }
+  return 'windows';
+};
 
-const defaultLayout = (): Layout => ({
-  rows: 3,
-  cols: 3,
-  buttons: Array.from({ length: 9 }, (_, index) => ({
-    id: `btn_${index}`,
-    label: `Button ${index + 1}`,
-    emoji: '🎮',
-    backgroundColor: '#1e293b',
-    actionType: 'shortcut',
-    shortcutValue: DEFAULT_SHORTCUT,
-  })),
-});
+const defaultLayout = (): Layout => {
+  const os = detectOs();
+  const isMac = os === 'macos';
 
-// Module-level guard so the global ws-message listener is attached at most
-// once even across HMR / test reloads of the store factory.
+  const buttons: ButtonConfig[] = [
+    {
+      id: 'btn_1',
+      label: 'Copy',
+      icon: 'lucide:copy',
+      backgroundColor: '#334155',
+      actionType: 'shortcut',
+      shortcutValue: isMac ? 'Meta+C' : 'Ctrl+C',
+    },
+    {
+      id: 'btn_2',
+      label: 'Paste',
+      icon: 'lucide:clipboard',
+      backgroundColor: '#334155',
+      actionType: 'shortcut',
+      shortcutValue: isMac ? 'Meta+V' : 'Ctrl+V',
+    },
+    {
+      id: 'btn_3',
+      label: 'Chụp hình',
+      icon: 'lucide:camera',
+      backgroundColor: '#2563eb',
+      actionType: 'shortcut',
+      shortcutValue: isMac ? 'Meta+Shift+4' : 'Win+Shift+S',
+    },
+    {
+      id: 'btn_4',
+      label: 'Tìm kiếm',
+      icon: 'lucide:search',
+      backgroundColor: '#4f46e5',
+      actionType: 'shortcut',
+      shortcutValue: isMac ? 'Meta+Space' : 'Win+S',
+    },
+    {
+      id: 'btn_5',
+      label: 'Play/Pause',
+      icon: 'lucide:play',
+      backgroundColor: '#059669',
+      actionType: 'media',
+      mediaAction: 'play_pause',
+    },
+    {
+      id: 'btn_6',
+      label: 'Âm lượng (+)',
+      icon: 'lucide:volume-2',
+      backgroundColor: '#059669',
+      actionType: 'media',
+      mediaAction: 'volume_up',
+    },
+    {
+      id: 'btn_7',
+      label: 'Âm lượng (-)',
+      icon: 'lucide:volume-1',
+      backgroundColor: '#059669',
+      actionType: 'media',
+      mediaAction: 'volume_down',
+    },
+    {
+      id: 'btn_8',
+      label: 'Terminal',
+      icon: 'lucide:terminal',
+      backgroundColor: '#7c3aed',
+      actionType: 'app',
+      appPath: isMac ? '/System/Applications/Utilities/Terminal.app' : 'cmd.exe',
+    },
+    {
+      id: 'btn_9',
+      label: 'Khóa máy',
+      icon: 'lucide:lock',
+      backgroundColor: '#e11d48',
+      actionType: 'shortcut',
+      shortcutValue: isMac ? 'Ctrl+Meta+Q' : 'Win+L',
+    }
+  ];
+
+  return {
+    rows: 3,
+    cols: 3,
+    buttons,
+  };
+};
+
 let wsListenerAttached = false;
 
 export const useLayoutStore = defineStore('layout', () => {
@@ -28,11 +106,19 @@ export const useLayoutStore = defineStore('layout', () => {
 
   const connectionStore = useConnectionStore();
 
-  // Load local layout store if running on Android Client in standalone mode
   const localConfig = localStorage.getItem('local_layout');
   if (localConfig) {
     try {
-      layout.value = JSON.parse(localConfig);
+      const parsed = JSON.parse(localConfig);
+      if (parsed.buttons && parsed.buttons.length > 0) {
+        parsed.buttons = parsed.buttons.map((b: any) => {
+          if (b.emoji && !b.icon) {
+            b.icon = 'mdi:button';
+          }
+          return b;
+        });
+      }
+      layout.value = parsed;
     } catch (_) {}
   }
 
@@ -64,7 +150,14 @@ export const useLayoutStore = defineStore('layout', () => {
     window.addEventListener('ws-message', (event: any) => {
       const message = event.detail;
       if (message.type === 'sync_layout' && message.payload) {
-        updateLayout(message.payload);
+        const synced = message.payload;
+        if (synced.buttons) {
+          synced.buttons = synced.buttons.map((b: any) => {
+            if (b.emoji && !b.icon) b.icon = 'mdi:button';
+            return b;
+          });
+        }
+        updateLayout(synced);
       } else if (message.type === 'toast' && message.payload) {
         lastToast.value = {
           kind: message.payload.kind === 'info' ? 'info' : 'error',

@@ -23,7 +23,8 @@ lazy_static::lazy_static! {
 pub struct ButtonConfig {
     id: String,
     label: String,
-    emoji: String,
+    emoji: Option<String>,
+    icon: Option<String>,
     #[serde(rename = "backgroundColor")]
     background_color: String,
     #[serde(rename = "actionType")]
@@ -89,6 +90,15 @@ fn get_server_info() -> ServerInfo {
         ip: detect_local_ipv4().unwrap_or_else(|| "127.0.0.1".to_string()),
         port: WS_PORT,
     }
+}
+
+// Orientation is enforced via AndroidManifest `screenOrientation` at build time.
+// Runtime control through JNI requires a proper Tauri Android plugin (Kotlin
+// shim + plugin-handle Activity access). Until that lands, this stub keeps the
+// IPC surface stable so the frontend invoke does not throw.
+#[tauri::command]
+fn set_android_orientation(_mode: i32) -> Result<(), String> {
+    Ok(())
 }
 
 fn detect_local_ipv4() -> Option<String> {
@@ -238,7 +248,9 @@ fn simulate_shortcut(shortcut: &str) -> Result<(), String> {
     let _guard = ENIGO_LOCK
         .lock()
         .map_err(|e| format!("Enigo lock poisoned: {}", e))?;
-    let mut enigo = Enigo::new(&Settings::default())
+    
+    let settings = Settings::default();
+    let mut enigo = Enigo::new(&settings)
         .map_err(|e| format!("Failed to initialize Enigo: {}", e))?;
 
     // Press modifiers; on first failure release ones already pressed and bail.
@@ -355,7 +367,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             save_layout_config,
             execute_button_action,
-            get_server_info
+            get_server_info,
+            set_android_orientation
         ])
         .setup(|app| {
             let app_handle_ws = app.handle().clone();

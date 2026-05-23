@@ -3,7 +3,8 @@ export type ActionType = 'shortcut' | 'media' | 'app';
 export interface ButtonConfig {
   id: string;
   label: string;
-  emoji: string;
+  icon: string; // Thay thế emoji bằng icon (e.g., "mdi:play", "lucide:settings")
+  emoji?: string; // Tương thích ngược cấu hình cũ
   backgroundColor: string;
   actionType: ActionType;
   // Cho 'shortcut': ví dụ "Ctrl+Shift+Tab" hoặc phím rời như "Play"

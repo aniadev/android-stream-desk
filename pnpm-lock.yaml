@@ -8,15 +8,36 @@ importers:
 
   .:
     dependencies:
+      '@iconify/vue':
+        specifier: ^5.0.1
+        version: 5.0.1(vue@3.5.34(typescript@6.0.3))
       '@tauri-apps/api':
         specifier: ^2.2.0
         version: 2.11.0
+      '@tauri-apps/plugin-process':
+        specifier: ^2.3.1
+        version: 2.3.1
       '@tauri-apps/plugin-shell':
         specifier: ^2.2.0
         version: 2.3.5
+      '@tauri-apps/plugin-updater':
+        specifier: ^2.10.1
+        version: 2.10.1
+      class-variance-authority:
+        specifier: ^0.7.1
+        version: 0.7.1
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      lucide-vue-next:
+        specifier: ^1.0.0
+        version: 1.0.0(vue@3.5.34(typescript@6.0.3))
       pinia:
         specifier: ^2.3.0
         version: 2.3.1(typescript@6.0.3)(vue@3.5.34(typescript@6.0.3))
+      tailwind-merge:
+        specifier: ^3.6.0
+        version: 3.6.0
       vue:
         specifier: ^3.5.34
         version: 3.5.34(typescript@6.0.3)
@@ -24,6 +45,18 @@ importers:
         specifier: ^4.5.0
         version: 4.6.4(vue@3.5.34(typescript@6.0.3))
     devDependencies:
+      '@iconify-json/lucide':
+        specifier: ^1.2.109
+        version: 1.2.109
+      '@iconify-json/material-symbols':
+        specifier: ^1.2.73
+        version: 1.2.73
+      '@iconify-json/mdi':
+        specifier: ^1.2.3
+        version: 1.2.3
+      '@iconify/json':
+        specifier: ^2.2.477
+        version: 2.2.477
       '@tauri-apps/cli':
         specifier: ^2.2.3
         version: 2.11.2
@@ -86,6 +119,26 @@ packages:
 
   '@emnapi/wasi-threads@1.2.1':
     resolution: {integrity: sha512-uTII7OYF+/Mes/MrcIOYp5yOtSMLBWSIoLPpcgwipoiKbli6k322tcoFsxoIIxPDqW01SQGAgko4EzZi2BNv2w==}
+
+  '@iconify-json/lucide@1.2.109':
+    resolution: {integrity: sha512-O5arvTVcu95soP3dGWJp/Nl5L5FYmFu2z75sSrQmGzrgrnsCU49t8+ZB7HPq//GRNXpWUoNfDRcs5yR7XMa+zw==}
+
+  '@iconify-json/material-symbols@1.2.73':
+    resolution: {integrity: sha512-XCZ9PiO47hofN9p8VTfLyCCJXd95OH4gIkkplkBfeZpz3K6cWYDj7oCy+rnc1AVMmoFyDEyjdEVvr+Oqz9yVTA==}
+
+  '@iconify-json/mdi@1.2.3':
+    resolution: {integrity: sha512-O3cLwbDOK7NNDf2ihaQOH5F9JglnulNDFV7WprU2dSoZu3h3cWH//h74uQAB87brHmvFVxIOkuBX2sZSzYhScg==}
+
+  '@iconify/json@2.2.477':
+    resolution: {integrity: sha512-isVa2k45CaoJl2DEMbyOCwif7Ec8PIk97p6VENhSSPfZE19UPmbY72LLOICUchWkWYz9RqBy5duFE2aiuPfUvA==}
+
+  '@iconify/types@2.0.0':
+    resolution: {integrity: sha512-+wluvCrRhXrhyOmRDJ3q8mux9JkKy5SJ/v8ol2tu4FVjyYvtEzkc/3pK15ET6RKg4b4w4BmTk1+gsCUhf21Ykg==}
+
+  '@iconify/vue@5.0.1':
+    resolution: {integrity: sha512-aumwwooJlFJ5H5qYWB6ZTAyM0C8hpfcSVLB9/a3qnH1GGvIJ+FEbpEs4s/HfErYe/M5qZeLjwmESR5fFm3lXEw==}
+    peerDependencies:
+      vue: '>=3.0.0'
 
   '@jridgewell/gen-mapping@0.3.13':
     resolution: {integrity: sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA==}
@@ -298,8 +351,14 @@ packages:
     engines: {node: '>= 10'}
     hasBin: true
 
+  '@tauri-apps/plugin-process@2.3.1':
+    resolution: {integrity: sha512-nCa4fGVaDL/B9ai03VyPOjfAHRHSBz5v6F/ObsB73r/dA3MHHhZtldaDMIc0V/pnUw9ehzr2iEG+XkSEyC0JJA==}
+
   '@tauri-apps/plugin-shell@2.3.5':
     resolution: {integrity: sha512-jewtULhiQ7lI7+owCKAjc8tYLJr92U16bPOeAa472LHJdgaibLP83NcfAF2e+wkEcA53FxKQAZ7byDzs2eeizg==}
+
+  '@tauri-apps/plugin-updater@2.10.1':
+    resolution: {integrity: sha512-NFYMg+tWOZPJdzE/PpFj2qfqwAWwNS3kXrb1tm1gnBJ9mYzZ4WDRrwy8udzWoAnfGCHLuePNLY1WVCNHnh3eRA==}
 
   '@tybys/wasm-util@0.10.2':
     resolution: {integrity: sha512-RoBvJ2X0wuKlWFIjrwffGw1IqZHKQqzIchKaadZZfnNpsAYp2mM0h36JtPCjNDAHGgYez/15uMBpfGwchhiMgg==}
@@ -417,6 +476,13 @@ packages:
   chokidar@3.6.0:
     resolution: {integrity: sha512-7VT13fmjotKpGipCW9JEQAusEPE+Ei8nl6/g4FBAmIm0GOOLMua9NDDo/DWp0ZAxCr3cPq5ZpBqmPAQgDda2Pw==}
     engines: {node: '>= 8.10.0'}
+
+  class-variance-authority@0.7.1:
+    resolution: {integrity: sha512-Ka+9Trutv7G8M6WT6SeiRWz792K5qEqIGEGzXKhAE6xOWAY6pPH8U+9IY3oCMv6kqTmLsv7Xh/2w2RigkePMsg==}
+
+  clsx@2.1.1:
+    resolution: {integrity: sha512-eYm0QWBtUrBWZWG0d386OGAw16Z995PiOVo2B7bjWSbHedGl5e0ZWaq65kOGgUSNesEIDkB9ISbTg/JK9dhCZA==}
+    engines: {node: '>=6'}
 
   commander@4.1.1:
     resolution: {integrity: sha512-NOKm8xhkzAjzFx8B2v5OAHT+u5pRQc2UCa2Vq9jYL/31o2wi9mxBA7LIFs3sV5VSC49z6pEhfbMULvShKj26WA==}
@@ -606,6 +672,12 @@ packages:
   lines-and-columns@1.2.4:
     resolution: {integrity: sha512-7ylylesZQ/PV29jhEDl3Ufjo6ZX7gCqJr5F7PKrqc93v7fzSymt1BpwEU8nAUXs8qzzvqhbjhK5QZg6Mt/HkBg==}
 
+  lucide-vue-next@1.0.0:
+    resolution: {integrity: sha512-V6SPvx1IHTj/UY+FrIYWV5faISsPSb8BnWSFDxAtezWKvWc9ZZ40PDrdu1/Qb5vg4lHWr1hs1BAMGVGm6V1Xdg==}
+    deprecated: Package deprecated. Please use @lucide/vue instead.
+    peerDependencies:
+      vue: '>=3.0.1'
+
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
 
@@ -649,6 +721,9 @@ packages:
 
   path-parse@1.0.7:
     resolution: {integrity: sha512-LDJzPVEEEPR+y48z93A0Ed0yXb8pAByGWo/k5YYdYgpY2/2EsOsksJrq7lOHxryrVOn1ejG6oAp8ahvOIQD8sw==}
+
+  pathe@2.0.3:
+    resolution: {integrity: sha512-WUjGcAqP1gQacoQe+OBJsFA7Ld4DyXuUIjZ5cc75cLHvJ7dtNsTugphxIADwspS+AraAUePCKrSVtPLFj/F88w==}
 
   picocolors@1.1.1:
     resolution: {integrity: sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==}
@@ -764,6 +839,9 @@ packages:
   supports-preserve-symlinks-flag@1.0.0:
     resolution: {integrity: sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w==}
     engines: {node: '>= 0.4'}
+
+  tailwind-merge@3.6.0:
+    resolution: {integrity: sha512-uxL7qAVQriqRQPAyK3pj66VqskWqoZ37PW94jwOTwNfq/z9oyu1V+eqrZqtR2+fCiXdYOZe/Modt8GtvqNzu+w==}
 
   tailwindcss@3.4.19:
     resolution: {integrity: sha512-3ofp+LL8E+pK/JuPLPggVAIaEuhvIz4qNcf3nA1Xn2o/7fb7s/TYpHhwGDv1ZU3PkBluUVaF8PyCHcm48cKLWQ==}
@@ -917,6 +995,30 @@ snapshots:
       tslib: 2.8.1
     optional: true
 
+  '@iconify-json/lucide@1.2.109':
+    dependencies:
+      '@iconify/types': 2.0.0
+
+  '@iconify-json/material-symbols@1.2.73':
+    dependencies:
+      '@iconify/types': 2.0.0
+
+  '@iconify-json/mdi@1.2.3':
+    dependencies:
+      '@iconify/types': 2.0.0
+
+  '@iconify/json@2.2.477':
+    dependencies:
+      '@iconify/types': 2.0.0
+      pathe: 2.0.3
+
+  '@iconify/types@2.0.0': {}
+
+  '@iconify/vue@5.0.1(vue@3.5.34(typescript@6.0.3))':
+    dependencies:
+      '@iconify/types': 2.0.0
+      vue: 3.5.34(typescript@6.0.3)
+
   '@jridgewell/gen-mapping@0.3.13':
     dependencies:
       '@jridgewell/sourcemap-codec': 1.5.5
@@ -1052,7 +1154,15 @@ snapshots:
       '@tauri-apps/cli-win32-ia32-msvc': 2.11.2
       '@tauri-apps/cli-win32-x64-msvc': 2.11.2
 
+  '@tauri-apps/plugin-process@2.3.1':
+    dependencies:
+      '@tauri-apps/api': 2.11.0
+
   '@tauri-apps/plugin-shell@2.3.5':
+    dependencies:
+      '@tauri-apps/api': 2.11.0
+
+  '@tauri-apps/plugin-updater@2.10.1':
     dependencies:
       '@tauri-apps/api': 2.11.0
 
@@ -1206,6 +1316,12 @@ snapshots:
     optionalDependencies:
       fsevents: 2.3.3
 
+  class-variance-authority@0.7.1:
+    dependencies:
+      clsx: 2.1.1
+
+  clsx@2.1.1: {}
+
   commander@4.1.1: {}
 
   cssesc@3.0.0: {}
@@ -1338,6 +1454,10 @@ snapshots:
 
   lines-and-columns@1.2.4: {}
 
+  lucide-vue-next@1.0.0(vue@3.5.34(typescript@6.0.3)):
+    dependencies:
+      vue: 3.5.34(typescript@6.0.3)
+
   magic-string@0.30.21:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.5.5
@@ -1370,6 +1490,8 @@ snapshots:
   path-browserify@1.0.1: {}
 
   path-parse@1.0.7: {}
+
+  pathe@2.0.3: {}
 
   picocolors@1.1.1: {}
 
@@ -1485,6 +1607,8 @@ snapshots:
       ts-interface-checker: 0.1.13
 
   supports-preserve-symlinks-flag@1.0.0: {}
+
+  tailwind-merge@3.6.0: {}
 
   tailwindcss@3.4.19:
     dependencies:

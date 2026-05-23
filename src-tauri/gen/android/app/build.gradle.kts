@@ -17,7 +17,9 @@ android {
     compileSdk = 36
     namespace = "com.ania.android.stream.desk"
     defaultConfig {
-        manifestPlaceholders["usesCleartextTraffic"] = "false"
+        // LAN-only macro pad — WS connects via ws:// to Companion on local network.
+        // No HTTPS available, must allow cleartext in every build type.
+        manifestPlaceholders["usesCleartextTraffic"] = "true"
         applicationId = "com.ania.android.stream.desk"
         minSdk = 24
         targetSdk = 36

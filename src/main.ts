@@ -1,6 +1,10 @@
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
 import { createRouter, createWebHashHistory } from 'vue-router';
+import { initOfflineIcons } from './icons-bundle';
+
+// Initialize pre-bundled offline icons
+initOfflineIcons();
 
 // Styles loading
 import './assets/tailwind.css';

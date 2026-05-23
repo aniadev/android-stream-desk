@@ -1,16 +1,37 @@
 <script setup lang="ts">
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
 import { useLayoutStore } from '../stores/layout';
+import { useUpdaterStore } from '../stores/updater';
 import type { ButtonConfig, ActionType } from '../types';
+import { Icon } from '@iconify/vue';
+
+// Import Shadcn UI Components
+import Button from '../components/ui/Button.vue';
+import Input from '../components/ui/Input.vue';
+import Card from '../components/ui/Card.vue';
+import GridButton from '../components/GridButton.vue';
 
 const layoutStore = useLayoutStore();
-const selectedButtonId = ref<string | null>(null);
+const updaterStore = useUpdaterStore();
 
+const selectedButtonId = ref<string | null>(null);
 const activeTab = ref<'shortcut' | 'media' | 'app'>('shortcut');
 
 const serverIp = ref<string>('—');
 const serverPort = ref<number>(8089);
 const copyHint = ref<string>('');
+const colorCopyHint = ref<string>('');
+const appVersion = ref<string>('1.0.0');
+
+const isMac = computed(() => {
+  return (
+    navigator.userAgent.toLowerCase().includes('mac') ||
+    navigator.platform.toLowerCase().includes('mac')
+  );
+});
+
+// Modal Control
+const settingsOpen = ref(false);
 
 const isRecording = ref(false);
 const shortcutPresets = [
@@ -21,8 +42,104 @@ const shortcutPresets = [
   { label: 'Close App (Alt+F4)', value: 'Alt+F4' },
   { label: 'Switch Tab (Ctrl+Tab)', value: 'Ctrl+Tab' },
   { label: 'Task Manager (Ctrl+Shift+Escape)', value: 'Ctrl+Shift+Escape' },
-  { label: 'Show Desktop (Win+D)', value: 'Win+D' }
+  { label: 'Show Desktop (Win+D)', value: 'Win+D' },
 ];
+
+// App Presets dynamic mapping based on OS
+const appPresets = computed(() => {
+  if (isMac.value) {
+    return [
+      { name: 'Google Chrome', path: '/Applications/Google Chrome.app', icon: 'lucide:chrome' },
+      { name: 'Safari', path: '/Applications/Safari.app', icon: 'lucide:globe' },
+      { name: 'VS Code', path: '/Applications/Visual Studio Code.app', icon: 'lucide:terminal' },
+      {
+        name: 'Terminal',
+        path: '/System/Applications/Utilities/Terminal.app',
+        icon: 'lucide:terminal',
+      },
+      { name: 'Finder', path: '/System/Library/CoreServices/Finder.app', icon: 'lucide:folder' },
+      { name: 'Spotify', path: '/Applications/Spotify.app', icon: 'lucide:music' },
+      {
+        name: 'Calculator',
+        path: '/System/Applications/Calculator.app',
+        icon: 'lucide:calculator',
+      },
+    ];
+  } else {
+    return [
+      {
+        name: 'Google Chrome',
+        path: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+        icon: 'lucide:chrome',
+      },
+      { name: 'Notepad', path: 'C:\\Windows\\notepad.exe', icon: 'material-symbols:edit' },
+      { name: 'Command Prompt', path: 'C:\\Windows\\System32\\cmd.exe', icon: 'lucide:terminal' },
+      {
+        name: 'PowerShell',
+        path: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
+        icon: 'lucide:terminal',
+      },
+      { name: 'Explorer', path: 'C:\\Windows\\explorer.exe', icon: 'lucide:folder' },
+      {
+        name: 'Calculator',
+        path: 'C:\\Windows\System32\\calc.exe',
+        icon: 'material-symbols:open-in-new',
+      },
+      { name: 'Paint', path: 'C:\\Windows\\System32\\mspaint.exe', icon: 'material-symbols:edit' },
+    ];
+  }
+});
+
+const applyAppPreset = (preset: { name: string; path: string; icon: string }) => {
+  if (selectedButton.value) {
+    selectedButton.value.label = preset.name;
+    selectedButton.value.icon = preset.icon;
+    selectedButton.value.appPath = preset.path;
+    saveButtonSettings();
+  }
+};
+
+// Iconify Picker Logic
+const searchQuery = ref('');
+const activeIconGroup = ref<'mdi' | 'lucide' | 'material'>('mdi');
+
+const mdiIcons = [
+  'mdi:play', 'mdi:pause', 'mdi:skip-next', 'mdi:skip-previous',
+  'mdi:volume-minus', 'mdi:volume-plus', 'mdi:volume-mute',
+  'mdi:power', 'mdi:restart', 'mdi:lock', 'mdi:logout', 'mdi:cog',
+  'mdi:web', 'mdi:google-chrome', 'mdi:firefox', 'mdi:microsoft-edge', 'mdi:folder-open',
+  'mdi:xml', 'mdi:git', 'mdi:github', 'mdi:terminal', 'mdi:calculator',
+  'mdi:monitor-screenshot', 'mdi:brightness-5', 'mdi:keyboard',
+];
+const lucideIcons = [
+  'lucide:play', 'lucide:pause', 'lucide:skip-forward', 'lucide:skip-back', 'lucide:music',
+  'lucide:settings', 'lucide:mic', 'lucide:mic-off', 'lucide:video', 'lucide:video-off',
+  'lucide:chrome', 'lucide:globe', 'lucide:folder', 'lucide:monitor', 'lucide:terminal',
+  'lucide:code-2', 'lucide:heart-crack', 'lucide:undo', 'lucide:save', 'lucide:refresh-cw',
+  'lucide:lock', 'lucide:unlock', 'lucide:search', 'lucide:bell',
+];
+const materialIcons = [
+  'material-symbols:play-arrow', 'material-symbols:pause', 'material-symbols:skip-next', 'material-symbols:skip-previous', 'material-symbols:volume-up',
+  'material-symbols:home', 'material-symbols:settings', 'material-symbols:sync', 'material-symbols:close', 'material-symbols:power-settings-new',
+  'material-symbols:public', 'material-symbols:folder-open', 'material-symbols:desktop-windows', 'material-symbols:description', 'material-symbols:mail',
+  'material-symbols:code', 'material-symbols:edit', 'material-symbols:file-copy', 'material-symbols:settings-backup-restore', 'material-symbols:terminal',
+  'material-symbols:open-in-new', 'material-symbols:download', 'material-symbols:cloud', 'material-symbols:notifications',
+];
+
+const filteredIcons = computed(() => {
+  let pool = mdiIcons;
+  if (activeIconGroup.value === 'lucide') pool = lucideIcons;
+  if (activeIconGroup.value === 'material') pool = materialIcons;
+  if (!searchQuery.value) return pool;
+  return pool.filter(ico => ico.toLowerCase().includes(searchQuery.value.toLowerCase()));
+});
+
+const selectIconForButton = (icoName: string) => {
+  if (selectedButton.value) {
+    selectedButton.value.icon = icoName;
+    saveButtonSettings();
+  }
+};
 
 const applyPreset = (value: string) => {
   if (selectedButton.value) {
@@ -43,20 +160,15 @@ const handleKeyDown = (e: KeyboardEvent) => {
   if (e.metaKey) modifiers.push('Win');
 
   let keyName = e.key;
-
-  if (['Control', 'Shift', 'Alt', 'Meta'].includes(keyName)) {
-    return;
-  }
+  if (['Control', 'Shift', 'Alt', 'Meta'].includes(keyName)) return;
 
   if (keyName === ' ') keyName = 'Space';
   else if (keyName === 'Escape') keyName = 'Esc';
-  else if (keyName.length === 1) {
-    keyName = keyName.toUpperCase();
-  }
+  else if (keyName.length === 1) keyName = keyName.toUpperCase();
 
   const shortcutString = [...modifiers, keyName].join('+');
   selectedButton.value.shortcutValue = shortcutString;
-  
+
   isRecording.value = false;
   window.removeEventListener('keydown', handleKeyDown, true);
   saveButtonSettings();
@@ -81,12 +193,16 @@ onMounted(async () => {
     // @ts-ignore
     if (window.__TAURI_INTERNALS__) {
       const { invoke } = await import('@tauri-apps/api/core');
+      const { getVersion } = await import('@tauri-apps/api/app');
+
+      appVersion.value = await getVersion();
+
       const info = await invoke<{ ip: string; port: number }>('get_server_info');
       serverIp.value = info.ip;
       serverPort.value = info.port;
     }
   } catch (e) {
-    console.error('Failed to fetch server info:', e);
+    console.error('Failed initialization:', e);
   }
 });
 
@@ -95,31 +211,38 @@ const copyAddress = async () => {
   const addr = `${serverIp.value}:${serverPort.value}`;
   try {
     await navigator.clipboard.writeText(addr);
-    copyHint.value = 'Đã sao chép!';
+    copyHint.value = 'Copied!';
     setTimeout(() => (copyHint.value = ''), 1500);
   } catch (_) {
-    copyHint.value = 'Sao chép thất bại';
+    copyHint.value = 'Failed';
   }
 };
 
-// Button selected helper
+const copyColor = async () => {
+  if (!selectedButton.value?.backgroundColor) return;
+  try {
+    await navigator.clipboard.writeText(selectedButton.value.backgroundColor);
+    colorCopyHint.value = 'Copied!';
+    setTimeout(() => (colorCopyHint.value = ''), 1500);
+  } catch (_) {
+    colorCopyHint.value = 'Failed';
+  }
+};
+
 const selectedButton = computed(() => {
   return layoutStore.layout.buttons.find(btn => btn.id === selectedButtonId.value) || null;
 });
 
-// Update fields dynamically when selection updates
-watch(selectedButton, (newVal) => {
+watch(selectedButton, newVal => {
   if (newVal) {
     activeTab.value = newVal.actionType;
   }
 });
 
-// Select a button grid to edit
 const selectButton = (id: string) => {
   selectedButtonId.value = id;
 };
 
-// Row/Column update resizing handlers
 const updateGridDimensions = (type: 'rows' | 'cols', delta: number) => {
   let newRows = layoutStore.layout.rows;
   let newCols = layoutStore.layout.cols;
@@ -138,7 +261,7 @@ const updateGridDimensions = (type: 'rows' | 'cols', delta: number) => {
       newButtons.push({
         id: `btn_${Date.now()}_${i}`,
         label: `Button ${i + 1}`,
-        emoji: '🕹️',
+        icon: 'mdi:button',
         backgroundColor: '#1e293b',
         actionType: 'shortcut',
         shortcutValue: 'Ctrl+F1',
@@ -149,9 +272,9 @@ const updateGridDimensions = (type: 'rows' | 'cols', delta: number) => {
   layoutStore.updateLayout({
     rows: newRows,
     cols: newCols,
-    buttons: newButtons
+    buttons: newButtons,
   });
-  
+
   if (selectedButtonId.value && !newButtons.some(b => b.id === selectedButtonId.value)) {
     selectedButtonId.value = null;
   }
@@ -171,227 +294,736 @@ const saveButtonSettings = () => {
     layoutStore.broadcastSync();
   }, 250);
 };
+
+const updateStatusText = computed(() => {
+  switch (updaterStore.state) {
+    case 'checking':
+      return 'Đang kiểm tra bản cập nhật…';
+    case 'no-update':
+      return 'Ứng dụng ở phiên bản mới nhất.';
+    case 'available':
+      return `Bản cập nhật v${updaterStore.update?.version} đã sẵn sàng.`;
+    case 'downloading':
+      return `Đang tải xuống… ${updaterStore.progressPct}%`;
+    case 'ready':
+      return 'Đã tải xong — đang tiến hành cài đặt.';
+    case 'error':
+      return updaterStore.errorMsg ?? 'Kiểm tra cập nhật lỗi.';
+    default:
+      return '';
+  }
+});
 </script>
 
 <template>
-  <div class="h-screen w-screen bg-brand-dark text-slate-100 flex flex-col p-6 overflow-hidden gap-4">
-    <!-- Server Address HUD (FR-1 / AC-6) -->
-    <div class="flex items-center justify-between gap-4 bg-brand-card border border-brand-border rounded-xl px-5 py-3">
-      <div class="flex items-center gap-3">
-        <span class="text-2xl">🛰️</span>
-        <div class="flex flex-col">
-          <span class="text-[10px] uppercase font-bold tracking-widest text-slate-400">Địa chỉ Server LAN</span>
-          <span class="font-mono text-base font-semibold text-slate-100">
-            {{ serverIp }}<span class="text-slate-500">:</span>{{ serverPort }}
-          </span>
+  <div
+    class="cyber-dashboard h-screen w-screen flex flex-col p-6 overflow-hidden gap-6 antialiased select-none relative"
+  >
+    <!-- Ambient background glows -->
+    <div class="pointer-events-none absolute top-0 left-1/4 w-[600px] h-[600px] rounded-full bg-cyan-500/3 blur-[150px]" />
+    <div class="pointer-events-none absolute bottom-0 right-1/4 w-[500px] h-[500px] rounded-full bg-fuchsia-500/3 blur-[130px]" />
+
+    <!-- Scanline overlay (subtle) -->
+    <div class="dashboard-scanline fixed inset-0 pointer-events-none opacity-[0.015]" />
+
+    <!-- Top Nav HUD Header -->
+    <div
+      class="cyber-panel flex items-center justify-between px-4 py-2.5 shadow-xl"
+    >
+      <div class="flex items-center gap-2">
+        <div
+          class="h-8 w-8 cyber-hex flex items-center justify-center"
+        >
+          <span class="text-base">🕹️</span>
+        </div>
+        <div class="flex flex-col leading-none">
+          <span class="text-xs font-bold tracking-tight text-slate-50">Android Stream Desk</span>
+          <span class="text-[8.5px] text-cyan-400/60 font-bold tracking-wider uppercase mt-0.5"
+            >companion control panel</span
+          >
         </div>
       </div>
-      <div class="flex items-center gap-3">
-        <span v-if="copyHint" class="text-xs text-emerald-400">{{ copyHint }}</span>
+
+      <!-- Right Header: IP + Settings -->
+      <div class="flex items-center gap-4">
+        <div class="cyber-hud flex items-center gap-3 px-4 py-2">
+          <span class="inline-flex h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_6px_#22d3ee] animate-pulse"></span>
+          <div class="flex flex-col">
+            <label class="text-[8px] uppercase tracking-widest font-bold text-slate-500"
+              >WebSocket LAN IP</label
+            >
+            <span class="font-mono text-xs font-bold text-slate-300">
+              {{ serverIp }}<span class="text-slate-600">:</span>{{ serverPort }}
+            </span>
+          </div>
+          <button
+            class="cyber-action-btn ml-2 font-bold cursor-pointer disabled:opacity-50 text-[10px] uppercase tracking-wider px-3 py-1"
+            @click="copyAddress"
+            :disabled="serverIp === '—'"
+          >
+            {{ copyHint || 'Copy' }}
+          </button>
+        </div>
+
         <button
-          @click="copyAddress"
-          class="text-xs font-bold px-3 py-1.5 rounded-md bg-brand-accent hover:bg-brand-accentHover text-white cursor-pointer disabled:opacity-50"
-          :disabled="serverIp === '—'"
+          class="cyber-icon-btn h-10 w-10 cursor-pointer flex items-center justify-center"
+          @click="settingsOpen = true"
+          title="Thiết lập hệ thống & Cập nhật"
         >
-          Sao chép
+          <Icon icon="lucide:settings" class="text-lg text-cyan-400/70 hover:text-cyan-300 transition-colors" />
         </button>
       </div>
     </div>
 
+    <!-- Main Content -->
     <div class="flex flex-1 overflow-hidden gap-6">
-    <!-- Left Configuration Panel -->
-    <div class="w-80 flex flex-col bg-brand-card border border-brand-border rounded-xl p-4 gap-4 overflow-y-auto">
-      <div class="border-b border-brand-border/60 pb-3">
-        <h2 class="font-bold text-lg">Bố cục Grid</h2>
-        <p class="text-xs text-slate-400 mt-1">Thay đổi số cột và hàng của bàn macro</p>
-      </div>
-
-      <!-- Resizer tools -->
-      <div class="grid grid-cols-2 gap-4">
-        <div class="flex flex-col gap-2">
-          <label class="text-xs font-bold text-slate-400">Rows (Hàng)</label>
-          <div class="flex items-center justify-between border border-brand-border rounded-lg p-1 bg-brand-dark">
-            <button @click="updateGridDimensions('rows', -1)" class="px-2 py-0.5 hover:bg-slate-700 rounded cursor-pointer">-</button>
-            <span class="font-bold text-sm">{{ layoutStore.layout.rows }}</span>
-            <button @click="updateGridDimensions('rows', 1)" class="px-2 py-0.5 hover:bg-slate-700 rounded cursor-pointer">+</button>
+      <!-- Left Sidebar -->
+      <div
+        class="cyber-panel w-80 flex flex-col p-5 gap-5 overflow-y-auto"
+      >
+        <!-- Grid Dimensions -->
+        <div class="flex flex-col gap-3">
+          <div>
+            <h2 class="cyber-section-title">Kích thước Lưới</h2>
+            <p class="cyber-section-desc">Tinh chỉnh kích cỡ cột hàng của pad</p>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div class="flex flex-col gap-1.5">
+              <label class="text-[9px] font-bold uppercase tracking-wider text-slate-400">Dòng</label>
+              <div class="cyber-stepper flex items-center justify-between p-1">
+                <button
+                  class="cyber-stepper-btn w-7 h-7 flex items-center justify-center text-sm font-semibold select-none"
+                  @click="updateGridDimensions('rows', -1)"
+                >-</button>
+                <span class="font-bold text-xs font-mono text-cyan-300">{{ layoutStore.layout.rows }}</span>
+                <button
+                  class="cyber-stepper-btn w-7 h-7 flex items-center justify-center text-sm font-semibold select-none"
+                  @click="updateGridDimensions('rows', 1)"
+                >+</button>
+              </div>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-[9px] font-bold uppercase tracking-wider text-slate-400">Cột</label>
+              <div class="cyber-stepper flex items-center justify-between p-1">
+                <button
+                  class="cyber-stepper-btn w-7 h-7 flex items-center justify-center text-sm font-semibold select-none"
+                  @click="updateGridDimensions('cols', -1)"
+                >-</button>
+                <span class="font-bold text-xs font-mono text-cyan-300">{{ layoutStore.layout.cols }}</span>
+                <button
+                  class="cyber-stepper-btn w-7 h-7 flex items-center justify-center text-sm font-semibold select-none"
+                  @click="updateGridDimensions('cols', 1)"
+                >+</button>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="flex flex-col gap-2">
-          <label class="text-xs font-bold text-slate-400">Columns (Cột)</label>
-          <div class="flex items-center justify-between border border-brand-border rounded-lg p-1 bg-brand-dark">
-            <button @click="updateGridDimensions('cols', -1)" class="px-2 py-0.5 hover:bg-slate-700 rounded cursor-pointer">-</button>
-            <span class="font-bold text-sm">{{ layoutStore.layout.cols }}</span>
-            <button @click="updateGridDimensions('cols', 1)" class="px-2 py-0.5 hover:bg-slate-700 rounded cursor-pointer">+</button>
+        <!-- Button Config -->
+        <div class="flex-1 flex flex-col cyber-divider pt-4 gap-4">
+          <div>
+            <h2 class="cyber-section-title">Cấu hình phím</h2>
+            <p class="cyber-section-desc">Biên tập chi tiết nhãn, biểu tượng, sự kiện</p>
+          </div>
+
+          <div v-if="selectedButton" class="flex flex-col gap-4">
+            <!-- Label -->
+            <div class="flex flex-col gap-1.5">
+              <label class="cyber-input-label">Nhãn chữ</label>
+              <Input v-model="selectedButton.label" type="text" class="shadow-inner" @input="saveButtonSettings" />
+            </div>
+
+            <!-- Icon & Color -->
+            <div class="flex flex-col gap-1.5">
+              <label class="cyber-input-label">Biểu tượng & Màu sắc</label>
+              <div class="flex flex-col gap-3">
+                <div class="flex gap-2">
+                  <div class="h-10 w-12 cyber-inset flex items-center justify-center">
+                    <Icon :icon="selectedButton.icon || 'mdi:button'" class="text-xl text-cyan-300" />
+                  </div>
+                  <div class="flex-1 relative flex justify-between items-center cyber-inset overflow-hidden px-2">
+                    <div class="flex items-center">
+                      <input
+                        v-model="selectedButton.backgroundColor"
+                        type="color"
+                        class="h-6 w-9 rounded-md border-0 bg-transparent cursor-pointer"
+                        @input="saveButtonSettings"
+                      />
+                      <span class="ml-2 font-mono text-[10px] text-slate-400 uppercase font-semibold">{{ selectedButton.backgroundColor }}</span>
+                    </div>
+                    <button
+                      type="button"
+                      @click="copyColor"
+                      class="text-slate-400 hover:text-cyan-400 cursor-pointer select-none flex items-center gap-1 focus:outline-none transition-colors"
+                      :title="colorCopyHint || 'Sao chép mã màu'"
+                    >
+                      <span v-if="colorCopyHint" class="text-[8px] uppercase tracking-wider font-extrabold text-cyan-400 font-mono">{{ colorCopyHint }}</span>
+                      <Icon :icon="colorCopyHint ? 'lucide:check' : 'lucide:copy'" class="text-xs" :class="{'text-cyan-400': colorCopyHint}" />
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Icon Picker -->
+                <div class="cyber-inset p-2.5 flex flex-col gap-2">
+                  <div class="flex items-center gap-1.5 cyber-divider pb-2">
+                    <button
+                      v-for="group in ['mdi', 'lucide', 'material'] as const"
+                      :key="group"
+                      @click="activeIconGroup = group"
+                      type="button"
+                      class="text-[9px] uppercase tracking-wider font-extrabold px-2 py-0.5 cursor-pointer duration-100"
+                      :class="activeIconGroup === group ? 'cyber-tab-active' : 'text-slate-500 hover:text-slate-300'"
+                    >
+                      {{ group }}
+                    </button>
+                    <Input v-model="searchQuery" placeholder="Tìm biểu tượng..." class="h-6 text-[9px] py-1 px-2.5 cyber-input-sm" />
+                  </div>
+                  <div class="grid grid-cols-6 gap-2 max-h-[140px] overflow-y-auto pr-1">
+                    <button
+                      v-for="ico in filteredIcons"
+                      :key="ico"
+                      @click="selectIconForButton(ico)"
+                      type="button"
+                      class="aspect-square flex items-center justify-center cyber-icon-cell transition-all cursor-pointer select-none"
+                      :class="selectedButton.icon === ico ? 'cyber-icon-cell--active' : ''"
+                    >
+                      <Icon :icon="ico" class="text-lg" />
+                    </button>
+                    <p v-if="filteredIcons.length === 0" class="col-span-6 text-[9px] text-slate-500 font-bold text-center py-4 uppercase">
+                      Không tìm thấy biểu tượng
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Action Type Tabs -->
+            <div class="flex flex-col gap-2">
+              <label class="cyber-input-label">Loại sự kiện</label>
+              <div class="cyber-tab-group flex p-1 text-[10px]">
+                <button
+                  v-for="tab in ['shortcut', 'media', 'app'] as ActionType[]"
+                  :key="tab"
+                  @click="activeTab = tab; saveButtonSettings()"
+                  class="flex-1 text-center py-1.5 font-bold uppercase tracking-wider transition-all duration-150 h-auto cursor-pointer"
+                  :class="activeTab === tab ? 'cyber-tab-active' : 'text-slate-500 hover:text-slate-300'"
+                >
+                  {{ tab }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Tab Content Panel -->
+            <div class="cyber-inset p-3">
+              <!-- Shortcut -->
+              <div v-if="activeTab === 'shortcut'" class="flex flex-col gap-3">
+                <div class="flex flex-col gap-2">
+                  <span class="text-[9px] font-bold uppercase text-slate-400">Tổ hợp phím tắt:</span>
+                  <div class="relative flex items-center cyber-input-group overflow-hidden">
+                    <Input v-model="selectedButton.shortcutValue" type="text" placeholder="Chưa gán phím" class="border-0 bg-transparent px-3 py-1.5 shadow-none" disabled />
+                    <button
+                      @click="toggleRecording"
+                      class="cyber-record-btn h-auto text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 cursor-pointer"
+                      :class="isRecording ? 'cyber-record-btn--active' : ''"
+                    >
+                      {{ isRecording ? 'Thu...' : 'Thu' }}
+                    </button>
+                  </div>
+                  <p class="text-[9px] text-fuchsia-400 font-semibold select-none leading-relaxed animate-pulse" v-if="isRecording">
+                    ⚠️ Nhấp tổ hợp phím bất kỳ trên bàn phím của bạn để ghi nhận...
+                  </p>
+                </div>
+                <div class="flex flex-col gap-1.5 pt-2 cyber-divider">
+                  <span class="text-[9px] font-bold uppercase tracking-widest text-slate-500">Mẫu gợi ý nhanh:</span>
+                  <div class="grid grid-cols-2 gap-1.5 max-h-[105px] overflow-y-auto pr-1">
+                    <button
+                      v-for="preset in shortcutPresets"
+                      :key="preset.value"
+                      @click="applyPreset(preset.value)"
+                      class="cyber-preset-btn text-[9px] text-left px-2 py-1 h-auto truncate font-bold"
+                    >
+                      {{ preset.label }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Media -->
+              <div v-else-if="activeTab === 'media'" class="flex flex-col gap-2">
+                <span class="text-[9px] font-bold uppercase text-slate-400">Lệnh hệ thống:</span>
+                <select
+                  v-model="selectedButton.mediaAction"
+                  class="w-full text-xs font-semibold cyber-select px-2.5 py-2.5 cursor-pointer"
+                  @change="saveButtonSettings"
+                >
+                  <option value="play_pause">Play/Pause</option>
+                  <option value="volume_up">Volume (+) Tăng</option>
+                  <option value="volume_down">Volume (-) Giảm</option>
+                  <option value="mute">Mute Tắt âm</option>
+                  <option value="next">Next Track</option>
+                  <option value="prev">Previous Track</option>
+                </select>
+              </div>
+
+              <!-- App -->
+              <div v-else-if="activeTab === 'app'" class="flex flex-col gap-3">
+                <div class="flex flex-col gap-1.5">
+                  <span class="text-[9px] font-bold uppercase text-slate-400">
+                    {{ isMac ? 'Đường dẫn App macOS (.app):' : 'Đường dẫn file chạy (.exe):' }}
+                  </span>
+                  <Input v-model="selectedButton.appPath" type="text" :placeholder="isMac ? 'e.g. /Applications/Safari.app' : 'e.g. C:\\Windows\\notepad.exe'" @input="saveButtonSettings" />
+                </div>
+                <div class="flex flex-col gap-1.5 pt-2 cyber-divider">
+                  <span class="text-[9px] font-bold uppercase tracking-widest text-slate-500">Chọn nhanh ứng dụng:</span>
+                  <div class="grid grid-cols-2 gap-1.5 max-h-[120px] overflow-y-auto pr-1">
+                    <button
+                      v-for="preset in appPresets"
+                      :key="preset.path"
+                      @click="applyAppPreset(preset)"
+                      type="button"
+                      class="cyber-preset-btn text-[9px] text-left px-2 py-1.5 h-auto truncate font-bold flex items-center gap-1.5"
+                    >
+                      <Icon :icon="preset.icon" class="text-xs text-cyan-400 shrink-0" />
+                      <span class="truncate">{{ preset.name }}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Empty state -->
+          <div v-else class="flex flex-1 flex-col items-center justify-center p-6 text-center select-none cyber-empty my-2">
+            <Icon icon="lucide:pointer" class="text-2xl mb-2 text-slate-600" />
+            <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider max-w-[200px] leading-relaxed">
+              Chọn ô nút bên lưới mô phỏng để gán sự kiện
+            </span>
           </div>
         </div>
       </div>
 
-      <!-- Button editor panel -->
-      <div class="flex-1 flex flex-col border-t border-brand-border/60 pt-3 gap-3">
-        <h3 class="font-bold text-sm text-slate-200">Biên tập Phím bấm</h3>
-        
-        <div v-if="selectedButton" class="flex flex-col gap-3">
-          <!-- Text Label -->
-          <div class="flex flex-col gap-1">
-            <label class="text-[10px] uppercase font-bold text-slate-400">Nhãn nút</label>
-            <input 
-              v-model="selectedButton.label" 
-              type="text" 
-              class="w-full text-sm bg-brand-dark border border-brand-border rounded px-2.5 py-1.5 focus:outline-none focus:border-brand-accent text-slate-100"
-              @input="saveButtonSettings"
+      <!-- Right Preview -->
+      <section class="cyber-panel flex-1 flex flex-col p-4 relative items-center justify-center overflow-hidden">
+        <span class="absolute top-6 left-8 text-[10px] font-bold uppercase tracking-widest text-cyan-400/50 select-none">
+          Mô hình Stream Desk cảm ứng thực tế
+        </span>
+
+        <!-- Cyberpunk Stream Deck Shell -->
+        <div class="cyber-shell max-w-2xl w-full h-[80%] flex items-center justify-center p-4 relative">
+          <div class="scanline absolute inset-0 pointer-events-none opacity-[0.03]" />
+          <div class="absolute inset-0 pointer-events-none opacity-[0.025] bg-grid-dot" />
+
+          <span class="absolute top-2 left-2 w-4 h-4 border-t-[3px] border-l-[3px] border-cyan-500/60 pointer-events-none" />
+          <span class="absolute top-2 right-2 w-4 h-4 border-t-[3px] border-r-[3px] border-fuchsia-500/60 pointer-events-none" />
+          <span class="absolute bottom-2 left-2 w-4 h-4 border-b-[3px] border-l-[3px] border-fuchsia-500/60 pointer-events-none" />
+          <span class="absolute bottom-2 right-2 w-4 h-4 border-b-[3px] border-r-[3px] border-cyan-500/60 pointer-events-none" />
+
+          <div
+            class="grid gap-3 w-full h-full max-w-full max-h-full items-stretch justify-items-stretch relative z-10 min-h-0 min-w-0"
+            :style="{
+              gridTemplateColumns: `repeat(${layoutStore.layout.cols}, minmax(0, 1fr))`,
+              gridTemplateRows: `repeat(${layoutStore.layout.rows}, minmax(0, 1fr))`,
+            }"
+          >
+            <GridButton
+              v-for="btn in layoutStore.layout.buttons"
+              :key="btn.id"
+              :button="btn"
+              :selected="selectedButtonId === btn.id"
+              :compact="true"
+              @press="selectButton(btn.id)"
             />
           </div>
-
-          <!-- Color Customizer -->
-          <div class="flex flex-col gap-1">
-            <label class="text-[10px] uppercase font-bold text-slate-400">Thiết kế nút</label>
-            <div class="flex gap-2">
-              <input 
-                v-model="selectedButton.emoji" 
-                type="text" 
-                placeholder="Emoji..."
-                class="w-16 text-sm text-center bg-brand-dark border border-brand-border rounded px-2 py-1.5 focus:outline-none"
-                @input="saveButtonSettings"
-              />
-              <input 
-                v-model="selectedButton.backgroundColor" 
-                type="color" 
-                class="h-9 w-full bg-brand-dark border border-brand-border rounded px-1 cursor-pointer"
-                @input="saveButtonSettings"
-              />
-            </div>
-          </div>
-
-          <!-- Action tabs -->
-          <div class="flex flex-col gap-1.5 mt-2">
-            <label class="text-[10px] uppercase font-bold text-slate-400">Loại hành động</label>
-            <div class="flex border border-brand-border bg-brand-dark rounded p-0.5 relative text-xs">
-              <button 
-                v-for="tab in (['shortcut', 'media', 'app'] as ActionType[])" 
-                :key="tab"
-                @click="activeTab = tab; saveButtonSettings()"
-                class="flex-1 text-center py-1 rounded cursor-pointer"
-                :class="activeTab === tab ? 'bg-brand-accent font-bold text-white' : 'hover:bg-slate-700'"
-              >
-                {{ tab }}
-              </button>
-            </div>
-          </div>
-
-          <!-- Variable fields depending on tab -->
-          <div class="bg-brand-dark/50 border border-brand-border/40 rounded p-2.5 mt-1 text-xs">
-            <!-- Shortcut Panel -->
-            <div v-if="activeTab === 'shortcut'" class="flex flex-col gap-3">
-              <div class="flex flex-col gap-1.5">
-                <span class="text-slate-400 font-medium">Tổ hợp phím tắt giả lập:</span>
-                <div class="relative flex items-center">
-                  <input 
-                    v-model="selectedButton.shortcutValue" 
-                    type="text" 
-                    placeholder="Chọn mẫu hoặc gõ..."
-                    class="w-full text-xs bg-brand-dark border border-brand-border rounded-l px-2.5 py-2.5 focus:outline-none text-slate-200"
-                    @input="saveButtonSettings"
-                    disabled
-                  />
-                  <button 
-                    @click="toggleRecording"
-                    class="px-3 py-2.5 text-xs font-bold rounded-r border border-l-0 border-brand-border cursor-pointer transition-colors duration-150"
-                    :class="isRecording ? 'bg-amber-600 border-amber-600 text-white animate-pulse' : 'bg-slate-700 hover:bg-slate-600 text-slate-100'"
-                  >
-                    {{ isRecording ? 'Đang Thu...' : 'Thu phím' }}
-                  </button>
-                </div>
-                <p class="text-[10px] text-amber-500 font-medium select-none" v-if="isRecording">
-                  Nhấn tổ hợp phím trên bàn phím của bạn để tự động lưu...
-                </p>
-              </div>
-
-              <!-- Presets quick picker -->
-              <div class="flex flex-col gap-1.5 pt-1 border-t border-brand-border/40">
-                <span class="text-slate-400 font-medium text-[10px] uppercase tracking-wide">Mẫu phím tắt phổ biến:</span>
-                <div class="grid grid-cols-2 gap-1.5">
-                  <button 
-                    v-for="preset in shortcutPresets" 
-                    :key="preset.value"
-                    @click="applyPreset(preset.value)"
-                    class="text-[10px] text-left px-2 py-1.5 rounded bg-brand-dark hover:bg-slate-750 border border-brand-border/40 hover:border-brand-border transition-colors truncate cursor-pointer text-slate-300 hover:text-slate-100"
-                  >
-                    {{ preset.label }}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <!-- Media Panel -->
-            <div v-else-if="activeTab === 'media'" class="flex flex-col gap-2">
-              <span class="text-slate-400 font-medium">Chọn lệnh Audio/Media:</span>
-              <select 
-                v-model="selectedButton.mediaAction"
-                class="w-full text-xs bg-brand-dark border border-brand-border rounded px-2 py-1 focus:outline-none text-slate-200"
-                @change="saveButtonSettings"
-              >
-                <option value="play_pause">Play/Pause</option>
-                <option value="volume_up">Volume Increase</option>
-                <option value="volume_down">Volume Decrease</option>
-                <option value="mute">Mute/Unmute</option>
-                <option value="next">Next</option>
-                <option value="prev">Previous</option>
-              </select>
-            </div>
-
-            <!-- App Launcher Path -->
-            <div v-else-if="activeTab === 'app'" class="flex flex-col gap-2">
-              <span class="text-slate-400 font-medium">Đường dẫn tệp .exe:</span>
-              <input 
-                v-model="selectedButton.appPath" 
-                type="text" 
-                placeholder="e.g. C:\Windows\System32\cmd.exe"
-                class="w-full text-xs bg-brand-dark border border-brand-border rounded px-2 py-1 focus:outline-none focus:border-brand-accent text-slate-200"
-                @input="saveButtonSettings"
-              />
-            </div>
-          </div>
-
         </div>
-        <div v-else class="flex flex-col items-center justify-center p-6 text-center select-none flex-1 border border-dashed border-brand-border/40 rounded-xl my-4">
-          <span class="text-3xl mb-1">👈</span>
-          <span class="text-xs text-slate-400 font-medium leading-relaxed">
-            Chọn bất kỳ ô nút nào bên lưới để bắt đầu biên tập hành động.
-          </span>
-        </div>
-      </div>
+      </section>
     </div>
 
-    <!-- Active Right Side Live Editor Grid preview -->
-    <div class="flex-1 bg-brand-card border border-brand-border rounded-xl flex flex-col p-4 shadow-inner relative justify-center">
-      <span class="absolute top-4 left-4 text-xs font-semibold uppercase tracking-widest text-slate-400 select-none">
-        Mô hình lưới trực tiếp (Nhấn để biên tập)
-      </span>
-      
-      <div class="w-full flex-1 flex items-center justify-center mt-6">
-        <div 
-          class="grid gap-3 w-full h-full max-w-4xl max-h-[75vh]"
-          :style="{
-            gridTemplateColumns: `repeat(${layoutStore.layout.cols}, minmax(0, 1fr))`,
-            gridTemplateRows: `repeat(${layoutStore.layout.rows}, minmax(0, 1fr))`,
-          }"
-        >
-          <button 
-            v-for="btn in layoutStore.layout.buttons" 
-            :key="btn.id"
-            @click="selectButton(btn.id)"
-            class="w-full aspect-square rounded-xl flex flex-col items-center justify-center gap-1.5 border border-white/5 active:scale-95 transition-all text-xs outline-none select-none brightness-95"
-            :class="selectedButtonId === btn.id ? 'outline-2 outline-brand-accent border-brand-accent scale-102 shadow-lg brightness-110' : 'hover:brightness-105 active:brightness-90'"
-            :style="{ backgroundColor: btn.backgroundColor || '#1e293b' }"
+    <!-- Settings Modal -->
+    <transition name="fade">
+      <div
+        v-if="settingsOpen"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4"
+      >
+        <div class="cyber-modal w-[500px] max-w-full flex flex-col p-6 gap-6 relative">
+          <!-- Close -->
+          <button
+            class="absolute top-4 right-4 text-slate-400 hover:text-cyan-400 transition-colors cursor-pointer"
+            @click="settingsOpen = false"
           >
-            <span class="text-3xl">{{ btn.emoji || '👾' }}</span>
-            <span class="font-bold truncate text-[11px] max-w-full px-1 text-slate-100">{{ btn.label }}</span>
-            <span class="text-[8px] opacity-35 uppercase tracking-wide">{{ btn.actionType }}</span>
+            <Icon icon="lucide:x" class="text-lg" />
           </button>
+
+          <!-- Modal Header -->
+          <div class="flex items-center gap-3 cyber-divider pb-4">
+            <div class="h-9 w-9 cyber-hex flex items-center justify-center text-lg">
+              🛡️
+            </div>
+            <div>
+              <h2 class="text-sm font-bold text-slate-50 uppercase tracking-wider">Thiết lập & thông tin hệ thống</h2>
+              <p class="text-[9px] text-slate-500 mt-0.5">Tự động cấu hình, updater và giấy phép phần mềm</p>
+            </div>
+          </div>
+
+          <!-- Modal Body -->
+          <div class="flex flex-col gap-5 text-xs text-slate-300">
+            <!-- App Info -->
+            <div class="flex flex-col gap-2.5">
+              <span class="text-[9px] font-bold uppercase tracking-wider text-cyan-400/70">Thông tin ứng dụng</span>
+              <div class="cyber-inset grid grid-cols-2 gap-y-2 p-3">
+                <span class="text-slate-400 font-medium">Tên phần mềm:</span>
+                <span class="text-slate-200 font-bold justify-self-end">Android Stream Desk</span>
+                <span class="text-slate-400 font-medium">Phiên bản hiện tại:</span>
+                <span class="font-mono text-cyan-300 justify-self-end">v{{ appVersion }}</span>
+                <span class="text-slate-400 font-medium">Tác giả:</span>
+                <span class="text-slate-200 justify-self-end font-semibold">aniadev</span>
+                <span class="text-slate-400 font-medium">Giấy phép:</span>
+                <span class="font-mono text-slate-200 justify-self-end">MIT License</span>
+                <span class="text-slate-400 font-medium">Mã nguồn:</span>
+                <span class="justify-self-end">
+                  <a href="https://github.com/aniadev/android-stream-desk" target="_blank" class="text-cyan-400 hover:underline flex items-center gap-1">
+                    GitHub Repo <Icon icon="lucide:external-link" class="text-[10px]" />
+                  </a>
+                </span>
+              </div>
+            </div>
+
+            <!-- Updater -->
+            <div class="flex flex-col gap-2.5">
+              <span class="text-[9px] font-bold uppercase tracking-wider text-cyan-400/70">Trình kiểm tra cập nhật (Tauri auto-updater)</span>
+              <div class="cyber-inset flex flex-col gap-3 p-3">
+                <div class="flex items-center justify-between">
+                  <div class="flex flex-col gap-0.5">
+                    <span class="font-medium text-slate-300">Nhật ký cập nhật:</span>
+                    <span class="text-[10px] text-slate-500 font-bold uppercase mt-0.5">
+                      {{ updateStatusText || 'Sẵn sàng kiểm tra' }}
+                    </span>
+                  </div>
+                  <button
+                    class="cyber-action-btn font-bold cursor-pointer disabled:opacity-50 text-[10px] uppercase tracking-wider px-3 py-1.5"
+                    :disabled="updaterStore.state === 'checking' || updaterStore.state === 'downloading'"
+                    @click="updaterStore.checkForUpdates()"
+                  >
+                    Check
+                  </button>
+                </div>
+
+                <div v-if="updaterStore.state === 'available'" class="flex flex-col gap-2 pt-2 cyber-divider">
+                  <p class="text-[10px] text-emerald-400 font-medium">
+                    Có bản cập nhật mới v{{ updaterStore.update?.version }}. Bạn có muốn tải xuống và cài đặt tự động?
+                  </p>
+                  <button
+                    class="cyber-action-btn font-bold w-full uppercase tracking-wider text-[10px] py-1.5 cursor-pointer"
+                    @click="updaterStore.startInstall"
+                  >
+                    Tùy chọn tải & nâng cấp ứng dụng
+                  </button>
+                </div>
+
+                <div v-if="updaterStore.state === 'downloading'" class="flex flex-col gap-1.5 pt-2 cyber-divider">
+                  <div class="flex justify-between text-[10px] font-mono text-slate-300">
+                    <span>Đang tải xuống...</span>
+                    <span class="text-cyan-400">{{ updaterStore.progressPct }}%</span>
+                  </div>
+                  <div class="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                    <div class="h-full bg-cyan-500 rounded-full transition-all duration-150" :style="{ width: `${updaterStore.progressPct}%` }"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-    </div>
+    </transition>
   </div>
 </template>
+
+<style scoped>
+/* ========== CYBERPUNK DESIGN SYSTEM ========== */
+
+.cyber-dashboard {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(0, 240, 255, 0.02) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 100%, rgba(255, 0, 255, 0.015) 0%, transparent 50%),
+    linear-gradient(180deg, #020617 0%, #060b1a 50%, #030712 100%);
+  color: #e2e8f0;
+}
+
+/* --- Panels --- */
+.cyber-panel {
+  background: rgba(4, 10, 24, 0.75);
+  border: 1px solid rgba(0, 240, 255, 0.06);
+  box-shadow:
+    0 0 0 1px rgba(0, 240, 255, 0.02),
+    0 8px 32px -8px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.01);
+  border-radius: 16px;
+  backdrop-filter: blur(12px);
+}
+
+/* --- Inset containers --- */
+.cyber-inset {
+  background: rgba(2, 8, 20, 0.7);
+  border: 1px solid rgba(0, 240, 255, 0.06);
+  border-radius: 10px;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* --- Section labels --- */
+.cyber-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #e2e8f0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.cyber-section-desc {
+  font-size: 8px;
+  color: #64748b;
+  margin-top: 2px;
+}
+.cyber-input-label {
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #94a3b8;
+}
+
+/* --- Dividers --- */
+.cyber-divider {
+  border-top: 1px solid rgba(0, 240, 255, 0.06);
+}
+
+/* --- HUD (IP box) --- */
+.cyber-hud {
+  background: rgba(2, 8, 20, 0.85);
+  border: 1px solid rgba(0, 240, 255, 0.1);
+  border-radius: 12px;
+}
+
+/* --- Stepper --- */
+.cyber-stepper {
+  background: rgba(2, 8, 20, 0.8);
+  border: 1px solid rgba(0, 240, 255, 0.08);
+  border-radius: 10px;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+.cyber-stepper-btn {
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  transition: all 0.15s;
+  cursor: pointer;
+}
+.cyber-stepper-btn:hover {
+  background: rgba(0, 240, 255, 0.08);
+  color: #22d3ee;
+}
+
+/* --- Tabs --- */
+.cyber-tab-group {
+  background: rgba(2, 8, 20, 0.8);
+  border: 1px solid rgba(0, 240, 255, 0.06);
+  border-radius: 10px;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+.cyber-tab-active {
+  background: rgba(0, 240, 255, 0.08);
+  color: #22d3ee;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 240, 255, 0.12);
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.06);
+}
+
+/* --- Hex icon bg --- */
+.cyber-hex {
+  background: linear-gradient(135deg, #06b6d4 0%, #8b5cf6 100%);
+  border-radius: 10px;
+  box-shadow: 0 0 16px rgba(6, 182, 212, 0.2);
+}
+
+/* --- Icon button --- */
+.cyber-icon-btn {
+  border: 1px solid rgba(0, 240, 255, 0.08);
+  border-radius: 10px;
+  background: rgba(2, 8, 20, 0.6);
+  transition: all 0.2s;
+}
+.cyber-icon-btn:hover {
+  border-color: rgba(0, 240, 255, 0.2);
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.08);
+  background: rgba(0, 240, 255, 0.04);
+}
+
+/* --- Action button --- */
+.cyber-action-btn {
+  background: rgba(0, 240, 255, 0.06);
+  border: 1px solid rgba(0, 240, 255, 0.15);
+  border-radius: 8px;
+  color: #22d3ee;
+  transition: all 0.2s;
+}
+.cyber-action-btn:hover {
+  background: rgba(0, 240, 255, 0.12);
+  box-shadow: 0 0 16px rgba(0, 240, 255, 0.1);
+}
+
+/* --- Record button --- */
+.cyber-record-btn {
+  background: rgba(2, 8, 20, 0.8);
+  border: none;
+  border-left: 1px solid rgba(0, 240, 255, 0.08);
+  color: #94a3b8;
+  transition: all 0.2s;
+}
+.cyber-record-btn:hover {
+  color: #22d3ee;
+}
+.cyber-record-btn--active {
+  background: rgba(192, 38, 211, 0.12);
+  color: #f0abfc;
+  box-shadow: inset 0 0 12px rgba(192, 38, 211, 0.12);
+}
+
+/* --- Record input group --- */
+.cyber-input-group {
+  background: rgba(2, 8, 20, 0.8);
+  border: 1px solid rgba(0, 240, 255, 0.08);
+  border-radius: 10px;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* --- Select dropdown --- */
+.cyber-select {
+  background: rgba(2, 8, 20, 0.9);
+  border: 1px solid rgba(0, 240, 255, 0.08);
+  border-radius: 10px;
+  color: #cbd5e1;
+  outline: none;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+.cyber-select:focus {
+  border-color: rgba(0, 240, 255, 0.2);
+  box-shadow: 0 0 0 1px rgba(0, 240, 255, 0.1), inset 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* --- Preset buttons --- */
+.cyber-preset-btn {
+  background: rgba(0, 240, 255, 0.03);
+  border: 1px solid rgba(0, 240, 255, 0.06);
+  border-radius: 8px;
+  color: #94a3b8;
+  transition: all 0.15s;
+  cursor: pointer;
+}
+.cyber-preset-btn:hover {
+  background: rgba(0, 240, 255, 0.06);
+  border-color: rgba(0, 240, 255, 0.12);
+  color: #e2e8f0;
+}
+
+/* --- Icon cell --- */
+.cyber-icon-cell {
+  background: rgba(2, 8, 20, 0.8);
+  border: 1px solid rgba(0, 240, 255, 0.04);
+  border-radius: 8px;
+  color: #64748b;
+}
+.cyber-icon-cell:hover {
+  border-color: rgba(0, 240, 255, 0.1);
+  color: #e2e8f0;
+  background: rgba(0, 240, 255, 0.04);
+}
+.cyber-icon-cell--active {
+  border-color: #22d3ee !important;
+  color: #22d3ee !important;
+  background: rgba(0, 240, 255, 0.08) !important;
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.08);
+}
+
+/* --- Empty state --- */
+.cyber-empty {
+  border: 1px dashed rgba(0, 240, 255, 0.08);
+  border-radius: 14px;
+  background: rgba(0, 240, 255, 0.015);
+}
+
+/* --- Input small --- */
+.cyber-input-sm {
+  border: 1px solid rgba(0, 240, 255, 0.06) !important;
+  background: rgba(2, 8, 20, 0.7) !important;
+}
+
+/* --- Modal --- */
+.cyber-modal {
+  background: rgba(4, 10, 24, 0.95);
+  border: 1px solid rgba(0, 240, 255, 0.08);
+  border-radius: 20px;
+  box-shadow:
+    0 0 0 1px rgba(0, 240, 255, 0.03),
+    0 0 60px -8px rgba(0, 240, 255, 0.06),
+    0 20px 60px rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(20px);
+}
+
+/* --- Grid Stream Deck Shell (shared) --- */
+.cyber-shell {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(0, 240, 255, 0.04) 0%, transparent 60%),
+    radial-gradient(ellipse at 50% 100%, rgba(255, 0, 255, 0.03) 0%, transparent 60%),
+    linear-gradient(180deg, #050a14 0%, #02050c 50%, #050a14 100%);
+  border: 1px solid rgba(0, 240, 255, 0.08);
+  box-shadow:
+    0 0 0 1px rgba(0, 240, 255, 0.04),
+    0 4px 40px -8px rgba(0, 0, 0, 0.6),
+    0 0 80px -16px rgba(0, 240, 255, 0.04),
+    inset 0 0 40px -16px rgba(0, 240, 255, 0.02);
+  clip-path: polygon(
+    6px 0%, calc(100% - 6px) 0%,
+    100% 6px, 100% calc(100% - 6px),
+    calc(100% - 6px) 100%, 6px 100%,
+    0% calc(100% - 6px), 0% 6px
+  );
+}
+
+.bg-grid-dot {
+  background-image: radial-gradient(circle, rgba(0, 240, 255, 0.2) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.scanline {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 240, 255, 0.03) 2px,
+    rgba(0, 240, 255, 0.03) 3px
+  );
+}
+
+/* Dashboard-wide scanline */
+.dashboard-scanline {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 240, 255, 0.02) 2px,
+    rgba(0, 240, 255, 0.02) 3px
+  );
+}
+</style>
+
+<style>
+/* Global cyberpunk scrollbar */
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 240, 255, 0.1);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 240, 255, 0.2);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+</style>

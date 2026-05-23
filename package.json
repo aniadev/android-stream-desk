@@ -5,20 +5,34 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "android:dev": "tauri android dev",
+    "android:build": "tauri android build",
     "build": "vue-tsc -b && vite build",
-    "preview": "vite preview",
+    "preview": "preview",
     "tauri": "tauri",
     "dev:mac": "tauri dev",
-    "build:mac": "tauri build"
+    "build:mac": "tauri build",
+    "icons": "tauri icon public/logo.png"
   },
   "dependencies": {
+    "@iconify/vue": "^5.0.1",
     "@tauri-apps/api": "^2.2.0",
+    "@tauri-apps/plugin-process": "^2.3.1",
     "@tauri-apps/plugin-shell": "^2.2.0",
+    "@tauri-apps/plugin-updater": "^2.10.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-vue-next": "^1.0.0",
     "pinia": "^2.3.0",
+    "tailwind-merge": "^3.6.0",
     "vue": "^3.5.34",
     "vue-router": "^4.5.0"
   },
   "devDependencies": {
+    "@iconify-json/lucide": "^1.2.109",
+    "@iconify-json/material-symbols": "^1.2.73",
+    "@iconify-json/mdi": "^1.2.3",
+    "@iconify/json": "^2.2.477",
     "@tauri-apps/cli": "^2.2.3",
     "@types/node": "^24.12.3",
     "@vitejs/plugin-vue": "^6.0.6",

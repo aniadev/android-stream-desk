@@ -3,11 +3,15 @@ import { ref } from 'vue';
 import type { ConnectionState, WSMessage } from '../types';
 
 export const useConnectionStore = defineStore('connection', () => {
+  const MAX_RECONNECT_ATTEMPTS = 3;
+
   const ipAddress = ref(localStorage.getItem('server_ip') || '');
   const port = ref(localStorage.getItem('server_port') || '8089');
   const status = ref<ConnectionState>('disconnected');
   const socket = ref<WebSocket | null>(null);
   const isReconnecting = ref(false);
+  const reconnectAttempts = ref(0);
+  const maxReconnectAttempts = ref(MAX_RECONNECT_ATTEMPTS);
   const isOnline = ref(typeof navigator !== 'undefined' ? navigator.onLine : true);
 
   let heartbeatInterval: number | null = null;
@@ -44,7 +48,11 @@ export const useConnectionStore = defineStore('connection', () => {
     isReconnecting.value = false;
   };
 
-  const connect = () => {
+  const connect = (fromTicker = false) => {
+    if (!fromTicker) {
+      // Manual connect attempt — reset attempt counter so user gets a fresh budget.
+      reconnectAttempts.value = 0;
+    }
     if (!ipAddress.value) {
       status.value = 'error';
       return;
@@ -82,6 +90,7 @@ export const useConnectionStore = defineStore('connection', () => {
       ws.onopen = () => {
         status.value = 'connected';
         isAlive = true;
+        reconnectAttempts.value = 0;
         clearReconnect();
         startHeartbeat();
       };
@@ -179,15 +188,32 @@ export const useConnectionStore = defineStore('connection', () => {
 
   const triggerAutoReconnect = () => {
     if (reconnectInterval !== null || userDisconnected) return;
+    if (reconnectAttempts.value >= MAX_RECONNECT_ATTEMPTS) {
+      status.value = 'error';
+      isReconnecting.value = false;
+      return;
+    }
     isReconnecting.value = true;
     reconnectInterval = window.setInterval(() => {
       if (userDisconnected) {
         clearReconnect();
         return;
       }
-      console.log('Attempting auto-reconnect...');
-      connect();
+      if (reconnectAttempts.value >= MAX_RECONNECT_ATTEMPTS) {
+        clearReconnect();
+        status.value = 'error';
+        return;
+      }
+      reconnectAttempts.value += 1;
+      console.log(`Auto-reconnect attempt ${reconnectAttempts.value}/${MAX_RECONNECT_ATTEMPTS}`);
+      connect(true);
     }, 3000);
+  };
+
+  const cancelReconnect = () => {
+    clearReconnect();
+    reconnectAttempts.value = 0;
+    status.value = 'disconnected';
   };
 
   return {
@@ -195,9 +221,12 @@ export const useConnectionStore = defineStore('connection', () => {
     port,
     status,
     isReconnecting,
+    reconnectAttempts,
+    maxReconnectAttempts,
     isOnline,
     connect,
     disconnect,
+    cancelReconnect,
     send,
   };
 });

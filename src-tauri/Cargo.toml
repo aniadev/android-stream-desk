@@ -26,3 +26,4 @@ lazy_static = "1.4"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 enigo = "0.3.0"
+
