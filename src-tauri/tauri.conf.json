@@ -33,5 +33,15 @@
     "beforeBuildCommand": "pnpm build",
     "devUrl": "http://localhost:1420",
     "frontendDist": "../dist"
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "dialog": false,
+      "endpoints": [
+        "https://raw.githubusercontent.com/aniadev/android-stream-desk/main/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDg3RDUxRTRCOUI4MDIzNTEKUldSUkk0Q2JTeDdWaDE5ZTZIN2R0azM3alBJc0tlUU5sck9RS0VCMEpScWd4Sk90N2V6YnZRdW8K"
+    }
   }
 }
