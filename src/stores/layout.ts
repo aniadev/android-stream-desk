@@ -230,7 +230,7 @@ export const useLayoutStore = defineStore('layout', () => {
     }
     if (!Array.isArray(parsed.buttons)) throw new Error('Thiếu mảng buttons');
 
-    const validActions = new Set<ButtonConfig['actionType']>(['shortcut', 'media', 'app']);
+    const validActions = new Set<ButtonConfig['actionType']>(['shortcut', 'media', 'app', 'command']);
     const sanitized: ButtonConfig[] = parsed.buttons.map((b: any, i: number) => ({
       id: typeof b?.id === 'string' && b.id ? b.id : `btn_${Date.now()}_${i}`,
       label: typeof b?.label === 'string' ? b.label : `Button ${i + 1}`,
@@ -240,6 +240,7 @@ export const useLayoutStore = defineStore('layout', () => {
       shortcutValue: typeof b?.shortcutValue === 'string' ? b.shortcutValue : undefined,
       mediaAction: typeof b?.mediaAction === 'string' ? b.mediaAction : undefined,
       appPath: typeof b?.appPath === 'string' ? b.appPath : undefined,
+      commandValue: typeof b?.commandValue === 'string' ? b.commandValue : undefined,
     }));
 
     updateLayout({

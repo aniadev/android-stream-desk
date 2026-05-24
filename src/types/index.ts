@@ -1,4 +1,4 @@
-export type ActionType = 'shortcut' | 'media' | 'app';
+export type ActionType = 'shortcut' | 'media' | 'app' | 'command';
 
 export interface ButtonConfig {
   id: string;
@@ -13,6 +13,8 @@ export interface ButtonConfig {
   mediaAction?: string;
   // Cho 'app': path tới file .exe ví dụ "C:\\Windows\\notepad.exe"
   appPath?: string;
+  // Cho 'command': chuỗi shell thô (sh -c hoặc cmd /C), chạy với quyền user
+  commandValue?: string;
 }
 
 export interface Layout {

@@ -35,6 +35,8 @@ pub struct ButtonConfig {
     media_action: Option<String>,
     #[serde(rename = "appPath")]
     app_path: Option<String>,
+    #[serde(rename = "commandValue")]
+    command_value: Option<String>,
 }
 
 // -------------------------------------------------------------
@@ -156,6 +158,13 @@ async fn execute_logic(app_handle: AppHandle, button: ButtonConfig) -> Result<()
                 .as_deref()
                 .ok_or_else(|| "Missing application path".to_string())?;
             launch_application(path)
+        }
+        "command" => {
+            let cmd = button
+                .command_value
+                .as_deref()
+                .ok_or_else(|| "Missing command value".to_string())?;
+            run_shell_command(cmd).await
         }
         other => Err(format!("Unsupported action type: {}", other)),
     };
@@ -382,6 +391,44 @@ fn launch_application(path: &str) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+#[cfg(desktop)]
+async fn run_shell_command(cmd: &str) -> Result<(), String> {
+    let trimmed = cmd.trim();
+    if trimmed.is_empty() {
+        return Err("Command value is empty".to_string());
+    }
+    let cmd_owned = trimmed.to_string();
+    tokio::task::spawn_blocking(move || {
+        use std::process::Command;
+        // Use absolute / env-resolved shell paths so a mutated PATH cannot
+        // swap in a different shell than the user expects.
+        let output = if cfg!(target_os = "windows") {
+            let shell = std::env::var("ComSpec").unwrap_or_else(|_| "cmd.exe".to_string());
+            Command::new(shell).args(["/C", &cmd_owned]).output()
+        } else {
+            Command::new("/bin/sh").args(["-c", &cmd_owned]).output()
+        }
+        .map_err(|e| format!("Failed to spawn shell: {}", e))?;
+        if output.status.success() {
+            Ok(())
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            let code = output
+                .status
+                .code()
+                .map(|c| c.to_string())
+                .unwrap_or_else(|| "?".to_string());
+            Err(if stderr.is_empty() {
+                format!("Exit code: {}", code)
+            } else {
+                stderr
+            })
+        }
+    })
+    .await
+    .map_err(|e| format!("Shell task join error: {}", e))?
 }
 
 // -------------------------------------------------------------

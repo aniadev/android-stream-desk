@@ -16,7 +16,7 @@ const layoutStore = useLayoutStore();
 const updaterStore = useUpdaterStore();
 
 const selectedButtonId = ref<string | null>(null);
-const activeTab = ref<'shortcut' | 'media' | 'app'>('shortcut');
+const activeTab = ref<'shortcut' | 'media' | 'app' | 'command'>('shortcut');
 
 const serverIp = ref<string>('—');
 const serverPort = ref<number>(8089);
@@ -810,7 +810,7 @@ const updateStatusText = computed(() => {
               <label class="cyber-input-label">Loại sự kiện</label>
               <div class="cyber-tab-group flex p-1 text-[10px]">
                 <button
-                  v-for="tab in ['shortcut', 'media', 'app'] as ActionType[]"
+                  v-for="tab in ['shortcut', 'media', 'app', 'command'] as ActionType[]"
                   :key="tab"
                   @click="activeTab = tab; saveButtonSettings()"
                   class="flex-1 text-center py-1.5 font-bold uppercase tracking-wider transition-all duration-150 h-auto cursor-pointer"
@@ -944,6 +944,23 @@ const updateStatusText = computed(() => {
                     </button>
                   </div>
                 </div>
+              </div>
+
+              <!-- Command -->
+              <div v-else-if="activeTab === 'command'" class="flex flex-col gap-2">
+                <span class="text-[9px] font-bold uppercase text-slate-400">Lệnh shell:</span>
+                <textarea
+                  v-model="selectedButton.commandValue"
+                  rows="3"
+                  spellcheck="false"
+                  placeholder='vd: open -a "Google Chrome" "https://github.com"'
+                  class="w-full text-[11px] font-mono cyber-input-group bg-transparent px-2.5 py-2 resize-y focus:outline-none"
+                  @input="saveButtonSettings"
+                ></textarea>
+                <p class="text-[9px] font-bold leading-relaxed text-amber-400/90 cyber-warning px-2 py-1.5">
+                  ⚠ Lệnh chạy với quyền user hiện tại — chỉ dùng cho command bạn tin cậy.
+                  Trên macOS/Linux qua <span class="font-mono">/bin/sh -c</span>, Windows qua <span class="font-mono">cmd /C</span>.
+                </p>
               </div>
             </div>
           </div>

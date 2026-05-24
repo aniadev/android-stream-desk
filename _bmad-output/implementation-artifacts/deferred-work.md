@@ -36,6 +36,17 @@ Selected first goal for this cycle: **Hex Input + Neon Color Fix** (F2 + B2 from
 
 Planning artifact full source: `_bmad-output/planning-artifacts/breakdown-v1.2.0.md`.
 
+## v1.2.0 F1 Shell Command — hardening backlog (2026-05-24)
+
+Surfaced during step-04 review of `spec-shell-command-action.md`. Accepted under current LAN-trust + power-user-feature posture; revisit when adding WS auth (already deferred above).
+
+- **Command execution timeout + output cap** — `run_shell_command` calls `.output()` with no timeout and no stdout/stderr size limit. A button saved as `sleep 600`, `yes`, `cat /dev/urandom`, or `tail -f` holds a tokio blocking-pool thread indefinitely and can OOM the companion. Mitigation: wrap in `tokio::time::timeout` (suggest 30s default) and stream output with byte cap (e.g. 64KB stderr buffer). Kill child on timeout via stored `Child` handle instead of `.output()`.
+- **WS press shell-RCE surface** — Any LAN client connected to `:8089` can send `{type:"press", payload:{actionType:"command", commandValue:"..."}}` and execute arbitrary shell as the companion user, without needing the button to exist in the saved layout. Already covered conceptually by the deferred "WS auth handshake (BH-1, BH-16, BH-18)" item — re-flag here because v1.2.0 F1 widens the blast radius from "trigger known macros" to "arbitrary RCE".
+- **Import-layout trust prompt** — `importLayout` now silently accepts `commandValue` from any JSON file. Importing a community-shared layout is equivalent to executing the author's shell scripts on first press. Add a per-button trust banner when importing layouts that contain `command` actions, or a one-time confirm-on-first-press for imported commands.
+- **broadcast_toast stderr scrubbing** — Action errors are broadcast verbatim to every WS subscriber, including Android clients. Command stderr can contain secrets (token URLs from `git push`, `aws cli` creds). Truncate to first N chars + strip ANSI before fanout.
+- **Debounce saveButtonSettings on textarea** — `@input="saveButtonSettings"` on the command textarea fires a full layout save + WS broadcast per keystroke. The existing `saveTimer` ref in `DashboardView.vue` is a dead variable. Wire it to gate the actual `updateLayout` call (proposed 200-300ms debounce). Same fix benefits shortcut/app text inputs.
+- **commandValue length cap** — No upper bound on the string size. A pasted megabyte rides through every layout broadcast over WS. Cap at e.g. 4KB on the input + server-side validate.
+
 ## Won't fix (rejected)
 
 - `serde_json::json!` with `vec![]` (BH-9) — works, no behavioural issue.
