@@ -25,3 +25,7 @@ src-tauri/target
 *.njsproj
 *.sln
 *.sw?
+
+# Android signing — never commit keystore or properties
+*.keystore
+keystore.properties

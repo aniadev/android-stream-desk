@@ -26,6 +26,31 @@ android {
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
     }
+    val keystorePropsFile = file("keystore.properties")
+    if (keystorePropsFile.exists()) {
+        try {
+            val keystoreProps = Properties().apply { load(keystorePropsFile.inputStream()) }
+            val sf = keystoreProps.getProperty("storeFile")
+            val sp = keystoreProps.getProperty("storePassword")
+            val ka = keystoreProps.getProperty("keyAlias")
+            val kp = keystoreProps.getProperty("keyPassword")
+            if (sf != null && sp != null && ka != null && kp != null) {
+                signingConfigs {
+                    create("release") {
+                        storeFile = file(sf)
+                        storePassword = sp
+                        keyAlias = ka
+                        keyPassword = kp
+                    }
+                }
+            } else {
+                println("keystore.properties: missing required properties — signing skipped")
+            }
+        } catch (e: Exception) {
+            println("keystore.properties load failed: ${e.message} — signing skipped")
+        }
+    }
+
     buildTypes {
         getByName("debug") {
             manifestPlaceholders["usesCleartextTraffic"] = "true"
@@ -45,6 +70,7 @@ android {
                     .plus(getDefaultProguardFile("proguard-android-optimize.txt"))
                     .toList().toTypedArray()
             )
+            signingConfigs.findByName("release")?.let { signingConfig = it }
         }
     }
     kotlinOptions {
