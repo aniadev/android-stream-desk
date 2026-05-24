@@ -109,26 +109,83 @@ const searchQuery = ref('');
 const activeIconGroup = ref<'mdi' | 'lucide' | 'material'>('mdi');
 
 const mdiIcons = [
-  'mdi:play', 'mdi:pause', 'mdi:skip-next', 'mdi:skip-previous',
-  'mdi:volume-minus', 'mdi:volume-plus', 'mdi:volume-mute',
-  'mdi:power', 'mdi:restart', 'mdi:lock', 'mdi:logout', 'mdi:cog',
-  'mdi:web', 'mdi:google-chrome', 'mdi:firefox', 'mdi:microsoft-edge', 'mdi:folder-open',
-  'mdi:xml', 'mdi:git', 'mdi:github', 'mdi:terminal', 'mdi:calculator',
-  'mdi:monitor-screenshot', 'mdi:brightness-5', 'mdi:keyboard',
+  'mdi:play',
+  'mdi:pause',
+  'mdi:skip-next',
+  'mdi:skip-previous',
+  'mdi:volume-minus',
+  'mdi:volume-plus',
+  'mdi:volume-mute',
+  'mdi:power',
+  'mdi:restart',
+  'mdi:lock',
+  'mdi:logout',
+  'mdi:cog',
+  'mdi:web',
+  'mdi:google-chrome',
+  'mdi:firefox',
+  'mdi:microsoft-edge',
+  'mdi:folder-open',
+  'mdi:xml',
+  'mdi:git',
+  'mdi:github',
+  'mdi:terminal',
+  'mdi:calculator',
+  'mdi:monitor-screenshot',
+  'mdi:brightness-5',
+  'mdi:keyboard',
 ];
 const lucideIcons = [
-  'lucide:play', 'lucide:pause', 'lucide:skip-forward', 'lucide:skip-back', 'lucide:music',
-  'lucide:settings', 'lucide:mic', 'lucide:mic-off', 'lucide:video', 'lucide:video-off',
-  'lucide:chrome', 'lucide:globe', 'lucide:folder', 'lucide:monitor', 'lucide:terminal',
-  'lucide:code-2', 'lucide:heart-crack', 'lucide:undo', 'lucide:save', 'lucide:refresh-cw',
-  'lucide:lock', 'lucide:unlock', 'lucide:search', 'lucide:bell',
+  'lucide:play',
+  'lucide:pause',
+  'lucide:skip-forward',
+  'lucide:skip-back',
+  'lucide:music',
+  'lucide:settings',
+  'lucide:mic',
+  'lucide:mic-off',
+  'lucide:video',
+  'lucide:video-off',
+  'lucide:chrome',
+  'lucide:globe',
+  'lucide:folder',
+  'lucide:monitor',
+  'lucide:terminal',
+  'lucide:code-2',
+  'lucide:heart-crack',
+  'lucide:undo',
+  'lucide:save',
+  'lucide:refresh-cw',
+  'lucide:lock',
+  'lucide:unlock',
+  'lucide:search',
+  'lucide:bell',
 ];
 const materialIcons = [
-  'material-symbols:play-arrow', 'material-symbols:pause', 'material-symbols:skip-next', 'material-symbols:skip-previous', 'material-symbols:volume-up',
-  'material-symbols:home', 'material-symbols:settings', 'material-symbols:sync', 'material-symbols:close', 'material-symbols:power-settings-new',
-  'material-symbols:public', 'material-symbols:folder-open', 'material-symbols:desktop-windows', 'material-symbols:description', 'material-symbols:mail',
-  'material-symbols:code', 'material-symbols:edit', 'material-symbols:file-copy', 'material-symbols:settings-backup-restore', 'material-symbols:terminal',
-  'material-symbols:open-in-new', 'material-symbols:download', 'material-symbols:cloud', 'material-symbols:notifications',
+  'material-symbols:play-arrow',
+  'material-symbols:pause',
+  'material-symbols:skip-next',
+  'material-symbols:skip-previous',
+  'material-symbols:volume-up',
+  'material-symbols:home',
+  'material-symbols:settings',
+  'material-symbols:sync',
+  'material-symbols:close',
+  'material-symbols:power-settings-new',
+  'material-symbols:public',
+  'material-symbols:folder-open',
+  'material-symbols:desktop-windows',
+  'material-symbols:description',
+  'material-symbols:mail',
+  'material-symbols:code',
+  'material-symbols:edit',
+  'material-symbols:file-copy',
+  'material-symbols:settings-backup-restore',
+  'material-symbols:terminal',
+  'material-symbols:open-in-new',
+  'material-symbols:download',
+  'material-symbols:cloud',
+  'material-symbols:notifications',
 ];
 
 const filteredIcons = computed(() => {
@@ -185,10 +242,22 @@ const handleKeyDown = (e: KeyboardEvent) => {
 
   let keyName = e.key;
   // Live-sync UI toggles when user holds physical modifier keys.
-  if (keyName === 'Control') { pendingMods.value.ctrl = true; return; }
-  if (keyName === 'Shift') { pendingMods.value.shift = true; return; }
-  if (keyName === 'Alt') { pendingMods.value.alt = true; return; }
-  if (keyName === 'Meta') { pendingMods.value.meta = true; return; }
+  if (keyName === 'Control') {
+    pendingMods.value.ctrl = true;
+    return;
+  }
+  if (keyName === 'Shift') {
+    pendingMods.value.shift = true;
+    return;
+  }
+  if (keyName === 'Alt') {
+    pendingMods.value.alt = true;
+    return;
+  }
+  if (keyName === 'Meta') {
+    pendingMods.value.meta = true;
+    return;
+  }
 
   if (keyName === ' ') keyName = 'Space';
   else if (keyName === 'Escape') keyName = 'Esc';
@@ -247,9 +316,10 @@ const hasInputPermission = ref<boolean>(true);
 const inputPermissionChecked = ref<boolean>(false);
 let permissionPollTimer: ReturnType<typeof setInterval> | null = null;
 
-const isMacPlatform = computed(() =>
-  navigator.userAgent.toLowerCase().includes('mac') ||
-  navigator.platform.toLowerCase().includes('mac')
+const isMacPlatform = computed(
+  () =>
+    navigator.userAgent.toLowerCase().includes('mac') ||
+    navigator.platform.toLowerCase().includes('mac'),
 );
 
 const probePermission = async () => {
@@ -333,7 +403,7 @@ const hexInputFocused = ref<boolean>(false);
 
 watch(
   () => selectedButton.value?.backgroundColor,
-  (val) => {
+  val => {
     if (hexInputFocused.value) return;
     hexDraft.value = val ?? '';
     hexDraftValid.value = true;
@@ -442,9 +512,17 @@ const importInput = ref<HTMLInputElement | null>(null);
 const handleExport = () => {
   try {
     layoutStore.exportLayout();
-    layoutStore.lastToast = { kind: 'info', message: 'Đã xuất cấu hình ra file JSON.', at: Date.now() };
+    layoutStore.lastToast = {
+      kind: 'info',
+      message: 'Đã xuất cấu hình ra file JSON.',
+      at: Date.now(),
+    };
   } catch (e: any) {
-    layoutStore.lastToast = { kind: 'error', message: `Export lỗi: ${e?.message ?? e}`, at: Date.now() };
+    layoutStore.lastToast = {
+      kind: 'error',
+      message: `Export lỗi: ${e?.message ?? e}`,
+      at: Date.now(),
+    };
   }
 };
 
@@ -460,9 +538,17 @@ const handleImport = async (e: Event) => {
   try {
     await layoutStore.importLayout(file);
     selectedButtonId.value = null;
-    layoutStore.lastToast = { kind: 'info', message: `Đã nạp cấu hình từ "${file.name}".`, at: Date.now() };
+    layoutStore.lastToast = {
+      kind: 'info',
+      message: `Đã nạp cấu hình từ "${file.name}".`,
+      at: Date.now(),
+    };
   } catch (err: any) {
-    layoutStore.lastToast = { kind: 'error', message: `Import lỗi: ${err?.message ?? err}`, at: Date.now() };
+    layoutStore.lastToast = {
+      kind: 'error',
+      message: `Import lỗi: ${err?.message ?? err}`,
+      at: Date.now(),
+    };
   }
 };
 
@@ -512,8 +598,12 @@ const updateStatusText = computed(() => {
     class="cyber-dashboard h-screen w-screen flex flex-col p-6 overflow-hidden gap-6 antialiased select-none relative"
   >
     <!-- Ambient background glows -->
-    <div class="pointer-events-none absolute top-0 left-1/4 w-[600px] h-[600px] rounded-full bg-cyan-500/3 blur-[150px]" />
-    <div class="pointer-events-none absolute bottom-0 right-1/4 w-[500px] h-[500px] rounded-full bg-fuchsia-500/3 blur-[130px]" />
+    <div
+      class="pointer-events-none absolute top-0 left-1/4 w-[600px] h-[600px] rounded-full bg-cyan-500/3 blur-[150px]"
+    />
+    <div
+      class="pointer-events-none absolute bottom-0 right-1/4 w-[500px] h-[500px] rounded-full bg-fuchsia-500/3 blur-[130px]"
+    />
 
     <!-- Scanline overlay (subtle) -->
     <div class="dashboard-scanline fixed inset-0 pointer-events-none opacity-[0.015]" />
@@ -523,7 +613,9 @@ const updateStatusText = computed(() => {
       <div
         v-if="layoutStore.lastToast"
         class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 cyber-panel max-w-[520px] flex items-start gap-3 px-4 py-3 shadow-2xl"
-        :class="layoutStore.lastToast.kind === 'error' ? 'border-rose-500/40' : 'border-cyan-400/30'"
+        :class="
+          layoutStore.lastToast.kind === 'error' ? 'border-rose-500/40' : 'border-cyan-400/30'
+        "
       >
         <Icon
           :icon="layoutStore.lastToast.kind === 'error' ? 'lucide:alert-triangle' : 'lucide:info'"
@@ -531,13 +623,17 @@ const updateStatusText = computed(() => {
           :class="layoutStore.lastToast.kind === 'error' ? 'text-rose-400' : 'text-cyan-400'"
         />
         <div class="flex-1 flex flex-col gap-2">
-          <p class="text-[11px] leading-relaxed text-slate-200">{{ layoutStore.lastToast.message }}</p>
+          <p class="text-[11px] leading-relaxed text-slate-200">
+            {{ layoutStore.lastToast.message }}
+          </p>
           <div v-if="toastNeedsAccessibility" class="flex gap-2">
             <button
               type="button"
               class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1"
               @click="openAccessibilitySettings"
-            >Mở Accessibility Settings</button>
+            >
+              Mở Accessibility Settings
+            </button>
           </div>
         </div>
         <button
@@ -552,15 +648,14 @@ const updateStatusText = computed(() => {
     </transition>
 
     <!-- Top Nav HUD Header -->
-    <div
-      class="cyber-panel flex items-center justify-between px-4 py-2.5 shadow-xl"
-    >
+    <div class="cyber-panel flex items-center justify-between px-4 py-2.5 shadow-xl">
       <div class="flex items-center gap-2">
-        <div
+        <!-- <div
           class="h-8 w-8 cyber-hex flex items-center justify-center"
         >
           <span class="text-base">🕹️</span>
-        </div>
+        </div> -->
+        <img src="/logo.png" alt="Logo" class="h-8 w-8" />
         <div class="flex flex-col leading-none">
           <span class="text-xs font-bold tracking-tight text-slate-50">Android Stream Desk</span>
           <span class="text-[8.5px] text-cyan-400/60 font-bold tracking-wider uppercase mt-0.5"
@@ -572,7 +667,9 @@ const updateStatusText = computed(() => {
       <!-- Right Header: IP + Settings -->
       <div class="flex items-center gap-4">
         <div class="cyber-hud flex items-center gap-3 px-4 py-2">
-          <span class="inline-flex h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_6px_#22d3ee] animate-pulse"></span>
+          <span
+            class="inline-flex h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_6px_#22d3ee] animate-pulse"
+          ></span>
           <div class="flex flex-col">
             <label class="text-[8px] uppercase tracking-widest font-bold text-slate-500"
               >WebSocket LAN IP</label
@@ -596,7 +693,7 @@ const updateStatusText = computed(() => {
           @click="syncLayout"
           title="Đồng bộ cấu hình sang thiết bị Android"
         >
-          <Icon :icon="syncHint ? 'lucide:check' : 'lucide:refresh-cw'" class="text-xs" :class="{ 'animate-spin': !syncHint }" />
+          <Icon :icon="syncHint ? 'lucide:check' : 'lucide:refresh-cw'" class="text-xs" />
           <span>{{ syncHint || 'Sync' }}</span>
         </button>
 
@@ -628,11 +725,14 @@ const updateStatusText = computed(() => {
         />
 
         <button
-          class="cyber-icon-btn h-10 w-10 cursor-pointer flex items-center justify-center"
+          class="cyber-icon-btn cursor-pointer flex items-center justify-center"
           @click="settingsOpen = true"
           title="Thiết lập hệ thống & Cập nhật"
         >
-          <Icon icon="lucide:settings" class="text-lg text-cyan-400/70 hover:text-cyan-300 transition-colors" />
+          <Icon
+            icon="lucide:settings"
+            class="text-lg text-cyan-400/70 hover:text-cyan-300 transition-colors"
+          />
         </button>
       </div>
     </div>
@@ -648,7 +748,8 @@ const updateStatusText = computed(() => {
           Thiếu Accessibility permission
         </span>
         <span class="text-[10px] text-slate-400 mt-0.5 leading-relaxed">
-          Lệnh phím tắt và phím media sẽ không chạy. Sau khi build lại, hãy XOÁ entry cũ trong Privacy → Accessibility rồi kéo app mới vào.
+          Lệnh phím tắt và phím media sẽ không chạy. Sau khi build lại, hãy XOÁ entry cũ trong
+          Privacy → Accessibility rồi kéo app mới vào.
         </span>
       </div>
       <button
@@ -671,9 +772,7 @@ const updateStatusText = computed(() => {
     <!-- Main Content -->
     <div class="flex flex-1 overflow-hidden gap-6">
       <!-- Left Sidebar -->
-      <div
-        class="cyber-panel w-80 flex flex-col p-5 gap-5 overflow-y-auto"
-      >
+      <div class="cyber-panel w-80 flex flex-col p-5 gap-5 overflow-y-auto">
         <!-- Grid Dimensions -->
         <div class="flex flex-col gap-3">
           <div>
@@ -682,31 +781,47 @@ const updateStatusText = computed(() => {
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div class="flex flex-col gap-1.5">
-              <label class="text-[9px] font-bold uppercase tracking-wider text-slate-400">Dòng</label>
+              <label class="text-[9px] font-bold uppercase tracking-wider text-slate-400"
+                >Dòng</label
+              >
               <div class="cyber-stepper flex items-center justify-between p-1">
                 <button
                   class="cyber-stepper-btn w-7 h-7 flex items-center justify-center text-sm font-semibold select-none"
                   @click="updateGridDimensions('rows', -1)"
-                >-</button>
-                <span class="font-bold text-xs font-mono text-cyan-300">{{ layoutStore.layout.rows }}</span>
+                >
+                  -
+                </button>
+                <span class="font-bold text-xs font-mono text-cyan-300">{{
+                  layoutStore.layout.rows
+                }}</span>
                 <button
                   class="cyber-stepper-btn w-7 h-7 flex items-center justify-center text-sm font-semibold select-none"
                   @click="updateGridDimensions('rows', 1)"
-                >+</button>
+                >
+                  +
+                </button>
               </div>
             </div>
             <div class="flex flex-col gap-1.5">
-              <label class="text-[9px] font-bold uppercase tracking-wider text-slate-400">Cột</label>
+              <label class="text-[9px] font-bold uppercase tracking-wider text-slate-400"
+                >Cột</label
+              >
               <div class="cyber-stepper flex items-center justify-between p-1">
                 <button
                   class="cyber-stepper-btn w-7 h-7 flex items-center justify-center text-sm font-semibold select-none"
                   @click="updateGridDimensions('cols', -1)"
-                >-</button>
-                <span class="font-bold text-xs font-mono text-cyan-300">{{ layoutStore.layout.cols }}</span>
+                >
+                  -
+                </button>
+                <span class="font-bold text-xs font-mono text-cyan-300">{{
+                  layoutStore.layout.cols
+                }}</span>
                 <button
                   class="cyber-stepper-btn w-7 h-7 flex items-center justify-center text-sm font-semibold select-none"
                   @click="updateGridDimensions('cols', 1)"
-                >+</button>
+                >
+                  +
+                </button>
               </div>
             </div>
           </div>
@@ -723,7 +838,12 @@ const updateStatusText = computed(() => {
             <!-- Label -->
             <div class="flex flex-col gap-1.5">
               <label class="cyber-input-label">Nhãn chữ</label>
-              <Input v-model="selectedButton.label" type="text" class="shadow-inner" @input="saveButtonSettings" />
+              <Input
+                v-model="selectedButton.label"
+                type="text"
+                class="shadow-inner"
+                @input="saveButtonSettings"
+              />
             </div>
 
             <!-- Icon & Color -->
@@ -732,9 +852,14 @@ const updateStatusText = computed(() => {
               <div class="flex flex-col gap-3">
                 <div class="flex gap-2">
                   <div class="h-10 w-12 cyber-inset flex items-center justify-center">
-                    <Icon :icon="selectedButton.icon || 'mdi:button'" class="text-xl text-cyan-300" />
+                    <Icon
+                      :icon="selectedButton.icon || 'mdi:button'"
+                      class="text-xl text-cyan-300"
+                    />
                   </div>
-                  <div class="flex-1 relative flex justify-between items-center cyber-inset overflow-hidden px-2">
+                  <div
+                    class="flex-1 relative flex justify-between items-center cyber-inset overflow-hidden px-2"
+                  >
                     <div class="flex items-center">
                       <input
                         v-model="selectedButton.backgroundColor"
@@ -750,7 +875,11 @@ const updateStatusText = computed(() => {
                         placeholder="#rrggbb"
                         class="ml-2 font-mono text-[10px] text-slate-300 uppercase font-semibold bg-transparent border px-1.5 py-0.5 w-[68px] focus:outline-none focus:border-cyan-400 transition-colors"
                         :class="hexDraftValid ? 'border-cyan-400/20' : 'border-rose-500/70'"
-                        :title="hexDraftValid ? 'Nhập mã hex (#rgb hoặc #rrggbb)' : 'Mã hex không hợp lệ — sẽ revert khi rời focus'"
+                        :title="
+                          hexDraftValid
+                            ? 'Nhập mã hex (#rgb hoặc #rrggbb)'
+                            : 'Mã hex không hợp lệ — sẽ revert khi rời focus'
+                        "
                         @focus="onHexDraftFocus"
                         @input="onHexDraftInput"
                         @blur="onHexDraftBlur"
@@ -763,8 +892,16 @@ const updateStatusText = computed(() => {
                       class="text-slate-400 hover:text-cyan-400 cursor-pointer select-none flex items-center gap-1 focus:outline-none transition-colors"
                       :title="colorCopyHint || 'Sao chép mã màu'"
                     >
-                      <span v-if="colorCopyHint" class="text-[8px] uppercase tracking-wider font-extrabold text-cyan-400 font-mono">{{ colorCopyHint }}</span>
-                      <Icon :icon="colorCopyHint ? 'lucide:check' : 'lucide:copy'" class="text-xs" :class="{'text-cyan-400': colorCopyHint}" />
+                      <span
+                        v-if="colorCopyHint"
+                        class="text-[8px] uppercase tracking-wider font-extrabold text-cyan-400 font-mono"
+                        >{{ colorCopyHint }}</span
+                      >
+                      <Icon
+                        :icon="colorCopyHint ? 'lucide:check' : 'lucide:copy'"
+                        class="text-xs"
+                        :class="{ 'text-cyan-400': colorCopyHint }"
+                      />
                     </button>
                   </div>
                 </div>
@@ -778,11 +915,19 @@ const updateStatusText = computed(() => {
                       @click="activeIconGroup = group"
                       type="button"
                       class="text-[9px] uppercase tracking-wider font-extrabold px-2 py-0.5 cursor-pointer duration-100"
-                      :class="activeIconGroup === group ? 'cyber-tab-active' : 'text-slate-500 hover:text-slate-300'"
+                      :class="
+                        activeIconGroup === group
+                          ? 'cyber-tab-active'
+                          : 'text-slate-500 hover:text-slate-300'
+                      "
                     >
                       {{ group }}
                     </button>
-                    <Input v-model="searchQuery" placeholder="Tìm biểu tượng..." class="h-6 text-[9px] py-1 px-2.5 cyber-input-sm" />
+                    <Input
+                      v-model="searchQuery"
+                      placeholder="Tìm biểu tượng..."
+                      class="h-6 text-[9px] py-1 px-2.5 cyber-input-sm"
+                    />
                   </div>
                   <div class="grid grid-cols-6 gap-2 max-h-[140px] overflow-y-auto pr-1">
                     <button
@@ -795,7 +940,10 @@ const updateStatusText = computed(() => {
                     >
                       <Icon :icon="ico" class="text-lg" />
                     </button>
-                    <p v-if="filteredIcons.length === 0" class="col-span-6 text-[9px] text-slate-500 font-bold text-center py-4 uppercase">
+                    <p
+                      v-if="filteredIcons.length === 0"
+                      class="col-span-6 text-[9px] text-slate-500 font-bold text-center py-4 uppercase"
+                    >
                       Không tìm thấy biểu tượng
                     </p>
                   </div>
@@ -810,9 +958,14 @@ const updateStatusText = computed(() => {
                 <button
                   v-for="tab in ['shortcut', 'media', 'app', 'command'] as ActionType[]"
                   :key="tab"
-                  @click="activeTab = tab; saveButtonSettings()"
+                  @click="
+                    activeTab = tab;
+                    saveButtonSettings();
+                  "
                   class="flex-1 text-center py-1.5 font-bold uppercase tracking-wider transition-all duration-150 h-auto cursor-pointer"
-                  :class="activeTab === tab ? 'cyber-tab-active' : 'text-slate-500 hover:text-slate-300'"
+                  :class="
+                    activeTab === tab ? 'cyber-tab-active' : 'text-slate-500 hover:text-slate-300'
+                  "
                 >
                   {{ tab }}
                 </button>
@@ -824,9 +977,17 @@ const updateStatusText = computed(() => {
               <!-- Shortcut -->
               <div v-if="activeTab === 'shortcut'" class="flex flex-col gap-3">
                 <div class="flex flex-col gap-2">
-                  <span class="text-[9px] font-bold uppercase text-slate-400">Tổ hợp phím tắt:</span>
+                  <span class="text-[9px] font-bold uppercase text-slate-400"
+                    >Tổ hợp phím tắt:</span
+                  >
                   <div class="relative flex items-center cyber-input-group overflow-hidden">
-                    <Input v-model="selectedButton.shortcutValue" type="text" placeholder="Chưa gán phím" class="border-0 bg-transparent px-3 py-1.5 shadow-none" disabled />
+                    <Input
+                      v-model="selectedButton.shortcutValue"
+                      type="text"
+                      placeholder="Chưa gán phím"
+                      class="border-0 bg-transparent px-3 py-1.5 shadow-none"
+                      disabled
+                    />
                     <button
                       @click="toggleRecording"
                       class="cyber-record-btn h-auto text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 cursor-pointer"
@@ -835,7 +996,10 @@ const updateStatusText = computed(() => {
                       {{ isRecording ? 'Thu...' : 'Thu' }}
                     </button>
                   </div>
-                  <p class="text-[9px] text-fuchsia-400 font-semibold select-none leading-relaxed animate-pulse" v-if="isRecording">
+                  <p
+                    class="text-[9px] text-fuchsia-400 font-semibold select-none leading-relaxed animate-pulse"
+                    v-if="isRecording"
+                  >
                     ⚠️ Nhấp tổ hợp phím bất kỳ trên bàn phím của bạn để ghi nhận...
                   </p>
                 </div>
@@ -851,25 +1015,33 @@ const updateStatusText = computed(() => {
                       @click="toggleMod('meta')"
                       class="cyber-preset-btn text-[9px] py-1 font-bold uppercase tracking-wider"
                       :class="pendingMods.meta ? 'cyber-tab-active' : ''"
-                    >{{ metaLabel }}</button>
+                    >
+                      {{ metaLabel }}
+                    </button>
                     <button
                       type="button"
                       @click="toggleMod('ctrl')"
                       class="cyber-preset-btn text-[9px] py-1 font-bold uppercase tracking-wider"
                       :class="pendingMods.ctrl ? 'cyber-tab-active' : ''"
-                    >Ctrl</button>
+                    >
+                      Ctrl
+                    </button>
                     <button
                       type="button"
                       @click="toggleMod('shift')"
                       class="cyber-preset-btn text-[9px] py-1 font-bold uppercase tracking-wider"
                       :class="pendingMods.shift ? 'cyber-tab-active' : ''"
-                    >Shift</button>
+                    >
+                      Shift
+                    </button>
                     <button
                       type="button"
                       @click="toggleMod('alt')"
                       class="cyber-preset-btn text-[9px] py-1 font-bold uppercase tracking-wider"
                       :class="pendingMods.alt ? 'cyber-tab-active' : ''"
-                    >{{ altLabel }}</button>
+                    >
+                      {{ altLabel }}
+                    </button>
                   </div>
                   <div class="flex gap-1.5">
                     <Input
@@ -881,14 +1053,24 @@ const updateStatusText = computed(() => {
                     />
                     <button
                       type="button"
-                      @click="applyManualKey(manualKey.trim().length === 1 ? manualKey.trim().toUpperCase() : manualKey.trim())"
+                      @click="
+                        applyManualKey(
+                          manualKey.trim().length === 1
+                            ? manualKey.trim().toUpperCase()
+                            : manualKey.trim(),
+                        )
+                      "
                       :disabled="!manualKey.trim()"
                       class="cyber-action-btn font-bold text-[10px] uppercase tracking-wider px-3 py-1 cursor-pointer disabled:opacity-40"
-                    >Áp dụng</button>
+                    >
+                      Áp dụng
+                    </button>
                   </div>
                 </div>
                 <div class="flex flex-col gap-1.5 pt-2 cyber-divider">
-                  <span class="text-[9px] font-bold uppercase tracking-widest text-slate-500">Mẫu gợi ý nhanh:</span>
+                  <span class="text-[9px] font-bold uppercase tracking-widest text-slate-500"
+                    >Mẫu gợi ý nhanh:</span
+                  >
                   <div class="grid grid-cols-2 gap-1.5 max-h-[105px] overflow-y-auto pr-1">
                     <button
                       v-for="preset in shortcutPresets"
@@ -925,7 +1107,14 @@ const updateStatusText = computed(() => {
                   <span class="text-[9px] font-bold uppercase text-slate-400">
                     {{ isMac ? 'Đường dẫn App macOS (.app):' : 'Đường dẫn file chạy (.exe):' }}
                   </span>
-                  <Input v-model="selectedButton.appPath" type="text" :placeholder="isMac ? 'e.g. /Applications/Safari.app' : 'e.g. C:\\Windows\\notepad.exe'" @input="saveButtonSettings" />
+                  <Input
+                    v-model="selectedButton.appPath"
+                    type="text"
+                    :placeholder="
+                      isMac ? 'e.g. /Applications/Safari.app' : 'e.g. C:\\Windows\\notepad.exe'
+                    "
+                    @input="saveButtonSettings"
+                  />
                 </div>
                 <button
                   type="button"
@@ -936,7 +1125,9 @@ const updateStatusText = computed(() => {
                   <span>Browse installed apps...</span>
                 </button>
                 <div class="flex flex-col gap-1.5 pt-2 cyber-divider">
-                  <span class="text-[9px] font-bold uppercase tracking-widest text-slate-500">Chọn nhanh ứng dụng:</span>
+                  <span class="text-[9px] font-bold uppercase tracking-widest text-slate-500"
+                    >Chọn nhanh ứng dụng:</span
+                  >
                   <div class="grid grid-cols-2 gap-1.5 max-h-[120px] overflow-y-auto pr-1">
                     <button
                       v-for="preset in appPresets"
@@ -963,18 +1154,26 @@ const updateStatusText = computed(() => {
                   class="w-full text-[11px] font-mono cyber-input-group bg-transparent px-2.5 py-2 resize-y focus:outline-none"
                   @input="saveButtonSettings"
                 ></textarea>
-                <p class="text-[9px] font-bold leading-relaxed text-amber-400/90 cyber-warning px-2 py-1.5">
-                  ⚠ Lệnh chạy với quyền user hiện tại — chỉ dùng cho command bạn tin cậy.
-                  Trên macOS/Linux qua <span class="font-mono">/bin/sh -c</span>, Windows qua <span class="font-mono">cmd /C</span>.
+                <p
+                  class="text-[9px] font-bold leading-relaxed text-amber-400/90 cyber-warning px-2 py-1.5"
+                >
+                  ⚠ Lệnh chạy với quyền user hiện tại — chỉ dùng cho command bạn tin cậy. Trên
+                  macOS/Linux qua <span class="font-mono">/bin/sh -c</span>, Windows qua
+                  <span class="font-mono">cmd /C</span>.
                 </p>
               </div>
             </div>
           </div>
 
           <!-- Empty state -->
-          <div v-else class="flex flex-1 flex-col items-center justify-center p-6 text-center select-none cyber-empty my-2">
+          <div
+            v-else
+            class="flex flex-1 flex-col items-center justify-center p-6 text-center select-none cyber-empty my-2"
+          >
             <Icon icon="lucide:pointer" class="text-2xl mb-2 text-slate-600" />
-            <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wider max-w-[200px] leading-relaxed">
+            <span
+              class="text-[10px] text-slate-500 font-bold uppercase tracking-wider max-w-[200px] leading-relaxed"
+            >
               Chọn ô nút bên lưới mô phỏng để gán sự kiện
             </span>
           </div>
@@ -982,32 +1181,49 @@ const updateStatusText = computed(() => {
       </div>
 
       <!-- Right Preview -->
-      <section class="cyber-panel cyber-panel--no-blur flex-1 flex flex-col p-4 relative items-center justify-center overflow-hidden">
-        <span class="absolute top-6 left-8 text-[10px] font-bold uppercase tracking-widest text-cyan-400/50 select-none">
+      <section
+        class="cyber-panel cyber-panel--no-blur flex-1 flex flex-col p-4 relative items-center justify-center overflow-hidden"
+      >
+        <span
+          class="absolute top-6 left-8 text-[10px] font-bold uppercase tracking-widest text-cyan-400/50 select-none"
+        >
           Mô hình Stream Desk cảm ứng thực tế
         </span>
 
         <!-- Cyberpunk Stream Deck Shell -->
-        <div class="cyber-shell max-w-2xl w-full h-[80%] flex items-center justify-center p-4 relative">
+        <div
+          class="cyber-shell max-w-2xl w-full h-[80%] flex items-center justify-center p-4 relative"
+        >
           <div class="scanline absolute inset-0 pointer-events-none opacity-[0.03]" />
           <div class="absolute inset-0 pointer-events-none opacity-[0.025] bg-grid-dot" />
 
-          <span class="absolute top-2 left-2 w-4 h-4 border-t-[3px] border-l-[3px] border-cyan-500/60 pointer-events-none" />
-          <span class="absolute top-2 right-2 w-4 h-4 border-t-[3px] border-r-[3px] border-fuchsia-500/60 pointer-events-none" />
-          <span class="absolute bottom-2 left-2 w-4 h-4 border-b-[3px] border-l-[3px] border-fuchsia-500/60 pointer-events-none" />
-          <span class="absolute bottom-2 right-2 w-4 h-4 border-b-[3px] border-r-[3px] border-cyan-500/60 pointer-events-none" />
+          <span
+            class="absolute top-2 left-2 w-4 h-4 border-t-[3px] border-l-[3px] border-cyan-500/60 pointer-events-none"
+          />
+          <span
+            class="absolute top-2 right-2 w-4 h-4 border-t-[3px] border-r-[3px] border-fuchsia-500/60 pointer-events-none"
+          />
+          <span
+            class="absolute bottom-2 left-2 w-4 h-4 border-b-[3px] border-l-[3px] border-fuchsia-500/60 pointer-events-none"
+          />
+          <span
+            class="absolute bottom-2 right-2 w-4 h-4 border-b-[3px] border-r-[3px] border-cyan-500/60 pointer-events-none"
+          />
 
           <div
-            v-draggable="[layoutStore.layout.buttons, {
-              ghostClass: 'cyber-ghost',
-              animation: 200,
-              forceFallback: true,
-              fallbackOnBody: true,
-              delay: 100,
-              delayOnTouchOnly: true,
-              touchStartThreshold: 5,
-              onUpdate,
-            }]"
+            v-draggable="[
+              layoutStore.layout.buttons,
+              {
+                ghostClass: 'cyber-ghost',
+                animation: 200,
+                forceFallback: true,
+                fallbackOnBody: true,
+                delay: 100,
+                delayOnTouchOnly: true,
+                touchStartThreshold: 5,
+                onUpdate,
+              },
+            ]"
             class="grid gap-3 w-full h-full max-w-full max-h-full items-stretch justify-items-stretch relative z-10 min-h-0 min-w-0"
             :style="{
               gridTemplateColumns: `repeat(${layoutStore.layout.cols}, minmax(0, 1fr))`,
@@ -1048,12 +1264,15 @@ const updateStatusText = computed(() => {
 
           <!-- Modal Header -->
           <div class="flex items-center gap-3 cyber-divider pb-4">
-            <div class="h-9 w-9 cyber-hex flex items-center justify-center text-lg">
-              🛡️
-            </div>
+            <!-- <div class="h-9 w-9 cyber-hex flex items-center justify-center text-lg">🛡️</div> -->
+            <img src="/logo.png" alt="Logo" class="h-9 w-9" />
             <div>
-              <h2 class="text-sm font-bold text-slate-50 uppercase tracking-wider">Thiết lập & thông tin hệ thống</h2>
-              <p class="text-[9px] text-slate-500 mt-0.5">Tự động cấu hình, updater và giấy phép phần mềm</p>
+              <h2 class="text-sm font-bold text-slate-50 uppercase tracking-wider">
+                Thiết lập & thông tin hệ thống
+              </h2>
+              <p class="text-[9px] text-slate-500 mt-0.5">
+                Tự động cấu hình, updater và giấy phép phần mềm
+              </p>
             </div>
           </div>
 
@@ -1061,7 +1280,9 @@ const updateStatusText = computed(() => {
           <div class="flex flex-col gap-5 text-xs text-slate-300">
             <!-- App Info -->
             <div class="flex flex-col gap-2.5">
-              <span class="text-[9px] font-bold uppercase tracking-wider text-cyan-400/70">Thông tin ứng dụng</span>
+              <span class="text-[9px] font-bold uppercase tracking-wider text-cyan-400/70"
+                >Thông tin ứng dụng</span
+              >
               <div class="cyber-inset grid grid-cols-2 gap-y-2 p-3">
                 <span class="text-slate-400 font-medium">Tên phần mềm:</span>
                 <span class="text-slate-200 font-bold justify-self-end">Android Stream Desk</span>
@@ -1073,7 +1294,11 @@ const updateStatusText = computed(() => {
                 <span class="font-mono text-slate-200 justify-self-end">MIT License</span>
                 <span class="text-slate-400 font-medium">Mã nguồn:</span>
                 <span class="justify-self-end">
-                  <a href="https://github.com/aniadev/android-stream-desk" target="_blank" class="text-cyan-400 hover:underline flex items-center gap-1">
+                  <a
+                    href="https://github.com/aniadev/android-stream-desk"
+                    target="_blank"
+                    class="text-cyan-400 hover:underline flex items-center gap-1"
+                  >
                     GitHub Repo <Icon icon="lucide:external-link" class="text-[10px]" />
                   </a>
                 </span>
@@ -1082,7 +1307,9 @@ const updateStatusText = computed(() => {
 
             <!-- Updater -->
             <div class="flex flex-col gap-2.5">
-              <span class="text-[9px] font-bold uppercase tracking-wider text-cyan-400/70">Trình kiểm tra cập nhật (Tauri auto-updater)</span>
+              <span class="text-[9px] font-bold uppercase tracking-wider text-cyan-400/70"
+                >Trình kiểm tra cập nhật (Tauri auto-updater)</span
+              >
               <div class="cyber-inset flex flex-col gap-3 p-3">
                 <div class="flex items-center justify-between">
                   <div class="flex flex-col gap-0.5">
@@ -1093,16 +1320,22 @@ const updateStatusText = computed(() => {
                   </div>
                   <button
                     class="cyber-action-btn font-bold cursor-pointer disabled:opacity-50 text-[10px] uppercase tracking-wider px-3 py-1.5"
-                    :disabled="updaterStore.state === 'checking' || updaterStore.state === 'downloading'"
+                    :disabled="
+                      updaterStore.state === 'checking' || updaterStore.state === 'downloading'
+                    "
                     @click="updaterStore.checkForUpdates()"
                   >
                     Check
                   </button>
                 </div>
 
-                <div v-if="updaterStore.state === 'available'" class="flex flex-col gap-2 pt-2 cyber-divider">
+                <div
+                  v-if="updaterStore.state === 'available'"
+                  class="flex flex-col gap-2 pt-2 cyber-divider"
+                >
                   <p class="text-[10px] text-emerald-400 font-medium">
-                    Có bản cập nhật mới v{{ updaterStore.update?.version }}. Bạn có muốn tải xuống và cài đặt tự động?
+                    Có bản cập nhật mới v{{ updaterStore.update?.version }}. Bạn có muốn tải xuống
+                    và cài đặt tự động?
                   </p>
                   <button
                     class="cyber-action-btn font-bold w-full uppercase tracking-wider text-[10px] py-1.5 cursor-pointer"
@@ -1112,13 +1345,19 @@ const updateStatusText = computed(() => {
                   </button>
                 </div>
 
-                <div v-if="updaterStore.state === 'downloading'" class="flex flex-col gap-1.5 pt-2 cyber-divider">
+                <div
+                  v-if="updaterStore.state === 'downloading'"
+                  class="flex flex-col gap-1.5 pt-2 cyber-divider"
+                >
                   <div class="flex justify-between text-[10px] font-mono text-slate-300">
                     <span>Đang tải xuống...</span>
                     <span class="text-cyan-400">{{ updaterStore.progressPct }}%</span>
                   </div>
                   <div class="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-                    <div class="h-full bg-cyan-500 rounded-full transition-all duration-150" :style="{ width: `${updaterStore.progressPct}%` }"></div>
+                    <div
+                      class="h-full bg-cyan-500 rounded-full transition-all duration-150"
+                      :style="{ width: `${updaterStore.progressPct}%` }"
+                    ></div>
                   </div>
                 </div>
               </div>
@@ -1131,7 +1370,14 @@ const updateStatusText = computed(() => {
     <!-- App Picker Modal -->
     <AppPickerModal
       v-model="appPickerOpen"
-      @select="(path: string) => { if (selectedButton) { selectedButton.appPath = path; saveButtonSettings(); } }"
+      @select="
+        (path: string) => {
+          if (selectedButton) {
+            selectedButton.appPath = path;
+            saveButtonSettings();
+          }
+        }
+      "
     />
   </div>
 </template>
@@ -1304,7 +1550,9 @@ const updateStatusText = computed(() => {
 }
 .cyber-select:focus {
   border-color: rgba(0, 240, 255, 0.2);
-  box-shadow: 0 0 0 1px rgba(0, 240, 255, 0.1), inset 0 2px 8px rgba(0, 0, 0, 0.3);
+  box-shadow:
+    0 0 0 1px rgba(0, 240, 255, 0.1),
+    inset 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 /* --- Preset buttons --- */
@@ -1379,10 +1627,14 @@ const updateStatusText = computed(() => {
     0 0 80px -16px rgba(0, 240, 255, 0.04),
     inset 0 0 40px -16px rgba(0, 240, 255, 0.02);
   clip-path: polygon(
-    6px 0%, calc(100% - 6px) 0%,
-    100% 6px, 100% calc(100% - 6px),
-    calc(100% - 6px) 100%, 6px 100%,
-    0% calc(100% - 6px), 0% 6px
+    6px 0%,
+    calc(100% - 6px) 0%,
+    100% 6px,
+    100% calc(100% - 6px),
+    calc(100% - 6px) 100%,
+    6px 100%,
+    0% calc(100% - 6px),
+    0% 6px
   );
 }
 

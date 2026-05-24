@@ -25,7 +25,7 @@ const showToast = (msg: string, ms = 3500) => {
 type OrientationMode = 'auto' | 'landscape' | 'portrait' | 'landscape-reverse';
 const ORIENTATION_KEY = 'asd.orientation';
 const orientationMode = ref<OrientationMode>(
-  (localStorage.getItem(ORIENTATION_KEY) as OrientationMode) || 'landscape'
+  (localStorage.getItem(ORIENTATION_KEY) as OrientationMode) || 'landscape',
 );
 
 const orientationOptions: { value: OrientationMode; label: string; icon: string }[] = [
@@ -37,9 +37,9 @@ const orientationOptions: { value: OrientationMode; label: string; icon: string 
 
 // Android ActivityInfo.SCREEN_ORIENTATION_* values — matches Rust set_android_orientation.
 const ANDROID_ORIENTATION: Record<OrientationMode, number> = {
-  'auto': -1,             // UNSPECIFIED
-  'landscape': 0,         // LANDSCAPE
-  'portrait': 1,          // PORTRAIT
+  auto: -1, // UNSPECIFIED
+  landscape: 0, // LANDSCAPE
+  portrait: 1, // PORTRAIT
   'landscape-reverse': 8, // REVERSE_LANDSCAPE
 };
 
@@ -65,9 +65,11 @@ const applyOrientation = async (mode: OrientationMode) => {
       so.unlock?.();
     } else {
       const target =
-        mode === 'landscape' ? 'landscape-primary' :
-        mode === 'landscape-reverse' ? 'landscape-secondary' :
-        'portrait-primary';
+        mode === 'landscape'
+          ? 'landscape-primary'
+          : mode === 'landscape-reverse'
+            ? 'landscape-secondary'
+            : 'portrait-primary';
       await so.lock(target);
     }
   } catch (_) {
@@ -96,7 +98,7 @@ const handleDisconnect = () => {
 
 watch(
   () => layoutStore.lastToast,
-  (next) => {
+  next => {
     if (!next) return;
     toastMessage.value = next.message;
     if (toastTimer !== null) clearTimeout(toastTimer);
@@ -105,7 +107,7 @@ watch(
       toastTimer = null;
     }, 3500);
   },
-  { deep: true }
+  { deep: true },
 );
 
 onMounted(async () => {
@@ -139,18 +141,17 @@ onUnmounted(() => {
 
 <template>
   <div class="h-screen w-screen flex flex-col bg-slate-950 overflow-hidden relative">
-    
     <!-- Grid Area occupies 98% of the screen when connected -->
-    <div 
-      v-if="connectionStore.status === 'connected'" 
-      class="flex-1 w-full h-full flex items-center justify-center p-2"
+    <div
+      v-if="connectionStore.status === 'connected'"
+      class="flex-1 w-full h-full flex items-center justify-center"
     >
-      <GridArea class="w-full h-full scale-[0.98] origin-center" />
+      <GridArea class="w-full h-full origin-center" />
     </div>
 
     <!-- Offline Glass Connection Modal Popup centered when not connected -->
-    <div 
-      v-else 
+    <div
+      v-else
       class="absolute inset-0 z-40 bg-slate-950/70 backdrop-blur-md flex flex-col items-center justify-center p-4 select-none"
     >
       <!-- Offline banner if network is down altogether -->
@@ -170,10 +171,18 @@ onUnmounted(() => {
         v-else-if="connectionStore.isReconnecting"
         class="mb-6 w-full max-w-sm bg-indigo-600/90 text-white px-4 py-3 rounded-2xl shadow-xl text-xs font-semibold flex items-center gap-3 border border-indigo-500/20"
       >
-        <span class="inline-block animate-spin h-4 w-4 border-2 border-white/30 border-t-white rounded-full"></span>
+        <span
+          class="inline-block animate-spin h-4 w-4 border-2 border-white/30 border-t-white rounded-full"
+        ></span>
         <div class="flex flex-col leading-tight flex-1">
-          <span class="font-bold">Đang thử lại {{ connectionStore.reconnectAttempts }}/{{ connectionStore.maxReconnectAttempts }}</span>
-          <span class="opacity-90 mt-0.5">Sửa IP/Port bên dưới rồi nhấn Kết nối ngay để dừng chu kỳ.</span>
+          <span class="font-bold"
+            >Đang thử lại {{ connectionStore.reconnectAttempts }}/{{
+              connectionStore.maxReconnectAttempts
+            }}</span
+          >
+          <span class="opacity-90 mt-0.5"
+            >Sửa IP/Port bên dưới rồi nhấn Kết nối ngay để dừng chu kỳ.</span
+          >
         </div>
         <button
           @click="connectionStore.cancelReconnect()"
@@ -185,52 +194,80 @@ onUnmounted(() => {
 
       <!-- Final error after max attempts -->
       <div
-        v-else-if="connectionStore.status === 'error' && connectionStore.reconnectAttempts >= connectionStore.maxReconnectAttempts"
+        v-else-if="
+          connectionStore.status === 'error' &&
+          connectionStore.reconnectAttempts >= connectionStore.maxReconnectAttempts
+        "
         class="mb-6 w-full max-w-sm bg-rose-600/90 text-white px-4 py-3 rounded-2xl shadow-xl text-xs font-semibold flex items-center gap-3 border border-rose-500/20"
       >
         <Icon icon="mdi:alert-circle" class="text-xl" />
         <div class="flex flex-col leading-tight">
-          <span class="font-bold">Không kết nối được sau {{ connectionStore.maxReconnectAttempts }} lần thử</span>
-          <span class="opacity-90 mt-0.5">Kiểm tra Companion đang chạy + IP/Port đúng rồi thử lại.</span>
+          <span class="font-bold"
+            >Không kết nối được sau {{ connectionStore.maxReconnectAttempts }} lần thử</span
+          >
+          <span class="opacity-90 mt-0.5"
+            >Kiểm tra Companion đang chạy + IP/Port đúng rồi thử lại.</span
+          >
         </div>
       </div>
 
-      <div class="w-[380px] max-w-full bg-slate-900/80 border border-slate-800 rounded-3xl p-6 shadow-2xl flex flex-col items-center gap-5 text-center relative overflow-hidden">
+      <div
+        class="w-[380px] max-w-full bg-slate-900/80 border border-slate-800 rounded-3xl p-6 shadow-2xl flex flex-col items-center gap-5 text-center relative overflow-hidden"
+      >
         <!-- Glass shine overlay -->
-        <span class="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent pointer-events-none"></span>
+        <span
+          class="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent pointer-events-none"
+        ></span>
 
-        <div class="h-14 w-14 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+        <div
+          class="h-14 w-14 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/20"
+        >
           <Icon icon="mdi:wifi-strength-off" class="text-3xl text-slate-100" />
         </div>
 
         <div class="flex flex-col gap-1">
-          <h2 class="text-base font-extrabold text-slate-100 uppercase tracking-wider">Chưa kết nối Companion</h2>
+          <h2 class="text-base font-extrabold text-slate-100 uppercase tracking-wider">
+            Chưa kết nối Companion
+          </h2>
           <p class="text-[10px] text-slate-500 leading-normal max-w-xs px-2">
-            Nhập địa chỉ IPv4 nội bộ và Port (ở Companion HUD góc phải) để đồng bộ hóa lưới phím macro.
+            Nhập địa chỉ IPv4 nội bộ và Port (ở Companion HUD góc phải) để đồng bộ hóa lưới phím
+            macro.
           </p>
         </div>
 
         <div class="flex flex-col w-full gap-3">
           <div class="flex gap-2">
             <div class="flex-1 flex flex-col gap-1.5 align-left text-left">
-              <label class="text-[8px] uppercase tracking-wider font-extrabold text-slate-455">Địa chỉ IP:</label>
+              <label class="text-[8px] uppercase tracking-wider font-extrabold text-slate-455"
+                >Địa chỉ IP:</label
+              >
               <input
                 v-model="connectionStore.ipAddress"
                 type="text"
                 placeholder="e.g. 192.168.1.15"
                 class="w-full bg-slate-950 border text-slate-200 rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-700 transition"
-                :class="isSubmitted && !connectionStore.ipAddress ? 'border-rose-650 ring-1 ring-rose-650/50' : 'border-slate-800'"
-                :disabled="connectionStore.status === 'connecting' && !connectionStore.isReconnecting"
+                :class="
+                  isSubmitted && !connectionStore.ipAddress
+                    ? 'border-rose-650 ring-1 ring-rose-650/50'
+                    : 'border-slate-800'
+                "
+                :disabled="
+                  connectionStore.status === 'connecting' && !connectionStore.isReconnecting
+                "
               />
             </div>
             <div class="w-20 flex flex-col gap-1.5 align-left text-left">
-              <label class="text-[8px] uppercase tracking-wider font-extrabold text-slate-455">Port:</label>
+              <label class="text-[8px] uppercase tracking-wider font-extrabold text-slate-455"
+                >Port:</label
+              >
               <input
                 v-model="connectionStore.port"
                 type="text"
                 placeholder="Port"
                 class="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded-xl px-2 py-2.5 text-center text-xs focus:outline-none focus:ring-1 focus:ring-slate-700 transition"
-                :disabled="connectionStore.status === 'connecting' && !connectionStore.isReconnecting"
+                :disabled="
+                  connectionStore.status === 'connecting' && !connectionStore.isReconnecting
+                "
               />
             </div>
           </div>
@@ -240,20 +277,32 @@ onUnmounted(() => {
           <button
             @click="handleConnect"
             class="w-full font-extrabold text-xs uppercase tracking-wider py-3 rounded-xl transition duration-150 transform hover:brightness-105 active:scale-98 shadow-md flex items-center justify-center gap-2 cursor-pointer text-white"
-            :class="connectionStore.status === 'connecting' ? 'bg-amber-600 shadow-amber-900/10' : 'bg-gradient-to-r from-violet-600 to-indigo-600 shadow-indigo-900/20'"
+            :class="
+              connectionStore.status === 'connecting'
+                ? 'bg-amber-600 shadow-amber-900/10'
+                : 'bg-gradient-to-r from-violet-600 to-indigo-600 shadow-indigo-900/20'
+            "
             :disabled="connectionStore.status === 'connecting'"
           >
-            <span v-if="connectionStore.status === 'connecting'" class="inline-block animate-spin h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full"></span>
-            {{ connectionStore.status === 'connecting' ? 'Đang kết nối...' :
-               connectionStore.status === 'error' ? 'Lỗi - Thử lại ngay' : 'Kết nối ngay' }}
+            <span
+              v-if="connectionStore.status === 'connecting'"
+              class="inline-block animate-spin h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full"
+            ></span>
+            {{
+              connectionStore.status === 'connecting'
+                ? 'Đang kết nối...'
+                : connectionStore.status === 'error'
+                  ? 'Lỗi - Thử lại ngay'
+                  : 'Kết nối ngay'
+            }}
           </button>
         </div>
       </div>
     </div>
 
     <!-- Absolute miniature HUD float: small pill on the top right when connected -->
-    <div 
-      v-if="connectionStore.status === 'connected'" 
+    <div
+      v-if="connectionStore.status === 'connected'"
       class="absolute top-4 right-4 z-40 bg-slate-900/80 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-2 border border-slate-800 shadow-lg select-none duration-150 hover:bg-slate-850 cursor-pointer animate-pulse"
       @click="settingsOpen = true"
     >
@@ -263,13 +312,15 @@ onUnmounted(() => {
 
     <!-- Settings Modal to inspect IP/Port or click 'Ngắt kết nối' -->
     <transition name="fade">
-      <div 
+      <div
         v-if="settingsOpen"
         class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 select-none"
       >
-        <div class="w-[325px] max-w-full bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-2xl flex flex-col gap-5 relative">
+        <div
+          class="w-[325px] max-w-full bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-2xl flex flex-col gap-5 relative"
+        >
           <!-- Close button -->
-          <button 
+          <button
             class="absolute top-4 right-4 text-slate-400 hover:text-white cursor-pointer"
             @click="settingsOpen = false"
           >
@@ -278,18 +329,24 @@ onUnmounted(() => {
 
           <!-- Header -->
           <div class="flex items-center gap-2.5 border-b border-slate-800/80 pb-3">
-            <div class="h-8 w-8 rounded-lg bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center text-sm shadow">
+            <div
+              class="h-8 w-8 rounded-lg bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center text-sm shadow"
+            >
               ⚙️
             </div>
             <div>
-              <h3 class="text-xs font-bold text-slate-50 uppercase tracking-wider">Thông tin kết nối</h3>
+              <h3 class="text-xs font-bold text-slate-50 uppercase tracking-wider">
+                Thông tin kết nối
+              </h3>
               <p class="text-[8px] text-slate-500 uppercase font-bold mt-0.5">Companion config</p>
             </div>
           </div>
 
           <!-- Body -->
           <div class="flex flex-col gap-3">
-            <div class="flex flex-col gap-1 rounded-xl bg-slate-950/60 p-3 border border-slate-850/60 text-xs">
+            <div
+              class="flex flex-col gap-1 rounded-xl bg-slate-950/60 p-3 border border-slate-850/60 text-xs"
+            >
               <div class="flex justify-between py-1 border-b border-slate-900/60">
                 <span class="text-slate-450 font-semibold">Server Address:</span>
                 <span class="font-mono text-slate-200 font-bold">
@@ -306,17 +363,23 @@ onUnmounted(() => {
             </div>
 
             <!-- Orientation lock -->
-            <div class="flex flex-col gap-2 rounded-xl bg-slate-950/60 p-3 border border-slate-850/60">
-              <span class="text-[8px] uppercase tracking-wider font-extrabold text-slate-450">Xoay màn hình</span>
+            <div
+              class="flex flex-col gap-2 rounded-xl bg-slate-950/60 p-3 border border-slate-850/60"
+            >
+              <span class="text-[8px] uppercase tracking-wider font-extrabold text-slate-450"
+                >Xoay màn hình</span
+              >
               <div class="grid grid-cols-2 gap-1.5">
                 <button
                   v-for="opt in orientationOptions"
                   :key="opt.value"
                   @click="setOrientation(opt.value)"
                   class="flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-wider py-2 rounded-lg border transition duration-150 cursor-pointer"
-                  :class="orientationMode === opt.value
-                    ? 'bg-violet-600 border-violet-500 text-white shadow shadow-violet-900/40'
-                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'"
+                  :class="
+                    orientationMode === opt.value
+                      ? 'bg-violet-600 border-violet-500 text-white shadow shadow-violet-900/40'
+                      : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+                  "
                 >
                   <Icon :icon="opt.icon" class="text-sm" />
                   {{ opt.label }}

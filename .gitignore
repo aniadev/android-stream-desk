@@ -29,3 +29,4 @@ src-tauri/target
 # Android signing — never commit keystore or properties
 *.keystore
 keystore.properties
+release.keystore.backup.key
