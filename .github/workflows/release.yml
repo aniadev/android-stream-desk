@@ -67,20 +67,21 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Locate MSVC link.exe and set linker env
+      - name: Setup MSVC environment (vcvarsall → PATH/INCLUDE/LIB)
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Override broken CC/CXX env vars set by runner image
         shell: pwsh
         run: |
-          $vswhere = "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
-          if (-not (Test-Path $vswhere)) { Write-Host "vswhere not found"; exit 0 }
-          $vsPath = & $vswhere -latest -products * -property installationPath
-          if (-not $vsPath) { Write-Host "vswhere returned empty"; exit 0 }
-          $link = Get-ChildItem "$vsPath\VC\Tools\MSVC\*\bin\HostX64\x64\link.exe" `
-                    -ErrorAction SilentlyContinue |
-                    Sort-Object FullName -Descending |
-                    Select-Object -First 1 -ExpandProperty FullName
-          if (-not $link) { Write-Host "link.exe not found under $vsPath"; exit 0 }
-          Write-Host "Linker: $link"
-          "CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER=$link" | Out-File -Append $env:GITHUB_ENV
+          # Runner image pre-sets CC/CXX to BuildTools paths that don't exist.
+          # cc-rs splits the value on spaces -> tries to run "C:\Program" as the compiler.
+          # ilammy already added the real MSVC bin to PATH so bare tool names resolve.
+          @(
+            "CC_x86_64-pc-windows-msvc=cl.exe",
+            "CXX_x86_64-pc-windows-msvc=cl.exe",
+            "AR_x86_64-pc-windows-msvc=lib.exe",
+            "CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER=link.exe"
+          ) | Out-File -Append $env:GITHUB_ENV
 
       - name: Build + upload to release
         uses: tauri-apps/tauri-action@v0
