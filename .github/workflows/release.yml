@@ -70,18 +70,30 @@ jobs:
       - name: Setup MSVC environment (vcvarsall → PATH/INCLUDE/LIB)
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Override broken CC/CXX env vars set by runner image
+      - name: Override broken CC/CXX env vars (runner image sets them to paths with spaces)
+        shell: bash
+        run: |
+          # cc-rs splits env var values on spaces: "C:\Program Files\..." -> tries "C:\Program"
+          # ilammy added the real MSVC bin to PATH so bare names resolve correctly.
+          echo "CC_x86_64-pc-windows-msvc=cl.exe"  >> "$GITHUB_ENV"
+          echo "CXX_x86_64-pc-windows-msvc=cl.exe" >> "$GITHUB_ENV"
+          echo "AR_x86_64-pc-windows-msvc=lib.exe"  >> "$GITHUB_ENV"
+
+      - name: Create BuildTools→Enterprise junction for cargo linker path
         shell: pwsh
         run: |
-          # Runner image pre-sets CC/CXX to BuildTools paths that don't exist.
-          # cc-rs splits the value on spaces -> tries to run "C:\Program" as the compiler.
-          # ilammy already added the real MSVC bin to PATH so bare tool names resolve.
-          @(
-            "CC_x86_64-pc-windows-msvc=cl.exe",
-            "CXX_x86_64-pc-windows-msvc=cl.exe",
-            "AR_x86_64-pc-windows-msvc=lib.exe",
-            "CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER=link.exe"
-          ) | Out-File -Append $env:GITHUB_ENV
+          # cargo reads MSVC linker path from Windows registry → points to BuildTools which
+          # doesn't have link.exe. Create a junction so the registry path resolves to Enterprise.
+          $buildTools = "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools"
+          $enterprise  = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise"
+          if (-not (Test-Path $enterprise)) {
+            Write-Host "Enterprise not found at $enterprise — skipping junction"; exit 0
+          }
+          if (Test-Path $buildTools) {
+            Write-Host "BuildTools already exists — no junction needed"; exit 0
+          }
+          New-Item -ItemType Junction -Path $buildTools -Target $enterprise -Force | Out-Null
+          Write-Host "Junction: $buildTools -> $enterprise"
 
       - name: Build + upload to release
         uses: tauri-apps/tauri-action@v0
