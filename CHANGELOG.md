@@ -4,6 +4,22 @@ All notable changes to the **Android Stream Desk** project will be documented in
 
 ---
 
+## [1.2.0] - 2026-05-24
+
+### Added
+- **Shell Command Action**: New button action type `command` executes arbitrary shell commands — `sh -c` on macOS/Linux, `cmd /C` on Windows. Power users can now run scripts, open URLs in specific apps, or chain multiple commands from a single macro button. Includes a security warning in the UI.
+- **Hex Color Input for Button Background**: A text input alongside the native color picker allows directly typing or pasting hex codes (`#RRGGBB` or 3-char shorthand `#RGB`). Two-way sync between text input and color swatch; invalid input reverts on blur.
+- **App Picker Modal (Windows)**: Browse all installed applications from a searchable modal instead of manually typing exe paths. Features fuzzy search (Fuse.js), recently-used section, keyboard navigation (↑↓ Enter Esc), matched-character highlighting, and stale-while-revalidate caching for instant re-open.
+- **Android Release APK Signing**: CI now produces a signed `app-universal-release.apk` using a keystore stored in GitHub Actions secrets. Gradle signing config reads from `keystore.properties` at runtime with a safe fallback to unsigned when secrets are absent. Includes `scripts/generate-keystore.sh` helper and `docs/release/signing-setup.md` guide.
+- **Android Debug APK CI Workflow**: New `android-debug.yml` GitHub Actions workflow builds a debug APK on `workflow_dispatch` or push to the `releases` branch, uploading it as an artifact (14-day retention) — no tag or release required.
+
+### Fixed
+- **Drag-and-Drop Breaks After Grid Resize**: Buttons snapped back to old positions after changing row/column count because `vue-draggable-plus` held a stale array reference. Layout store now mutates the buttons array in-place (`splice`) instead of replacing it, preserving Sortable's reference identity.
+- **Neon Glow Color Inaccuracy**: `hexToRgb` rejected 3-character hex shorthand (`#RGB`), falling back to cyan for all shorthand colors. Additionally, neon HSL was hardcoded to 90% saturation/58% lightness regardless of the original color. Now resolves shorthand via `normalizeHex` and clamps lightness to 45–70% / saturation to ≥60% while respecting the source hue.
+- **GridButton Click Unreliable in Dashboard**: Sortable.js occasionally consumed fast clicks as drag-start events. Added `delay: 100ms` + `delayOnTouchOnly: true` + `touchStartThreshold: 5` to the draggable config, disambiguating taps from drags without affecting drag UX.
+
+---
+
 ## [1.1.0] - 2026-05-24
 
 ### Added
