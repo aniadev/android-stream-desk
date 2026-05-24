@@ -41,8 +41,19 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Setup MSVC linker environment
-        uses: ilammy/msvc-dev-cmd@v1
+      - name: Locate MSVC link.exe via vswhere
+        id: msvc-linker
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $installPath = & $vswhere -latest -products * -requires Microsoft.VisualCpp.Tools.HostX64.TargetX64 -property installationPath 2>$null
+          if (-not $installPath) {
+            $installPath = & $vswhere -latest -products * -property installationPath 2>$null
+          }
+          $link = Get-ChildItem (Join-Path $installPath "VC\Tools\MSVC\*\bin\HostX64\x64\link.exe") |
+                    Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+          Write-Output "link.exe: $link"
+          "LINK_EXE=$link" | Out-File -Append $env:GITHUB_OUTPUT
 
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
@@ -56,6 +67,7 @@ jobs:
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER: ${{ steps.msvc-linker.outputs.LINK_EXE }}
         run: pnpm tauri build
 
       - name: Upload Windows artifacts to release
