@@ -25,14 +25,14 @@ Issues surfaced by the 2026-05-23 step-04 verify review that intentionally fall 
 
 ## v1.2.0 — split-off goals (2026-05-24)
 
-Selected first goal for this cycle: **Hex Input + Neon Color Fix** (F2 + B2 from `_bmad-output/planning-artifacts/breakdown-v1.2.0.md`). Goals below deferred to subsequent specs — each shippable as its own PR.
+**✅ Done in prior cycles:** F1 Shell Command, F2 Hex Input, B1 Drag-drop fix, B2 Neon color fix, B3 Click fix, DBG1 npm script.
 
-- **F1 — Shell Command Action** (S-CMD1/2/3) — new `command` actionType. Adds `commandValue` field to `ButtonConfig`, Rust `run_shell_command` helper using `sh -c` / `cmd /C`, Dashboard textarea + warning UI. Power-user feature, LAN-only trust assumption.
+**🔧 Current cycle (2026-05-24): App Picker Modal** (F5 — S-APP1/2/3). Spec: `spec-v1.2.0-app-picker.md`.
+
+**⏳ Deferred:**
+
 - **F3 — APK Signing CI** (S-SIGN1/2/3) — gradle `signingConfigs.release` reading `keystore.properties`, GitHub Actions step decoding base64 keystore from secrets, helper script `scripts/generate-keystore.sh` + `docs/release/signing-setup.md`. **Requires Ania to generate keystore and paste 4 GitHub secrets before workflow can sign.**
-- **F4 — Debug APK Build Flow** (S-DBG1/2) — `pnpm android:build:debug` script + `.github/workflows/android-debug.yml` (workflow_dispatch + push on `releases` branch), uploads artifact 14-day retention.
-- **F5 — App Picker Modal** (S-APP1/2/3) — Windows registry enum via `winreg` crate (3 Uninstall hives, junk filter, dedupe), `AppPickerModal.vue` with stale-while-revalidate cache + Fuse.js fuzzy + recents + keyboard nav + highlight. macOS/Linux stub empty Vec.
-- **B1 — Drag-drop hỏng sau resize grid** (S-FIX1) — `src/stores/layout.ts` mutate `buttons` in-place via `splice` instead of reassign, so vue-draggable-plus Sortable instance keeps stable array reference across rows/cols change.
-- **B3 — Click GridButton không chọn được** (S-FIX3) — `src/components/GridArea.vue` `v-draggable` options add `delay: 100, delayOnTouchOnly: true, touchStartThreshold: 5` to distinguish short click from drag start.
+- **F4 Debug APK CI — DBG2** — `.github/workflows/android-debug.yml` (workflow_dispatch + push on `releases` branch), uploads artifact 14-day retention. DBG1 (npm script) already done.
 
 Planning artifact full source: `_bmad-output/planning-artifacts/breakdown-v1.2.0.md`.
 

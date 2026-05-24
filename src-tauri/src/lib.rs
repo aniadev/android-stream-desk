@@ -131,6 +131,157 @@ fn detect_local_ipv4() -> Option<String> {
     }
 }
 
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct InstalledApp {
+    pub name: String,
+    pub path: String,
+    pub icon: Option<String>,
+    pub publisher: Option<String>,
+}
+
+#[cfg(target_os = "windows")]
+fn list_installed_apps_windows() -> Vec<InstalledApp> {
+    use std::collections::HashMap;
+    use winreg::enums::*;
+    use winreg::RegKey;
+
+    let hives: &[(RegKey, &str)] = &[
+        (RegKey::predef(HKEY_LOCAL_MACHINE), r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
+        (RegKey::predef(HKEY_LOCAL_MACHINE), r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"),
+        (RegKey::predef(HKEY_CURRENT_USER), r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
+    ];
+
+    let mut apps: Vec<InstalledApp> = Vec::new();
+
+    for (hive, path) in hives {
+        let uninstall_key = match hive.open_subkey_with_flags(path, KEY_READ) {
+            Ok(k) => k,
+            Err(_) => continue,
+        };
+        for name in uninstall_key.enum_keys().filter_map(|n| n.ok()) {
+            let subkey = match uninstall_key.open_subkey_with_flags(&name, KEY_READ) {
+                Ok(k) => k,
+                Err(_) => continue,
+            };
+
+            let display_name: Option<String> = subkey.get_value("DisplayName").ok();
+            let display_icon: Option<String> = subkey.get_value("DisplayIcon").ok();
+            let install_location: Option<String> = subkey.get_value("InstallLocation").ok();
+            let publisher: Option<String> = subkey.get_value("Publisher").ok();
+            let system_component: Option<u32> = subkey.get_value("SystemComponent").ok();
+
+            let dn = match display_name {
+                Some(ref s) if !s.trim().is_empty() => s,
+                _ => continue,
+            };
+
+            if system_component == Some(1) {
+                continue;
+            }
+
+            let dn_lower = dn.to_lowercase();
+            let is_junk = dn_lower.contains("update for")
+                || dn_lower.contains("hotfix")
+                || dn_lower.contains("security update")
+                || dn_lower.contains("redistributable")
+                || (dn_lower.starts_with("kb") && dn[2..].chars().next().map_or(false, |c| c.is_ascii_digit()));
+            if is_junk {
+                continue;
+            }
+
+            let exe_path = resolve_exe_path(display_icon.as_deref(), install_location.as_deref());
+            let path = match exe_path {
+                Some(p) => p,
+                None => continue,
+            };
+
+            let icon = display_icon.map(|s| {
+                let stripped = s.rsplit_once(',').map(|(base, _)| base).unwrap_or(&s);
+                let lower = stripped.to_lowercase();
+                if lower.ends_with(".exe") || lower.ends_with(".ico") {
+                    stripped.to_string()
+                } else {
+                    path.clone()
+                }
+            });
+
+            apps.push(InstalledApp {
+                name: dn.clone(),
+                path,
+                icon,
+                publisher,
+            });
+        }
+    }
+
+    let mut seen: HashMap<String, InstalledApp> = HashMap::new();
+    for app in apps {
+        let key = app.path.to_lowercase();
+        seen.entry(key)
+            .and_modify(|existing| {
+                if existing.publisher.is_none() && app.publisher.is_some() {
+                    existing.publisher = app.publisher.clone();
+                }
+            })
+            .or_insert(app);
+    }
+
+    let mut result: Vec<InstalledApp> = seen.into_values().collect();
+    result.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    result
+}
+
+#[cfg(target_os = "windows")]
+fn resolve_exe_path(display_icon: Option<&str>, install_location: Option<&str>) -> Option<String> {
+    use std::path::Path;
+
+    if let Some(icon) = display_icon {
+        let stripped = icon.rsplit_once(',').map(|(base, _)| base).unwrap_or(icon);
+        let path = Path::new(stripped);
+        let lower = stripped.to_lowercase();
+        if lower.ends_with(".exe") && path.exists() {
+            return Some(stripped.to_string());
+        }
+    }
+
+    if let Some(loc) = install_location {
+        let dir = Path::new(loc.trim());
+        if !dir.exists() || !dir.is_dir() {
+            return None;
+        }
+        let mut best: Option<(String, u64)> = None;
+        if let Ok(entries) = std::fs::read_dir(dir) {
+            for entry in entries.filter_map(|e| e.ok()) {
+                let fpath = entry.path();
+                let fname = fpath.to_string_lossy().to_lowercase();
+                if fname.ends_with(".exe") {
+                    let size = std::fs::metadata(&fpath).map(|m| m.len()).unwrap_or(0);
+                    if best.as_ref().map_or(true, |(_, s)| size > *s) {
+                        best = Some((fpath.to_string_lossy().to_string(), size));
+                    }
+                }
+            }
+        }
+        return best.map(|(p, _)| p);
+    }
+
+    None
+}
+
+#[tauri::command]
+fn list_installed_apps() -> Vec<InstalledApp> {
+    #[cfg(target_os = "windows")]
+    {
+        list_installed_apps_windows()
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        eprintln!("list_installed_apps: not supported on this platform");
+        Vec::new()
+    }
+}
+
 // -------------------------------------------------------------
 // Core Macro Action Execution (Enigo / Media / App Exec)
 // -------------------------------------------------------------
@@ -462,7 +613,8 @@ pub fn run() {
             get_server_info,
             set_android_orientation,
             open_accessibility_settings,
-            probe_input_permission
+            probe_input_permission,
+            list_installed_apps
         ])
         .setup(|app| {
             let app_handle_ws = app.handle().clone();

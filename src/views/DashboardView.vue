@@ -11,6 +11,7 @@ import { normalizeHex } from '../lib/color';
 // Import Shadcn UI Components
 import Input from '../components/ui/Input.vue';
 import GridButton from '../components/GridButton.vue';
+import AppPickerModal from '../components/AppPickerModal.vue';
 
 const layoutStore = useLayoutStore();
 const updaterStore = useUpdaterStore();
@@ -35,6 +36,7 @@ const isMac = computed(() => {
 
 // Modal Control
 const settingsOpen = ref(false);
+const appPickerOpen = ref(false);
 
 const isRecording = ref(false);
 const shortcutPresets = [
@@ -925,6 +927,14 @@ const updateStatusText = computed(() => {
                   </span>
                   <Input v-model="selectedButton.appPath" type="text" :placeholder="isMac ? 'e.g. /Applications/Safari.app' : 'e.g. C:\\Windows\\notepad.exe'" @input="saveButtonSettings" />
                 </div>
+                <button
+                  type="button"
+                  class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-2 flex items-center gap-1.5"
+                  @click="appPickerOpen = true"
+                >
+                  <Icon icon="lucide:search" class="text-xs" />
+                  <span>Browse installed apps...</span>
+                </button>
                 <div class="flex flex-col gap-1.5 pt-2 cyber-divider">
                   <span class="text-[9px] font-bold uppercase tracking-widest text-slate-500">Chọn nhanh ứng dụng:</span>
                   <div class="grid grid-cols-2 gap-1.5 max-h-[120px] overflow-y-auto pr-1">
@@ -1117,6 +1127,12 @@ const updateStatusText = computed(() => {
         </div>
       </div>
     </transition>
+
+    <!-- App Picker Modal -->
+    <AppPickerModal
+      v-model="appPickerOpen"
+      @select="(path: string) => { if (selectedButton) { selectedButton.appPath = path; saveButtonSettings(); } }"
+    />
   </div>
 </template>
 

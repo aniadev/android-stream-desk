@@ -25,6 +25,13 @@ export interface Layout {
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error';
 
+export interface InstalledApp {
+  name: string;
+  path: string;
+  icon?: string;
+  publisher?: string;
+}
+
 export interface WSMessage {
   type: 'auth' | 'ping' | 'pong' | 'press' | 'sync_layout' | 'toast';
   payload?: any;
