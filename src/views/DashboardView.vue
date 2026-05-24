@@ -6,6 +6,7 @@ import { useUpdaterStore } from '../stores/updater';
 import type { ButtonConfig, ActionType } from '../types';
 import { Icon } from '@iconify/vue';
 import { vDraggable } from 'vue-draggable-plus';
+import { normalizeHex } from '../lib/color';
 
 // Import Shadcn UI Components
 import Input from '../components/ui/Input.vue';
@@ -323,6 +324,48 @@ watch(selectedButton, newVal => {
     activeTab.value = newVal.actionType;
   }
 });
+
+const hexDraft = ref<string>('');
+const hexDraftValid = ref<boolean>(true);
+const hexInputFocused = ref<boolean>(false);
+
+watch(
+  () => selectedButton.value?.backgroundColor,
+  (val) => {
+    if (hexInputFocused.value) return;
+    hexDraft.value = val ?? '';
+    hexDraftValid.value = true;
+  },
+  { immediate: true },
+);
+
+function onHexDraftInput() {
+  const stripped = hexDraft.value.trim().replace(/^#/, '');
+  hexDraftValid.value = stripped.length < 3 || normalizeHex(hexDraft.value) !== null;
+}
+
+function onHexDraftFocus() {
+  hexInputFocused.value = true;
+}
+
+function onHexDraftBlur() {
+  hexInputFocused.value = false;
+  commitHex();
+}
+
+function commitHex() {
+  if (!selectedButton.value) return;
+  const out = normalizeHex(hexDraft.value);
+  if (out) {
+    selectedButton.value.backgroundColor = out;
+    hexDraft.value = out;
+    hexDraftValid.value = true;
+    saveButtonSettings();
+  } else {
+    hexDraft.value = selectedButton.value.backgroundColor;
+    hexDraftValid.value = true;
+  }
+}
 
 const selectButton = (id: string) => {
   selectedButtonId.value = id;
@@ -701,7 +744,20 @@ const updateStatusText = computed(() => {
                         class="h-6 w-9 rounded-md border-0 bg-transparent cursor-pointer"
                         @input="saveButtonSettings"
                       />
-                      <span class="ml-2 font-mono text-[10px] text-slate-400 uppercase font-semibold">{{ selectedButton.backgroundColor }}</span>
+                      <input
+                        v-model="hexDraft"
+                        type="text"
+                        spellcheck="false"
+                        maxlength="7"
+                        placeholder="#rrggbb"
+                        class="ml-2 font-mono text-[10px] text-slate-300 uppercase font-semibold bg-transparent border px-1.5 py-0.5 w-[68px] focus:outline-none focus:border-cyan-400 transition-colors"
+                        :class="hexDraftValid ? 'border-cyan-400/20' : 'border-rose-500/70'"
+                        :title="hexDraftValid ? 'Nhập mã hex (#rgb hoặc #rrggbb)' : 'Mã hex không hợp lệ — sẽ revert khi rời focus'"
+                        @focus="onHexDraftFocus"
+                        @input="onHexDraftInput"
+                        @blur="onHexDraftBlur"
+                        @keyup.enter="commitHex"
+                      />
                     </div>
                     <button
                       type="button"

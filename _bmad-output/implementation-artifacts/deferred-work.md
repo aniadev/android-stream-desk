@@ -23,6 +23,19 @@ Issues surfaced by the 2026-05-23 step-04 verify review that intentionally fall 
 - **Latency instrumentation (AA-11)** — Architecture pipeline is feasible for <50ms but no measurement. Add round-trip timing log (Android `press` send timestamp → Windows ack) in v2.
 - **HMR listener idempotency (EC-3, BH-6)** — `useLayoutStore` ws-message listener now guarded by module-level flag (P-13 patch). Verify nothing leaks under Vite HMR + Vitest before declaring this fully closed.
 
+## v1.2.0 — split-off goals (2026-05-24)
+
+Selected first goal for this cycle: **Hex Input + Neon Color Fix** (F2 + B2 from `_bmad-output/planning-artifacts/breakdown-v1.2.0.md`). Goals below deferred to subsequent specs — each shippable as its own PR.
+
+- **F1 — Shell Command Action** (S-CMD1/2/3) — new `command` actionType. Adds `commandValue` field to `ButtonConfig`, Rust `run_shell_command` helper using `sh -c` / `cmd /C`, Dashboard textarea + warning UI. Power-user feature, LAN-only trust assumption.
+- **F3 — APK Signing CI** (S-SIGN1/2/3) — gradle `signingConfigs.release` reading `keystore.properties`, GitHub Actions step decoding base64 keystore from secrets, helper script `scripts/generate-keystore.sh` + `docs/release/signing-setup.md`. **Requires Ania to generate keystore and paste 4 GitHub secrets before workflow can sign.**
+- **F4 — Debug APK Build Flow** (S-DBG1/2) — `pnpm android:build:debug` script + `.github/workflows/android-debug.yml` (workflow_dispatch + push on `releases` branch), uploads artifact 14-day retention.
+- **F5 — App Picker Modal** (S-APP1/2/3) — Windows registry enum via `winreg` crate (3 Uninstall hives, junk filter, dedupe), `AppPickerModal.vue` with stale-while-revalidate cache + Fuse.js fuzzy + recents + keyboard nav + highlight. macOS/Linux stub empty Vec.
+- **B1 — Drag-drop hỏng sau resize grid** (S-FIX1) — `src/stores/layout.ts` mutate `buttons` in-place via `splice` instead of reassign, so vue-draggable-plus Sortable instance keeps stable array reference across rows/cols change.
+- **B3 — Click GridButton không chọn được** (S-FIX3) — `src/components/GridArea.vue` `v-draggable` options add `delay: 100, delayOnTouchOnly: true, touchStartThreshold: 5` to distinguish short click from drag start.
+
+Planning artifact full source: `_bmad-output/planning-artifacts/breakdown-v1.2.0.md`.
+
 ## Won't fix (rejected)
 
 - `serde_json::json!` with `vec![]` (BH-9) — works, no behavioural issue.

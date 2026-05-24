@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import type { ButtonConfig } from '../types';
 import { Icon } from '@iconify/vue';
+import { hexToRgb, rgbToHsl } from '../lib/color';
 
 const props = defineProps<{
   button: ButtonConfig;
@@ -15,44 +16,27 @@ const emit = defineEmits<{
 
 const bgColor = computed(() => props.button.backgroundColor || '#1e293b');
 
-function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
-  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return m ? { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) } : null;
-}
-
-function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
-  const nr = r / 255, ng = g / 255, nb = b / 255;
-  const max = Math.max(nr, ng, nb), min = Math.min(nr, ng, nb);
-  let h = 0, s = 0;
-  const l = (max + min) / 2;
-  if (max !== min) {
-    const d = max - min;
-    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-    switch (max) {
-      case nr: h = ((ng - nb) / d + (ng < nb ? 6 : 0)) / 6; break;
-      case ng: h = ((nb - nr) / d + 2) / 6; break;
-      case nb: h = ((nr - ng) / d + 4) / 6; break;
-    }
+const neonHsl = computed(() => {
+  const rgb = hexToRgb(bgColor.value);
+  if (!rgb) return null;
+  const { h, s, l } = rgbToHsl(rgb.r, rgb.g, rgb.b);
+  const clampedL = Math.min(70, Math.max(45, l));
+  if (s < 10) {
+    return { h: 187, s: 80, l: clampedL };
   }
-  return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
-}
-
-function hslToString(h: number, s: number, l: number): string {
-  return `hsl(${h}, ${s}%, ${l}%)`;
-}
+  return { h, s: Math.max(60, s), l: clampedL };
+});
 
 const neonColor = computed(() => {
-  const rgb = hexToRgb(bgColor.value);
-  if (!rgb) return 'hsl(187, 100%, 55%)';
-  const { h } = rgbToHsl(rgb.r, rgb.g, rgb.b);
-  return hslToString(h, 90, 58);
+  const hsl = neonHsl.value;
+  if (!hsl) return 'hsl(187, 100%, 55%)';
+  return `hsl(${hsl.h}, ${hsl.s}%, ${hsl.l}%)`;
 });
 
 const neonGlow = computed(() => {
-  const rgb = hexToRgb(bgColor.value);
-  if (!rgb) return 'rgba(0,240,255,0.5)';
-  const { h } = rgbToHsl(rgb.r, rgb.g, rgb.b);
-  return `hsla(${h}, 100%, 55%, 0.5)`;
+  const hsl = neonHsl.value;
+  if (!hsl) return 'rgba(0,240,255,0.5)';
+  return `hsla(${hsl.h}, ${hsl.s}%, ${hsl.l}%, 0.5)`;
 });
 
 const isLongLabel = computed(() => props.button.label && props.button.label.length > 8);
