@@ -66,6 +66,8 @@ jobs:
   build-android:
     name: Build Android (.apk)
     runs-on: ubuntu-latest
+    env:
+      KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -112,13 +114,13 @@ jobs:
         run: pnpm tauri android init
 
       - name: Decode keystore
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        if: env.KEYSTORE_B64 != ''
         run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d \
+          echo "$KEYSTORE_B64" | base64 -d \
             > src-tauri/gen/android/app/release.keystore
 
       - name: Create keystore.properties
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        if: env.KEYSTORE_B64 != ''
         run: |
           cat > src-tauri/gen/android/app/keystore.properties <<EOF
           storeFile=release.keystore
@@ -133,17 +135,17 @@ jobs:
         run: pnpm tauri android build --apk
 
       - name: Upload signed APK to release
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        if: env.KEYSTORE_B64 != ''
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           files: src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk
 
       - name: Upload unsigned APK to release (fallback when no signing secrets)
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 == '' }}
+        if: env.KEYSTORE_B64 == ''
         run: echo "⚠ ANDROID_KEYSTORE_BASE64 secret not set — uploading unsigned APK"
       - name: Upload unsigned APK
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 == '' }}
+        if: env.KEYSTORE_B64 == ''
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
