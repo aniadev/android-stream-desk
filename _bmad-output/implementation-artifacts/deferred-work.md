@@ -36,6 +36,16 @@ Selected first goal for this cycle: **Hex Input + Neon Color Fix** (F2 + B2 from
 
 Planning artifact full source: `_bmad-output/planning-artifacts/breakdown-v1.2.0.md`.
 
+## v1.2.0 Sprint 1 — review surface (2026-05-24)
+
+Surfaced during step-04 review of `spec-v1.2.0-sprint1-quickfixes.md`. Patch-level redundant-write was auto-fixed. Items below either pre-date this story or are explicit trade-offs accepted by the spec.
+
+- **`updateLayout` reassign anti-pattern still in `reorderButtons` + WS `sync_layout` path** — `src/stores/layout.ts:153` (`reorderButtons` does `[...layout.value.buttons]` then `updateLayout({...layout.value, buttons})`) and the WS sync handler at line 188 (`updateLayout(synced, true)`) both swap the buttons array reference. Spec intentionally scoped fix to resize only (`Never: thay reference layout.value trong các luồng khác`), but reorder may also snap-back if vue-draggable-plus rebinds — verify in manual test; if it does, factor `reorderButtons` to use a `splice`-based in-place reorder too.
+- **`resizeGrid` ↔ WS `sync_layout` race** — If a remote client pushes `sync_layout` between local user's resize click and `broadcastSync()` fire (very narrow window — single-tick JS), the inbound `updateLayout(synced, true)` reassigns `layout.value`, orphaning the resized buttons array vue-draggable-plus just bound to. In practice only triggers when two editors collide — same posture as concurrent-edit anywhere in the layout.
+- **`touchStartThreshold: 5` + `delay: 100` dead-zone on touch** — Tap with finger drift 6–10px within 100ms cancels both drag prepare AND swallows click. Spec marks this Ask-First if it surfaces ("hỏi Ania trước khi điều chỉnh thông số"). Needs Android device validation; lower delay or raise threshold if reports come in.
+- **`resizeGrid` validation guards** — No assertion that `rows >= 2`, `cols >= 2`, or `newButtons.length === rows * cols`. Current single caller (`updateGridDimensions`) clamps + pre-sizes correctly, but the store API is unguarded for future callers (importLayout WS path, programmatic test, etc.).
+- **`Date.now()` id collision in `updateGridDimensions`** — `src/views/DashboardView.vue:390` uses `btn_${Date.now()}_${i}` to mint new button ids when expanding the grid. Rapid sequential resize within same ms (plausible: tap +rows then +cols quickly) can produce duplicate ids → Vue `:key` collision warnings + possible Sortable confusion. Pre-existing; replace with `crypto.randomUUID()` or a monotonic counter when touching this function next.
+
 ## v1.2.0 F1 Shell Command — hardening backlog (2026-05-24)
 
 Surfaced during step-04 review of `spec-shell-command-action.md`. Accepted under current LAN-trust + power-user-feature posture; revisit when adding WS auth (already deferred above).

@@ -130,6 +130,16 @@ export const useLayoutStore = defineStore('layout', () => {
     }
   };
 
+  // Mutate buttons array in-place via splice to preserve reference identity for
+  // vue-draggable-plus Sortable instance bound at mount. Reassigning would
+  // orphan Sortable's array pointer and cause drop snap-back after resize.
+  const resizeGrid = (rows: number, cols: number, newButtons: ButtonConfig[]) => {
+    layout.value.rows = rows;
+    layout.value.cols = cols;
+    layout.value.buttons.splice(0, layout.value.buttons.length, ...newButtons);
+    broadcastSync();
+  };
+
   const reorderButtons = (fromIndex: number, toIndex: number) => {
     const len = layout.value.buttons.length;
     if (fromIndex === toIndex) return;
@@ -254,6 +264,7 @@ export const useLayoutStore = defineStore('layout', () => {
     layout,
     lastToast,
     updateLayout,
+    resizeGrid,
     broadcastSync,
     reorderButtons,
     pressButton,

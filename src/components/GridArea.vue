@@ -37,6 +37,9 @@ function onUpdate() {
         v-draggable="[layoutStore.layout.buttons, {
           ghostClass: 'cyber-ghost',
           animation: 200,
+          delay: 100,
+          delayOnTouchOnly: true,
+          touchStartThreshold: 5,
           onUpdate,
         }]"
         class="grid gap-3 sm:gap-4 w-full h-full max-w-full max-h-full items-stretch justify-items-stretch p-5 sm:p-6 relative z-10 min-h-0 min-w-0"

@@ -397,11 +397,7 @@ const updateGridDimensions = (type: 'rows' | 'cols', delta: number) => {
     }
   }
 
-  layoutStore.updateLayout({
-    rows: newRows,
-    cols: newCols,
-    buttons: newButtons,
-  });
+  layoutStore.resizeGrid(newRows, newCols, newButtons);
 
   if (selectedButtonId.value && !newButtons.some(b => b.id === selectedButtonId.value)) {
     selectedButtonId.value = null;
@@ -997,6 +993,9 @@ const updateStatusText = computed(() => {
               animation: 200,
               forceFallback: true,
               fallbackOnBody: true,
+              delay: 100,
+              delayOnTouchOnly: true,
+              touchStartThreshold: 5,
               onUpdate,
             }]"
             class="grid gap-3 w-full h-full max-w-full max-h-full items-stretch justify-items-stretch relative z-10 min-h-0 min-w-0"
