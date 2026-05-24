@@ -101,6 +101,23 @@ fn set_android_orientation(_mode: i32) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn open_accessibility_settings() -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        use std::process::Command;
+        Command::new("open")
+            .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
+            .spawn()
+            .map_err(|e| format!("Mở System Settings thất bại: {}", e))?;
+        return Ok(());
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Err("Chỉ hỗ trợ macOS".to_string())
+    }
+}
+
 fn detect_local_ipv4() -> Option<String> {
     let socket = UdpSocket::bind("0.0.0.0:0").ok()?;
     // No packet is actually sent — connect() only triggers the kernel
@@ -243,15 +260,44 @@ fn parse_shortcut(shortcut: &str) -> Result<(Vec<Key>, Key), String> {
 }
 
 #[cfg(desktop)]
+fn enigo_init_err(e: impl std::fmt::Display) -> String {
+    #[cfg(target_os = "macos")]
+    {
+        return format!(
+            "Không khởi tạo được Enigo: {}. macOS yêu cầu Accessibility permission. Mở System Settings → Privacy & Security → Accessibility. Nếu vừa build lại app, XOÁ entry cũ \"Android Stream Desk\" trong danh sách rồi kéo app mới vào và bật lại (chữ ký thay đổi sau mỗi build).",
+            e
+        );
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        format!("Không khởi tạo được Enigo: {}", e)
+    }
+}
+
+#[tauri::command]
+fn probe_input_permission() -> bool {
+    #[cfg(desktop)]
+    {
+        let Ok(_guard) = ENIGO_LOCK.lock() else {
+            return false;
+        };
+        Enigo::new(&Settings::default()).is_ok()
+    }
+    #[cfg(not(desktop))]
+    {
+        true
+    }
+}
+
+#[cfg(desktop)]
 fn simulate_shortcut(shortcut: &str) -> Result<(), String> {
     let (modifiers, base_key) = parse_shortcut(shortcut)?;
     let _guard = ENIGO_LOCK
         .lock()
         .map_err(|e| format!("Enigo lock poisoned: {}", e))?;
-    
+
     let settings = Settings::default();
-    let mut enigo = Enigo::new(&settings)
-        .map_err(|e| format!("Failed to initialize Enigo: {}", e))?;
+    let mut enigo = Enigo::new(&settings).map_err(enigo_init_err)?;
 
     // Press modifiers; on first failure release ones already pressed and bail.
     for (idx, m) in modifiers.iter().enumerate() {
@@ -290,8 +336,7 @@ fn simulate_media(action: &str) -> Result<(), String> {
     let _guard = ENIGO_LOCK
         .lock()
         .map_err(|e| format!("Enigo lock poisoned: {}", e))?;
-    let mut enigo = Enigo::new(&Settings::default())
-        .map_err(|e| format!("Failed to initialize Enigo: {}", e))?;
+    let mut enigo = Enigo::new(&Settings::default()).map_err(enigo_init_err)?;
     enigo
         .key(key, Direction::Click)
         .map_err(|e| format!("Media key failed: {}", e))
@@ -368,7 +413,9 @@ pub fn run() {
             save_layout_config,
             execute_button_action,
             get_server_info,
-            set_android_orientation
+            set_android_orientation,
+            open_accessibility_settings,
+            probe_input_permission
         ])
         .setup(|app| {
             let app_handle_ws = app.handle().clone();

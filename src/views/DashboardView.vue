@@ -5,11 +5,10 @@ import { useConnectionStore } from '../stores/connection';
 import { useUpdaterStore } from '../stores/updater';
 import type { ButtonConfig, ActionType } from '../types';
 import { Icon } from '@iconify/vue';
+import { vDraggable } from 'vue-draggable-plus';
 
 // Import Shadcn UI Components
-import Button from '../components/ui/Button.vue';
 import Input from '../components/ui/Input.vue';
-import Card from '../components/ui/Card.vue';
 import GridButton from '../components/GridButton.vue';
 
 const layoutStore = useLayoutStore();
@@ -151,47 +150,121 @@ const applyPreset = (value: string) => {
   }
 };
 
+// Modifier toggle state — lets user pre-arm modifiers via UI so OS-trapped
+// combos (Cmd+Q, Cmd+Ctrl+Q on macOS) can still be assembled by pressing
+// only the base key on keyboard.
+const pendingMods = ref({ ctrl: false, shift: false, alt: false, meta: false });
+
+const metaLabel = computed(() => (isMac.value ? 'Cmd' : 'Win'));
+const altLabel = computed(() => (isMac.value ? 'Opt' : 'Alt'));
+
+const toggleMod = (mod: 'ctrl' | 'shift' | 'alt' | 'meta') => {
+  pendingMods.value[mod] = !pendingMods.value[mod];
+};
+
+const buildModifiers = (e?: KeyboardEvent): string[] => {
+  const mods: string[] = [];
+  const ctrl = pendingMods.value.ctrl || !!e?.ctrlKey;
+  const shift = pendingMods.value.shift || !!e?.shiftKey;
+  const alt = pendingMods.value.alt || !!e?.altKey;
+  const meta = pendingMods.value.meta || !!e?.metaKey;
+  if (ctrl) mods.push('Ctrl');
+  if (shift) mods.push('Shift');
+  if (alt) mods.push('Alt');
+  if (meta) mods.push('Meta');
+  return mods;
+};
+
 const handleKeyDown = (e: KeyboardEvent) => {
   if (!isRecording.value || !selectedButton.value) return;
   e.preventDefault();
   e.stopPropagation();
 
-  const modifiers: string[] = [];
-  if (e.ctrlKey) modifiers.push('Ctrl');
-  if (e.shiftKey) modifiers.push('Shift');
-  if (e.altKey) modifiers.push('Alt');
-  if (e.metaKey) modifiers.push('Win');
-
   let keyName = e.key;
-  if (['Control', 'Shift', 'Alt', 'Meta'].includes(keyName)) return;
+  // Live-sync UI toggles when user holds physical modifier keys.
+  if (keyName === 'Control') { pendingMods.value.ctrl = true; return; }
+  if (keyName === 'Shift') { pendingMods.value.shift = true; return; }
+  if (keyName === 'Alt') { pendingMods.value.alt = true; return; }
+  if (keyName === 'Meta') { pendingMods.value.meta = true; return; }
 
   if (keyName === ' ') keyName = 'Space';
   else if (keyName === 'Escape') keyName = 'Esc';
   else if (keyName.length === 1) keyName = keyName.toUpperCase();
 
+  const modifiers = buildModifiers(e);
   const shortcutString = [...modifiers, keyName].join('+');
   selectedButton.value.shortcutValue = shortcutString;
 
   isRecording.value = false;
+  pendingMods.value = { ctrl: false, shift: false, alt: false, meta: false };
   window.removeEventListener('keydown', handleKeyDown, true);
   saveButtonSettings();
 };
 
+// Apply current modifier toggles + a manually-picked key. Used by the
+// "Apply" button — required for OS-trapped combos that never reach JS.
+const applyManualKey = (keyName: string) => {
+  if (!selectedButton.value) return;
+  const modifiers = buildModifiers();
+  if (modifiers.length === 0 && !keyName) return;
+  selectedButton.value.shortcutValue = [...modifiers, keyName].filter(Boolean).join('+');
+  isRecording.value = false;
+  pendingMods.value = { ctrl: false, shift: false, alt: false, meta: false };
+  window.removeEventListener('keydown', handleKeyDown, true);
+  saveButtonSettings();
+};
+
+const manualKey = ref<string>('');
+
 const toggleRecording = () => {
   if (isRecording.value) {
     isRecording.value = false;
+    pendingMods.value = { ctrl: false, shift: false, alt: false, meta: false };
     window.removeEventListener('keydown', handleKeyDown, true);
   } else {
     isRecording.value = true;
+    manualKey.value = '';
     window.addEventListener('keydown', handleKeyDown, true);
   }
 };
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown, true);
+  window.removeEventListener('focus', probePermission);
   if (syncTimer !== null) clearTimeout(syncTimer);
   if (saveTimer !== null) clearTimeout(saveTimer);
+  if (permissionPollTimer !== null) {
+    clearInterval(permissionPollTimer);
+    permissionPollTimer = null;
+  }
 });
+
+// Accessibility / input permission state
+const hasInputPermission = ref<boolean>(true);
+const inputPermissionChecked = ref<boolean>(false);
+let permissionPollTimer: ReturnType<typeof setInterval> | null = null;
+
+const isMacPlatform = computed(() =>
+  navigator.userAgent.toLowerCase().includes('mac') ||
+  navigator.platform.toLowerCase().includes('mac')
+);
+
+const probePermission = async () => {
+  try {
+    // @ts-ignore
+    if (!window.__TAURI_INTERNALS__) return;
+    const { invoke } = await import('@tauri-apps/api/core');
+    const ok = await invoke<boolean>('probe_input_permission');
+    hasInputPermission.value = ok;
+    inputPermissionChecked.value = true;
+    if (ok && permissionPollTimer !== null) {
+      clearInterval(permissionPollTimer);
+      permissionPollTimer = null;
+    }
+  } catch (e) {
+    console.error('probe_input_permission failed:', e);
+  }
+};
 
 onMounted(async () => {
   try {
@@ -205,6 +278,13 @@ onMounted(async () => {
       const info = await invoke<{ ip: string; port: number }>('get_server_info');
       serverIp.value = info.ip;
       serverPort.value = info.port;
+
+      await probePermission();
+      // Poll until granted — user may toggle Accessibility while app runs.
+      if (!hasInputPermission.value) {
+        permissionPollTimer = setInterval(probePermission, 3000);
+      }
+      window.addEventListener('focus', probePermission);
     }
   } catch (e) {
     console.error('Failed initialization:', e);
@@ -285,42 +365,11 @@ const updateGridDimensions = (type: 'rows' | 'cols', delta: number) => {
   }
 };
 
-// --- Drag & Drop (ID-based tracking) ---
-const dragSourceId = ref<string | null>(null);
-
-const onDragStart = (_e: DragEvent, btn: ButtonConfig) => {
-  _e.dataTransfer?.setData('text/plain', btn.id);
-  _e.dataTransfer!.effectAllowed = 'move';
-  dragSourceId.value = btn.id;
-};
-
-const onDragOver = (e: DragEvent) => {
-  e.preventDefault();
-};
-
-const onDrop = (_e: DragEvent, targetBtn: ButtonConfig) => {
-  if (!dragSourceId.value) return;
-  if (dragSourceId.value === targetBtn.id) {
-    dragSourceId.value = null;
-    return;
-  }
-  const fromIdx = layoutStore.layout.buttons.findIndex(b => b.id === dragSourceId.value);
-  const toIdx = layoutStore.layout.buttons.findIndex(b => b.id === targetBtn.id);
-  if (fromIdx === -1 || toIdx === -1) {
-    dragSourceId.value = null;
-    return;
-  }
-  layoutStore.reorderButtons(fromIdx, toIdx);
-  dragSourceId.value = null;
-};
-
-const onGridDrop = () => {
-  dragSourceId.value = null;
-};
-
-const onDragEnd = () => {
-  dragSourceId.value = null;
-};
+// --- Drag & Drop (vue-draggable-plus) ---
+// Directive mutate array in place. Just persist + broadcast.
+function onUpdate() {
+  layoutStore.broadcastSync();
+}
 
 // --- Manual Sync ---
 const syncLayout = () => {
@@ -345,6 +394,56 @@ const saveButtonSettings = () => {
   saveTimer = window.setTimeout(() => {
     saveTimer = null;
   }, 250);
+};
+
+const importInput = ref<HTMLInputElement | null>(null);
+
+const handleExport = () => {
+  try {
+    layoutStore.exportLayout();
+    layoutStore.lastToast = { kind: 'info', message: 'Đã xuất cấu hình ra file JSON.', at: Date.now() };
+  } catch (e: any) {
+    layoutStore.lastToast = { kind: 'error', message: `Export lỗi: ${e?.message ?? e}`, at: Date.now() };
+  }
+};
+
+const triggerImport = () => {
+  importInput.value?.click();
+};
+
+const handleImport = async (e: Event) => {
+  const input = e.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = '';
+  if (!file) return;
+  try {
+    await layoutStore.importLayout(file);
+    selectedButtonId.value = null;
+    layoutStore.lastToast = { kind: 'info', message: `Đã nạp cấu hình từ "${file.name}".`, at: Date.now() };
+  } catch (err: any) {
+    layoutStore.lastToast = { kind: 'error', message: `Import lỗi: ${err?.message ?? err}`, at: Date.now() };
+  }
+};
+
+const toastNeedsAccessibility = computed(() => {
+  const msg = layoutStore.lastToast?.message ?? '';
+  return /Accessibility/i.test(msg);
+});
+
+const dismissToast = () => {
+  layoutStore.lastToast = null;
+};
+
+const openAccessibilitySettings = async () => {
+  try {
+    // @ts-ignore
+    if (window.__TAURI_INTERNALS__) {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('open_accessibility_settings');
+    }
+  } catch (e) {
+    console.error('open_accessibility_settings failed:', e);
+  }
 };
 
 const updateStatusText = computed(() => {
@@ -377,6 +476,39 @@ const updateStatusText = computed(() => {
 
     <!-- Scanline overlay (subtle) -->
     <div class="dashboard-scanline fixed inset-0 pointer-events-none opacity-[0.015]" />
+
+    <!-- Error toast (Enigo / shortcut failures) -->
+    <transition name="fade">
+      <div
+        v-if="layoutStore.lastToast"
+        class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 cyber-panel max-w-[520px] flex items-start gap-3 px-4 py-3 shadow-2xl"
+        :class="layoutStore.lastToast.kind === 'error' ? 'border-rose-500/40' : 'border-cyan-400/30'"
+      >
+        <Icon
+          :icon="layoutStore.lastToast.kind === 'error' ? 'lucide:alert-triangle' : 'lucide:info'"
+          class="text-base shrink-0 mt-0.5"
+          :class="layoutStore.lastToast.kind === 'error' ? 'text-rose-400' : 'text-cyan-400'"
+        />
+        <div class="flex-1 flex flex-col gap-2">
+          <p class="text-[11px] leading-relaxed text-slate-200">{{ layoutStore.lastToast.message }}</p>
+          <div v-if="toastNeedsAccessibility" class="flex gap-2">
+            <button
+              type="button"
+              class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1"
+              @click="openAccessibilitySettings"
+            >Mở Accessibility Settings</button>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="text-slate-500 hover:text-slate-300 cursor-pointer shrink-0"
+          @click="dismissToast"
+          title="Đóng"
+        >
+          <Icon icon="lucide:x" class="text-sm" />
+        </button>
+      </div>
+    </transition>
 
     <!-- Top Nav HUD Header -->
     <div
@@ -427,6 +559,33 @@ const updateStatusText = computed(() => {
           <span>{{ syncHint || 'Sync' }}</span>
         </button>
 
+        <!-- Export button -->
+        <button
+          class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5 flex items-center gap-1.5"
+          @click="handleExport"
+          title="Xuất cấu hình hiện tại ra file JSON"
+        >
+          <Icon icon="lucide:download" class="text-xs" />
+          <span>Export</span>
+        </button>
+
+        <!-- Import button -->
+        <button
+          class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5 flex items-center gap-1.5"
+          @click="triggerImport"
+          title="Nạp cấu hình từ file JSON"
+        >
+          <Icon icon="lucide:upload" class="text-xs" />
+          <span>Import</span>
+        </button>
+        <input
+          ref="importInput"
+          type="file"
+          accept="application/json,.json"
+          class="hidden"
+          @change="handleImport"
+        />
+
         <button
           class="cyber-icon-btn h-10 w-10 cursor-pointer flex items-center justify-center"
           @click="settingsOpen = true"
@@ -435,6 +594,37 @@ const updateStatusText = computed(() => {
           <Icon icon="lucide:settings" class="text-lg text-cyan-400/70 hover:text-cyan-300 transition-colors" />
         </button>
       </div>
+    </div>
+
+    <!-- Accessibility permission banner (macOS) -->
+    <div
+      v-if="isMacPlatform && inputPermissionChecked && !hasInputPermission"
+      class="cyber-panel flex items-center gap-3 px-4 py-2.5 border-rose-500/40"
+    >
+      <Icon icon="lucide:shield-alert" class="text-base text-rose-400 shrink-0" />
+      <div class="flex-1 flex flex-col leading-tight">
+        <span class="text-[11px] font-bold text-rose-300 uppercase tracking-wider">
+          Thiếu Accessibility permission
+        </span>
+        <span class="text-[10px] text-slate-400 mt-0.5 leading-relaxed">
+          Lệnh phím tắt và phím media sẽ không chạy. Sau khi build lại, hãy XOÁ entry cũ trong Privacy → Accessibility rồi kéo app mới vào.
+        </span>
+      </div>
+      <button
+        class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5 flex items-center gap-1.5"
+        @click="openAccessibilitySettings"
+      >
+        <Icon icon="lucide:external-link" class="text-xs" />
+        <span>Mở Settings</span>
+      </button>
+      <button
+        class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5 flex items-center gap-1.5"
+        @click="probePermission"
+        title="Kiểm tra lại quyền"
+      >
+        <Icon icon="lucide:refresh-cw" class="text-xs" />
+        <span>Kiểm tra</span>
+      </button>
     </div>
 
     <!-- Main Content -->
@@ -595,6 +785,54 @@ const updateStatusText = computed(() => {
                     ⚠️ Nhấp tổ hợp phím bất kỳ trên bàn phím của bạn để ghi nhận...
                   </p>
                 </div>
+
+                <!-- Modifier toggles + manual key picker (fallback for OS-trapped combos like Cmd+Ctrl+Q on macOS) -->
+                <div v-if="isRecording" class="flex flex-col gap-2 pt-2 cyber-divider">
+                  <span class="text-[9px] font-bold uppercase tracking-widest text-slate-500">
+                    Hoặc gán thủ công (cho tổ hợp bị macOS chặn):
+                  </span>
+                  <div class="grid grid-cols-4 gap-1.5">
+                    <button
+                      type="button"
+                      @click="toggleMod('meta')"
+                      class="cyber-preset-btn text-[9px] py-1 font-bold uppercase tracking-wider"
+                      :class="pendingMods.meta ? 'cyber-tab-active' : ''"
+                    >{{ metaLabel }}</button>
+                    <button
+                      type="button"
+                      @click="toggleMod('ctrl')"
+                      class="cyber-preset-btn text-[9px] py-1 font-bold uppercase tracking-wider"
+                      :class="pendingMods.ctrl ? 'cyber-tab-active' : ''"
+                    >Ctrl</button>
+                    <button
+                      type="button"
+                      @click="toggleMod('shift')"
+                      class="cyber-preset-btn text-[9px] py-1 font-bold uppercase tracking-wider"
+                      :class="pendingMods.shift ? 'cyber-tab-active' : ''"
+                    >Shift</button>
+                    <button
+                      type="button"
+                      @click="toggleMod('alt')"
+                      class="cyber-preset-btn text-[9px] py-1 font-bold uppercase tracking-wider"
+                      :class="pendingMods.alt ? 'cyber-tab-active' : ''"
+                    >{{ altLabel }}</button>
+                  </div>
+                  <div class="flex gap-1.5">
+                    <Input
+                      v-model="manualKey"
+                      type="text"
+                      placeholder="Phím cuối (vd: Q, F4, Space)"
+                      class="flex-1 text-[10px] py-1 px-2"
+                      maxlength="10"
+                    />
+                    <button
+                      type="button"
+                      @click="applyManualKey(manualKey.trim().length === 1 ? manualKey.trim().toUpperCase() : manualKey.trim())"
+                      :disabled="!manualKey.trim()"
+                      class="cyber-action-btn font-bold text-[10px] uppercase tracking-wider px-3 py-1 cursor-pointer disabled:opacity-40"
+                    >Áp dụng</button>
+                  </div>
+                </div>
                 <div class="flex flex-col gap-1.5 pt-2 cyber-divider">
                   <span class="text-[9px] font-bold uppercase tracking-widest text-slate-500">Mẫu gợi ý nhanh:</span>
                   <div class="grid grid-cols-2 gap-1.5 max-h-[105px] overflow-y-auto pr-1">
@@ -665,7 +903,7 @@ const updateStatusText = computed(() => {
       </div>
 
       <!-- Right Preview -->
-      <section class="cyber-panel flex-1 flex flex-col p-4 relative items-center justify-center overflow-hidden">
+      <section class="cyber-panel cyber-panel--no-blur flex-1 flex flex-col p-4 relative items-center justify-center overflow-hidden">
         <span class="absolute top-6 left-8 text-[10px] font-bold uppercase tracking-widest text-cyan-400/50 select-none">
           Mô hình Stream Desk cảm ứng thực tế
         </span>
@@ -681,27 +919,31 @@ const updateStatusText = computed(() => {
           <span class="absolute bottom-2 right-2 w-4 h-4 border-b-[3px] border-r-[3px] border-cyan-500/60 pointer-events-none" />
 
           <div
+            v-draggable="[layoutStore.layout.buttons, {
+              ghostClass: 'cyber-ghost',
+              animation: 200,
+              forceFallback: true,
+              fallbackOnBody: true,
+              onUpdate,
+            }]"
             class="grid gap-3 w-full h-full max-w-full max-h-full items-stretch justify-items-stretch relative z-10 min-h-0 min-w-0"
             :style="{
               gridTemplateColumns: `repeat(${layoutStore.layout.cols}, minmax(0, 1fr))`,
               gridTemplateRows: `repeat(${layoutStore.layout.rows}, minmax(0, 1fr))`,
             }"
-            @dragover="onDragOver"
-            @drop.prevent="onGridDrop"
           >
-            <GridButton
+            <div
               v-for="btn in layoutStore.layout.buttons"
               :key="btn.id"
-              :button="btn"
-              :selected="selectedButtonId === btn.id"
-              :compact="true"
-              :draggable="true"
-              :class="{ 'opacity-40': dragSourceId === btn.id }"
-              @press="selectButton(btn.id)"
-              @drag-start="onDragStart"
-              @drop.prevent="onDrop($event, btn)"
-              @dragend="onDragEnd"
-            />
+              class="grid-item-wrap min-w-0 min-h-0"
+            >
+              <GridButton
+                :button="btn"
+                :selected="selectedButtonId === btn.id"
+                :compact="true"
+                @press="selectButton(btn.id)"
+              />
+            </div>
           </div>
         </div>
       </section>
@@ -1069,6 +1311,30 @@ const updateStatusText = computed(() => {
     rgba(0, 240, 255, 0.03) 2px,
     rgba(0, 240, 255, 0.03) 3px
   );
+}
+
+/* Drag ghost placeholder */
+:deep(.cyber-ghost) {
+  opacity: 0.25;
+  transition: opacity 0.15s;
+}
+
+/* Wrap each draggable grid cell so Sortable item is a plain div, not <button>.
+   Avoids native-button transform/clone quirks in production WebView. */
+.grid-item-wrap {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+}
+.grid-item-wrap:active {
+  cursor: grabbing;
+}
+
+/* Right preview section: no backdrop-filter — creates containing block
+   for position:fixed and breaks Sortable fallback ghost coords. */
+.cyber-panel--no-blur {
+  backdrop-filter: none !important;
 }
 
 /* Dashboard-wide scanline */

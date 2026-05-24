@@ -196,12 +196,57 @@ export const useLayoutStore = defineStore('layout', () => {
         // @ts-ignore
         if (window.__TAURI_INTERNALS__) {
           import('@tauri-apps/api/core').then(({ invoke }) => {
-            invoke('execute_button_action', { button })
-              .catch(console.error);
+            invoke('execute_button_action', { button }).catch((err: unknown) => {
+              const message = typeof err === 'string' ? err : String(err);
+              lastToast.value = { kind: 'error', message, at: Date.now() };
+              console.error(err);
+            });
           });
         }
       } catch (_) {}
     }
+  };
+
+  const exportLayout = (): void => {
+    const json = JSON.stringify(layout.value, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    a.href = url;
+    a.download = `stream-desk-layout-${ts}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const importLayout = async (file: File): Promise<void> => {
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    if (!parsed || typeof parsed !== 'object') throw new Error('JSON không hợp lệ');
+    if (typeof parsed.rows !== 'number' || typeof parsed.cols !== 'number') {
+      throw new Error('Thiếu trường rows/cols');
+    }
+    if (!Array.isArray(parsed.buttons)) throw new Error('Thiếu mảng buttons');
+
+    const validActions = new Set<ButtonConfig['actionType']>(['shortcut', 'media', 'app']);
+    const sanitized: ButtonConfig[] = parsed.buttons.map((b: any, i: number) => ({
+      id: typeof b?.id === 'string' && b.id ? b.id : `btn_${Date.now()}_${i}`,
+      label: typeof b?.label === 'string' ? b.label : `Button ${i + 1}`,
+      icon: typeof b?.icon === 'string' ? b.icon : 'mdi:button',
+      backgroundColor: typeof b?.backgroundColor === 'string' ? b.backgroundColor : '#1e293b',
+      actionType: validActions.has(b?.actionType) ? b.actionType : 'shortcut',
+      shortcutValue: typeof b?.shortcutValue === 'string' ? b.shortcutValue : undefined,
+      mediaAction: typeof b?.mediaAction === 'string' ? b.mediaAction : undefined,
+      appPath: typeof b?.appPath === 'string' ? b.appPath : undefined,
+    }));
+
+    updateLayout({
+      rows: Math.max(2, Math.min(6, parsed.rows | 0)),
+      cols: Math.max(2, Math.min(8, parsed.cols | 0)),
+      buttons: sanitized,
+    });
   };
 
   return {
@@ -211,5 +256,7 @@ export const useLayoutStore = defineStore('layout', () => {
     broadcastSync,
     reorderButtons,
     pressButton,
+    exportLayout,
+    importLayout,
   };
 });

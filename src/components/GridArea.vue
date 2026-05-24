@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import { useLayoutStore } from '../stores/layout';
 import GridButton from './GridButton.vue';
+import { vDraggable } from 'vue-draggable-plus';
 
 const layoutStore = useLayoutStore();
 
 function handlePress(button: Parameters<typeof layoutStore.pressButton>[0]) {
   layoutStore.pressButton(button);
+}
+
+function onUpdate() {
+  layoutStore.broadcastSync();
 }
 </script>
 
@@ -29,6 +34,11 @@ function handlePress(button: Parameters<typeof layoutStore.pressButton>[0]) {
       <span class="absolute bottom-3 right-3 w-5 h-5 border-b-[3px] border-r-[3px] border-cyan-500/60 pointer-events-none" />
 
       <div
+        v-draggable="[layoutStore.layout.buttons, {
+          ghostClass: 'cyber-ghost',
+          animation: 200,
+          onUpdate,
+        }]"
         class="grid gap-3 sm:gap-4 w-full h-full max-w-full max-h-full items-stretch justify-items-stretch p-5 sm:p-6 relative z-10 min-h-0 min-w-0"
         :style="{
           gridTemplateColumns: `repeat(${layoutStore.layout.cols}, minmax(0, 1fr))`,
@@ -81,5 +91,10 @@ function handlePress(button: Parameters<typeof layoutStore.pressButton>[0]) {
     rgba(0, 240, 255, 0.03) 2px,
     rgba(0, 240, 255, 0.03) 3px
   );
+}
+
+:deep(.cyber-ghost) {
+  opacity: 0.25;
+  transition: opacity 0.15s;
 }
 </style>
