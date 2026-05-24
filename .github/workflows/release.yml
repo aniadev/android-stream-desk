@@ -9,81 +9,81 @@ permissions:
   contents: write
 
 jobs:
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.value }}
+      release_id: ${{ steps.create-release.outputs.id }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve release tag
+        id: tag
+        run: echo "value=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Create Release
+        id: create-release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.value }}
+          name: 'Android Stream Desk ${{ steps.tag.outputs.value }}'
+          body: |
+            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for the full release notes.
+          draft: false
+          prerelease: false
+
   build-windows:
     name: Build Windows (.msi/.exe)
+    needs: create-release
     runs-on: windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 9
-          run_install: false
 
-      - name: Get pnpm store dir
-        id: pnpm-cache
-        shell: bash
-        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
-
-      - name: Setup pnpm cache
-        uses: actions/cache@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          node-version: '20'
+          cache: pnpm
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-
-      - name: Locate MSVC link.exe via vswhere
-        id: msvc-linker
-        shell: pwsh
-        run: |
-          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-          $installPath = & $vswhere -latest -products * -requires Microsoft.VisualCpp.Tools.HostX64.TargetX64 -property installationPath 2>$null
-          if (-not $installPath) {
-            $installPath = & $vswhere -latest -products * -property installationPath 2>$null
-          }
-          $link = Get-ChildItem (Join-Path $installPath "VC\Tools\MSVC\*\bin\HostX64\x64\link.exe") |
-                    Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
-          Write-Output "link.exe: $link"
-          "LINK_EXE=$link" | Out-File -Append $env:GITHUB_OUTPUT
+        with:
+          targets: x86_64-pc-windows-msvc
 
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri
+          workspaces: src-tauri -> target
+          key: windows-x86_64
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build Windows release
+      - name: Build + upload to release
+        uses: tauri-apps/tauri-action@v0
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER: ${{ steps.msvc-linker.outputs.LINK_EXE }}
-        run: pnpm tauri build
-
-      - name: Upload Windows artifacts to release
-        uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: 'Android Stream Desk ${{ github.ref_name }}'
-          body: 'See the assets to download and install this version.'
-          files: |
-            src-tauri/target/release/bundle/msi/*.msi
-            src-tauri/target/release/bundle/msi/*.msi.sig
-            src-tauri/target/release/bundle/nsis/*.exe
-            src-tauri/target/release/bundle/nsis/*.exe.sig
+          releaseId: ${{ needs.create-release.outputs.release_id }}
+          tagName: ${{ needs.create-release.outputs.tag }}
+          releaseName: 'Android Stream Desk ${{ needs.create-release.outputs.tag }}'
+          releaseDraft: false
+          prerelease: false
+          args: --target x86_64-pc-windows-msvc --bundles nsis,msi
 
   build-android:
     name: Build Android (.apk)
+    needs: create-release
     runs-on: ubuntu-latest
     env:
       KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -91,16 +91,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 9
-          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: pnpm
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -110,7 +110,8 @@ jobs:
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri
+          workspaces: src-tauri -> target
+          key: android
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -157,7 +158,7 @@ jobs:
         if: env.KEYSTORE_B64 != ''
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
+          tag_name: ${{ needs.create-release.outputs.tag }}
           files: src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk
 
       - name: Upload unsigned APK to release (fallback when no signing secrets)
@@ -167,12 +168,12 @@ jobs:
         if: env.KEYSTORE_B64 == ''
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
+          tag_name: ${{ needs.create-release.outputs.tag }}
           files: src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
 
   update-manifest:
     name: Refresh updater manifest
-    needs: [build-windows]
+    needs: [create-release, build-windows]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout main
@@ -184,9 +185,9 @@ jobs:
       - name: Download Windows updater signature
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.create-release.outputs.tag }}
         run: |
           mkdir -p download
-          TAG="${{ github.ref_name }}"
           VERSION="${TAG#v}"
           SIG_URL=$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name | endswith(".msi.sig")) | .url' | head -n1)
           MSI_URL=$(gh release view "$TAG" --json assets --jq '.assets[] | select(.name | endswith(".msi")) | .url' | head -n1)
@@ -211,6 +212,8 @@ jobs:
           EOF
 
       - name: Commit manifest
+        env:
+          TAG: ${{ needs.create-release.outputs.tag }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -219,5 +222,5 @@ jobs:
             echo "No manifest changes."
             exit 0
           fi
-          git commit -m "chore(release): update updater manifest for ${{ github.ref_name }}"
+          git commit -m "chore(release): update updater manifest for ${TAG}"
           git push
