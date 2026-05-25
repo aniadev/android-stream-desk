@@ -4,6 +4,18 @@ All notable changes to the **Android Stream Desk** project will be documented in
 
 ---
 
+## [1.3.2] - 2026-05-25
+
+### Added
+- **Windows Shortcut Paste (.lnk resolver)**: Paste a Windows shortcut directly into the app path input on the Dashboard. If the pasted text ends in `.lnk`, the Companion resolves it via PowerShell `WScript.Shell` COM and fills in the real executable path and arguments automatically. Quoted paths copied from a shortcut's Properties → Target field are also handled. A brief `✓ Đã giải shortcut` / `✗` hint is shown after resolution.
+
+### Fixed
+- **App Launch — Elevation & Anti-cheat Errors**: Direct `Command::new` spawn failed with `os error 740` (elevation required, e.g. Steam) or `os error 5` (access denied, e.g. Riot/Vanguard-protected executables). Both errors now fall back to `cmd /c start` which routes through the Windows Shell (`ShellExecuteEx`), triggering the UAC prompt and respecting anti-cheat launch guards. Games launched via their Riot Client shortcut target (`RiotClientServices.exe --launch-product=...`) also work.
+- **App Path Supports Arguments**: App path field now accepts a full command line (`C:\path\app.exe --flag value`). Arguments are split at the `.exe` boundary so the executable and its flags are passed correctly to the process.
+- **ClientView Layout Responsiveness**: Adjusted overflow and height properties to fix layout clipping on smaller screens.
+
+---
+
 ## [1.3.1] - 2026-05-25
 
 ### Fixed
