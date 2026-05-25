@@ -448,6 +448,18 @@ onUnmounted(() => {
               </button>
             </div>
 
+            <!-- Battery optimization notice for MIUI/Android devices -->
+            <div
+              class="flex items-start gap-2 rounded-xl bg-amber-950/40 px-3 py-2.5 border border-amber-900/30"
+            >
+              <Icon icon="mdi:battery-alert" class="text-amber-400 text-base mt-0.5 shrink-0" />
+              <p class="text-[9px] leading-relaxed text-amber-300/80">
+                Nếu WiFi mất kết nối khi dùng pin, vào
+                <strong class="text-amber-200">Cài đặt → Ứng dụng → Pin → Không có hạn chế</strong>
+                để tắt tối ưu hóa pin cho app.
+              </p>
+            </div>
+
             <button
               @click="handleDisconnect"
               class="w-full text-center text-xs font-bold uppercase tracking-wider py-2.5 rounded-xl border border-rose-900/30 bg-rose-950/80 text-rose-350 hover:bg-rose-900 hover:text-white transition duration-150 cursor-pointer"

@@ -4,6 +4,15 @@ All notable changes to the **Android Stream Desk** project will be documented in
 
 ---
 
+## [1.3.1] - 2026-05-25
+
+### Fixed
+- **Android WiFi Drops When Wake Lock Enabled (MIUI / POCO C40)**: On battery-powered MIUI devices, enabling screen wake lock triggered the OS to apply aggressive battery optimization that overrode the WiFi lock and dropped the WebSocket connection (charging was unaffected because a different power profile is used). Added a native `WifiManager.WifiLock` (`WIFI_MODE_FULL_LOW_LATENCY` on API 29+, `WIFI_MODE_FULL_HIGH_PERF` on older) held for the entire foreground lifetime. Also prompts once on first launch via `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` so MIUI cannot kill the app's network. A Toast message and in-settings notice guide users through granting the exemption.
+- **Monitor Metrics Not Updating on Client**: `currentMetrics` was a module-level Vue `ref` defined outside the Pinia store. In HMR re-evaluations during development (and edge cases in production), `GridButton.vue` could import a fresh zero ref while the `ws-message` event listener still wrote to the old one — leaving the displayed value frozen at 0%. Moved into the Pinia `layout` store and exposed as store state so both the listener closure and components reference the same reactive object.
+- **Settings Modal — Close Button Too Small**: Close button tap target was a bare icon with no padding, making it difficult to tap on small screens. Enlarged with `p-2 rounded-xl` hit area and added backdrop `@click.self` to close the modal by tapping outside the card.
+
+---
+
 ## [1.3.0] - 2026-05-25
 
 ### Added
