@@ -352,16 +352,17 @@ onUnmounted(() => {
       <div
         v-if="settingsOpen"
         class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 select-none"
+        @click.self="settingsOpen = false"
       >
         <div
           class="w-[325px] max-w-full bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-2xl flex flex-col gap-5 relative"
         >
           <!-- Close button -->
           <button
-            class="absolute top-4 right-4 text-slate-400 hover:text-white cursor-pointer"
+            class="absolute top-3 right-3 p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer transition duration-150"
             @click="settingsOpen = false"
           >
-            <Icon icon="lucide:x" class="text-base" />
+            <Icon icon="lucide:x" class="text-lg" />
           </button>
 
           <!-- Header -->
