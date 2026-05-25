@@ -1,12 +1,17 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, watch } from 'vue';
+import { storeToRefs } from 'pinia';
 import { useConnectionStore } from '../stores/connection';
 import { useLayoutStore } from '../stores/layout';
+import { useSettingsStore } from '../stores/settings';
 import GridArea from '../components/GridArea.vue';
 import { Icon } from '@iconify/vue';
+import { acquireWakeLock, releaseWakeLock, isWakeLockActive } from '../lib/wakelock';
 
 const connectionStore = useConnectionStore();
 const layoutStore = useLayoutStore();
+const settingsStore = useSettingsStore();
+const { keepScreenOn } = storeToRefs(settingsStore);
 
 const toastMessage = ref<string | null>(null);
 const isSubmitted = ref(false);
@@ -110,8 +115,28 @@ watch(
   { deep: true },
 );
 
+const handleVisibilityChange = async () => {
+  if (document.visibilityState === 'visible' && keepScreenOn.value && !isWakeLockActive()) {
+    await acquireWakeLock();
+  }
+};
+
+watch(keepScreenOn, async val => {
+  if (val) {
+    await acquireWakeLock();
+  } else {
+    await releaseWakeLock();
+  }
+});
+
 onMounted(async () => {
   applyOrientation(orientationMode.value);
+
+  if (keepScreenOn.value) {
+    await acquireWakeLock();
+  }
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+
   if (connectionStore.ipAddress) {
     connectionStore.connect();
     return;
@@ -135,6 +160,8 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (toastTimer !== null) clearTimeout(toastTimer);
+  releaseWakeLock().catch(() => {});
+  document.removeEventListener('visibilitychange', handleVisibilityChange);
   connectionStore.disconnect();
 });
 </script>
@@ -385,6 +412,29 @@ onUnmounted(() => {
                   {{ opt.label }}
                 </button>
               </div>
+            </div>
+
+            <!-- Keep Screen On -->
+            <div
+              class="flex items-center justify-between rounded-xl bg-slate-950/60 px-3 py-2.5 border border-slate-850/60"
+            >
+              <div class="flex items-center gap-2">
+                <Icon icon="mdi:brightness-5" class="text-base text-slate-400" />
+                <span class="text-[10px] font-bold uppercase tracking-wider text-slate-300"
+                  >Luôn bật màn hình</span
+                >
+              </div>
+              <button
+                @click="keepScreenOn = !keepScreenOn"
+                class="text-[10px] font-extrabold uppercase tracking-wider px-3 py-1.5 rounded-lg border transition duration-150 cursor-pointer"
+                :class="
+                  keepScreenOn
+                    ? 'bg-violet-600 border-violet-500 text-white shadow shadow-violet-900/40'
+                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+                "
+              >
+                {{ keepScreenOn ? 'Bật' : 'Tắt' }}
+              </button>
             </div>
 
             <button
