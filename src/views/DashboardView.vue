@@ -922,21 +922,23 @@ const updateStatusText = computed(() => {
 
                 <!-- Icon Picker -->
                 <div class="cyber-inset p-2.5 flex flex-col gap-2">
-                  <div class="flex items-center gap-1.5 cyber-divider pb-2">
-                    <button
-                      v-for="group in ['mdi', 'lucide', 'material', 'si'] as const"
-                      :key="group"
-                      @click="activeIconGroup = group"
-                      type="button"
-                      class="text-[9px] uppercase tracking-wider font-extrabold px-2 py-0.5 cursor-pointer duration-100"
-                      :class="
-                        activeIconGroup === group
-                          ? 'cyber-tab-active'
-                          : 'text-slate-500 hover:text-slate-300'
-                      "
-                    >
-                      {{ group === 'si' ? 'brands' : group }}
-                    </button>
+                  <div class="flex flex-col gap-1.5 cyber-divider pb-2">
+                    <div class="flex items-center gap-1.5">
+                      <button
+                        v-for="group in ['mdi', 'lucide', 'material', 'si'] as const"
+                        :key="group"
+                        @click="activeIconGroup = group"
+                        type="button"
+                        class="text-[9px] uppercase tracking-wider font-extrabold px-2 py-0.5 cursor-pointer duration-100"
+                        :class="
+                          activeIconGroup === group
+                            ? 'cyber-tab-active'
+                            : 'text-slate-500 hover:text-slate-300'
+                        "
+                      >
+                        {{ group === 'si' ? 'brands' : group }}
+                      </button>
+                    </div>
                     <Input
                       v-model="searchQuery"
                       placeholder="Tìm biểu tượng..."
