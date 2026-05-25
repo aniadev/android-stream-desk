@@ -1,5 +1,10 @@
 name: Release
 
+# Tag conventions:
+#   v*        → build Windows + Android (full release)
+#   v*-win    → build Windows only
+#   v*-apk    → build Android only
+
 on:
   push:
     tags:
@@ -15,6 +20,8 @@ jobs:
     outputs:
       tag: ${{ steps.tag.outputs.value }}
       release_id: ${{ steps.create-release.outputs.id }}
+      build_windows: ${{ steps.flags.outputs.build_windows }}
+      build_android: ${{ steps.flags.outputs.build_android }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,6 +29,21 @@ jobs:
       - name: Resolve release tag
         id: tag
         run: echo "value=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Set build flags from tag suffix
+        id: flags
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          if [[ "$TAG" == *-apk ]]; then
+            echo "build_windows=false" >> "$GITHUB_OUTPUT"
+            echo "build_android=true"  >> "$GITHUB_OUTPUT"
+          elif [[ "$TAG" == *-win ]]; then
+            echo "build_windows=true"  >> "$GITHUB_OUTPUT"
+            echo "build_android=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "build_windows=true"  >> "$GITHUB_OUTPUT"
+            echo "build_android=true"  >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Create Release
         id: create-release
@@ -37,6 +59,7 @@ jobs:
   build-windows:
     name: Build Windows (.msi/.exe)
     needs: create-release
+    if: ${{ needs.create-release.outputs.build_windows == 'true' }}
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -112,6 +135,7 @@ jobs:
   build-android:
     name: Build Android (.apk)
     needs: create-release
+    if: ${{ needs.create-release.outputs.build_android == 'true' }}
     runs-on: ubuntu-latest
     env:
       KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -202,6 +226,7 @@ jobs:
   update-manifest:
     name: Refresh updater manifest
     needs: [create-release, build-windows]
+    if: ${{ needs.create-release.outputs.build_windows == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout main
