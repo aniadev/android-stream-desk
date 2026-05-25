@@ -79,6 +79,15 @@ android {
     buildFeatures {
         buildConfig = true
     }
+
+    applicationVariants.all {
+        val variant = this
+        outputs.all {
+            val out = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            val ver = variant.versionName.replace('.', '_')
+            out.outputFileName = "android-stream-desk-v${ver}${if (variant.buildType.name == "debug") "-debug" else ""}.apk"
+        }
+    }
 }
 
 rust {

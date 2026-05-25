@@ -187,7 +187,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.create-release.outputs.tag }}
-          files: src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk
+          files: src-tauri/gen/android/app/build/outputs/apk/universal/release/android-stream-desk-v*.apk
 
       - name: Upload unsigned APK to release (fallback when no signing secrets)
         if: env.KEYSTORE_B64 == ''
@@ -197,7 +197,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.create-release.outputs.tag }}
-          files: src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
+          files: src-tauri/gen/android/app/build/outputs/apk/universal/release/android-stream-desk-v*.apk
 
   update-manifest:
     name: Refresh updater manifest

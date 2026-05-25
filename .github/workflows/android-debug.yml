@@ -67,5 +67,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: android-debug-apk-${{ github.sha }}
-          path: src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
+          path: src-tauri/gen/android/app/build/outputs/apk/universal/debug/android-stream-desk-v*-debug.apk
           retention-days: 14
