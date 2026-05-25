@@ -1,11 +1,11 @@
-export type IconGroup = 'mdi' | 'lucide' | 'material' | 'si'
+export type IconGroup = 'mdi' | 'lucide' | 'material' | 'si';
 
 export const ICON_GROUPS: { key: IconGroup; label: string }[] = [
   { key: 'mdi', label: 'MDI' },
   { key: 'lucide', label: 'Lucide' },
   { key: 'material', label: 'Material' },
   { key: 'si', label: 'Brands' },
-]
+];
 
 export const siIcons: string[] = [
   // Socials & Chat
@@ -14,7 +14,7 @@ export const siIcons: string[] = [
   'simple-icons:whatsapp',
   'simple-icons:slack',
   'simple-icons:facebook',
-  'simple-icons:facebookmessenger',
+  'simple-icons:messenger',
   'simple-icons:instagram',
   'simple-icons:tiktok',
   'simple-icons:reddit',
@@ -90,13 +90,12 @@ export const siIcons: string[] = [
   'simple-icons:microsoftpowerpoint',
   'simple-icons:googledrive',
   'simple-icons:dropbox',
-  'simple-icons:onedrive',
   'simple-icons:adobe',
   'simple-icons:adobephotoshop',
   'simple-icons:adobeillustrator',
   'simple-icons:adobepremierepro',
   'simple-icons:adobeaftereffects',
-]
+];
 
 export const mdiIcons: string[] = [
   // Media controls
@@ -197,7 +196,7 @@ export const mdiIcons: string[] = [
   'mdi:xml',
   'mdi:git',
   'mdi:github',
-  'mdi:terminal',
+  'mdi:docker',
   'mdi:monitor-screenshot',
   'mdi:eye',
   'mdi:eye-off',
@@ -208,13 +207,13 @@ export const mdiIcons: string[] = [
   'mdi:cloud',
   'mdi:weather-sunny',
   'mdi:weather-night',
-]
+];
 
 export const lucideIcons: string[] = [
   // Media controls
   'lucide:play',
   'lucide:pause',
-  'lucide:stop-circle',
+  'lucide:circle-stop',
   'lucide:skip-forward',
   'lucide:skip-back',
   'lucide:music',
@@ -225,7 +224,7 @@ export const lucideIcons: string[] = [
   'lucide:video',
   'lucide:video-off',
   // Navigation
-  'lucide:home',
+  'lucide:house',
   'lucide:arrow-left',
   'lucide:arrow-right',
   'lucide:arrow-up',
@@ -259,7 +258,7 @@ export const lucideIcons: string[] = [
   // System
   'lucide:settings',
   'lucide:lock',
-  'lucide:unlock',
+  'lucide:lock-open',
   'lucide:shield',
   'lucide:shield-alert',
   'lucide:key',
@@ -297,7 +296,8 @@ export const lucideIcons: string[] = [
   'lucide:link',
   'lucide:link-2',
   'lucide:terminal',
-  'lucide:code-2',
+  'lucide:square-terminal',
+  'lucide:file-braces-corner',
   'lucide:calculator',
   'lucide:calendar',
   'lucide:clock',
@@ -314,9 +314,9 @@ export const lucideIcons: string[] = [
   'lucide:flame',
   'lucide:lightbulb',
   'lucide:info',
-  'lucide:alert-triangle',
+  'lucide:circle-alert',
   'lucide:external-link',
-]
+];
 
 export const materialIcons: string[] = [
   // Media controls
@@ -331,7 +331,7 @@ export const materialIcons: string[] = [
   'material-symbols:volume-down',
   'material-symbols:volume-off',
   'material-symbols:music-note',
-  'material-symbols:headset',
+  'material-symbols:headset-mic',
   'material-symbols:mic',
   'material-symbols:mic-off',
   'material-symbols:videocam',
@@ -379,20 +379,20 @@ export const materialIcons: string[] = [
   'material-symbols:settings-backup-restore',
   // Communication
   'material-symbols:mail',
-  'material-symbols:phone',
+  'material-symbols:call',
   'material-symbols:chat',
   'material-symbols:notifications',
   'material-symbols:notifications-off',
   // Devices
   'material-symbols:desktop-windows',
-  'material-symbols:laptop',
+  'material-symbols:laptop-chromebook-outline',
   'material-symbols:tablet',
-  'material-symbols:smartphone',
+  'material-symbols:phone-iphone-outline',
   'material-symbols:print',
   'material-symbols:keyboard',
   'material-symbols:mouse',
   'material-symbols:sports-esports',
-  'material-symbols:camera-alt',
+  'material-symbols:android-camera-outline',
   // Connectivity
   'material-symbols:wifi',
   'material-symbols:bluetooth',
@@ -416,11 +416,11 @@ export const materialIcons: string[] = [
   'material-symbols:open-in-new',
   // Misc
   'material-symbols:cloud',
-  'material-symbols:brightness-high',
+  'material-symbols:brightness-5-rounded',
   'material-symbols:dark-mode',
   'material-symbols:bolt',
-  'material-symbols:local-fire-department',
+  'material-symbols:local-fire-department-rounded',
   'material-symbols:lightbulb',
   'material-symbols:info',
   'material-symbols:warning',
-]
+];

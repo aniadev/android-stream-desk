@@ -148,17 +148,12 @@ const filteredIcons = computed(() => {
   const prefix = prefixMap[group];
   const all = listIcons(undefined, prefix);
   if (all.length > 0) {
-    return all
-      .filter(name => name.toLowerCase().includes(q))
-      .slice(0, 200)
-      .map(name => `${prefix}:${name}`);
+    return all.filter(name => name.toLowerCase().includes(q)).slice(0, 200);
   }
   return pool.filter(ico => ico.toLowerCase().includes(q));
 });
 
-const isFullSearch = computed(
-  () => searchQuery.value !== '' && activeIconGroup.value !== 'si',
-);
+const isFullSearch = computed(() => searchQuery.value !== '' && activeIconGroup.value !== 'si');
 
 const packLabel = computed(() => {
   const labels: Record<'mdi' | 'lucide' | 'material' | 'si', string> = {
@@ -951,7 +946,11 @@ const updateStatusText = computed(() => {
                   >
                     Đang tìm trong toàn bộ {{ packLabel }} ({{ filteredIcons.length }} kết quả)
                   </p>
-                  <div ref="iconScrollRef" class="grid grid-cols-6 gap-2 max-h-[140px] overflow-y-auto pr-1" style="contain: layout">
+                  <div
+                    ref="iconScrollRef"
+                    class="grid grid-cols-6 gap-2 max-h-[140px] overflow-y-auto pr-1"
+                    style="contain: layout"
+                  >
                     <button
                       v-for="ico in visibleIcons"
                       :key="ico"
@@ -968,7 +967,11 @@ const updateStatusText = computed(() => {
                     >
                       Không tìm thấy biểu tượng
                     </p>
-                    <div ref="sentinelRef" v-if="filteredIcons.length > visibleCount" class="col-span-6 h-4" />
+                    <div
+                      ref="sentinelRef"
+                      v-if="filteredIcons.length > visibleCount"
+                      class="col-span-6 h-4"
+                    />
                   </div>
                 </div>
               </div>
@@ -995,7 +998,10 @@ const updateStatusText = computed(() => {
             </div>
 
             <!-- Monitor Config -->
-            <div v-if="selectedButton.buttonKind === 'monitor' && selectedButton.monitorConfig" class="cyber-inset p-3 flex flex-col gap-3">
+            <div
+              v-if="selectedButton.buttonKind === 'monitor' && selectedButton.monitorConfig"
+              class="cyber-inset p-3 flex flex-col gap-3"
+            >
               <div class="flex flex-col gap-1.5">
                 <label class="cyber-input-label">Dữ liệu hiển thị</label>
                 <select
@@ -1014,12 +1020,15 @@ const updateStatusText = computed(() => {
                   min="1"
                   step="1"
                   :value="(selectedButton.monitorConfig?.intervalMs ?? 5000) / 1000"
-                  @change="(e) => {
-                    if (selectedButton?.monitorConfig) {
-                      selectedButton.monitorConfig.intervalMs = Math.max(1, Number((e.target as HTMLInputElement).value)) * 1000;
-                      saveButtonSettings();
+                  @change="
+                    e => {
+                      if (selectedButton?.monitorConfig) {
+                        selectedButton.monitorConfig.intervalMs =
+                          Math.max(1, Number((e.target as HTMLInputElement).value)) * 1000;
+                        saveButtonSettings();
+                      }
                     }
-                  }"
+                  "
                   class="bg-slate-950 border border-slate-700 text-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
                 />
               </div>
@@ -1027,217 +1036,217 @@ const updateStatusText = computed(() => {
 
             <!-- Action Type Tabs (hidden when monitor) -->
             <template v-if="selectedButton.buttonKind !== 'monitor'">
-            <div class="flex flex-col gap-2">
-              <label class="cyber-input-label">Loại sự kiện</label>
-              <div class="cyber-tab-group flex p-1 text-[10px]">
-                <button
-                  v-for="tab in ['shortcut', 'media', 'app', 'command'] as ActionType[]"
-                  :key="tab"
-                  @click="
-                    activeTab = tab;
-                    saveButtonSettings();
-                  "
-                  class="flex-1 text-center py-1.5 font-bold uppercase tracking-wider transition-all duration-150 h-auto cursor-pointer"
-                  :class="
-                    activeTab === tab ? 'cyber-tab-active' : 'text-slate-500 hover:text-slate-300'
-                  "
-                >
-                  {{ tab }}
-                </button>
+              <div class="flex flex-col gap-2">
+                <label class="cyber-input-label">Loại sự kiện</label>
+                <div class="cyber-tab-group flex p-1 text-[10px]">
+                  <button
+                    v-for="tab in ['shortcut', 'media', 'app', 'command'] as ActionType[]"
+                    :key="tab"
+                    @click="
+                      activeTab = tab;
+                      saveButtonSettings();
+                    "
+                    class="flex-1 text-center py-1.5 font-bold uppercase tracking-wider transition-all duration-150 h-auto cursor-pointer"
+                    :class="
+                      activeTab === tab ? 'cyber-tab-active' : 'text-slate-500 hover:text-slate-300'
+                    "
+                  >
+                    {{ tab }}
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <!-- Tab Content Panel -->
-            <div class="cyber-inset p-3">
-              <!-- Shortcut -->
-              <div v-if="activeTab === 'shortcut'" class="flex flex-col gap-3">
-                <div class="flex flex-col gap-2">
-                  <span class="text-[9px] font-bold uppercase text-slate-400"
-                    >Tổ hợp phím tắt:</span
-                  >
-                  <div class="relative flex items-center cyber-input-group overflow-hidden">
-                    <Input
-                      v-model="selectedButton.shortcutValue"
-                      type="text"
-                      placeholder="Chưa gán phím"
-                      class="border-0 bg-transparent px-3 py-1.5 shadow-none"
-                      disabled
-                    />
-                    <button
-                      @click="toggleRecording"
-                      class="cyber-record-btn h-auto text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 cursor-pointer"
-                      :class="isRecording ? 'cyber-record-btn--active' : ''"
+              <!-- Tab Content Panel -->
+              <div class="cyber-inset p-3">
+                <!-- Shortcut -->
+                <div v-if="activeTab === 'shortcut'" class="flex flex-col gap-3">
+                  <div class="flex flex-col gap-2">
+                    <span class="text-[9px] font-bold uppercase text-slate-400"
+                      >Tổ hợp phím tắt:</span
                     >
-                      {{ isRecording ? 'Thu...' : 'Thu' }}
-                    </button>
+                    <div class="relative flex items-center cyber-input-group overflow-hidden">
+                      <Input
+                        v-model="selectedButton.shortcutValue"
+                        type="text"
+                        placeholder="Chưa gán phím"
+                        class="border-0 bg-transparent px-3 py-1.5 shadow-none"
+                        disabled
+                      />
+                      <button
+                        @click="toggleRecording"
+                        class="cyber-record-btn h-auto text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 cursor-pointer"
+                        :class="isRecording ? 'cyber-record-btn--active' : ''"
+                      >
+                        {{ isRecording ? 'Thu...' : 'Thu' }}
+                      </button>
+                    </div>
+                    <p
+                      class="text-[9px] text-fuchsia-400 font-semibold select-none leading-relaxed animate-pulse"
+                      v-if="isRecording"
+                    >
+                      ⚠️ Nhấp tổ hợp phím bất kỳ trên bàn phím của bạn để ghi nhận...
+                    </p>
                   </div>
-                  <p
-                    class="text-[9px] text-fuchsia-400 font-semibold select-none leading-relaxed animate-pulse"
-                    v-if="isRecording"
+
+                  <!-- Modifier toggles + manual key picker (fallback for OS-trapped combos like Cmd+Ctrl+Q on macOS) -->
+                  <div v-if="isRecording" class="flex flex-col gap-2 pt-2 cyber-divider">
+                    <span class="text-[9px] font-bold uppercase tracking-widest text-slate-500">
+                      Hoặc gán thủ công (cho tổ hợp bị macOS chặn):
+                    </span>
+                    <div class="grid grid-cols-4 gap-1.5">
+                      <button
+                        type="button"
+                        @click="toggleMod('meta')"
+                        class="cyber-preset-btn text-[9px] py-1 font-bold uppercase tracking-wider"
+                        :class="pendingMods.meta ? 'cyber-tab-active' : ''"
+                      >
+                        {{ metaLabel }}
+                      </button>
+                      <button
+                        type="button"
+                        @click="toggleMod('ctrl')"
+                        class="cyber-preset-btn text-[9px] py-1 font-bold uppercase tracking-wider"
+                        :class="pendingMods.ctrl ? 'cyber-tab-active' : ''"
+                      >
+                        Ctrl
+                      </button>
+                      <button
+                        type="button"
+                        @click="toggleMod('shift')"
+                        class="cyber-preset-btn text-[9px] py-1 font-bold uppercase tracking-wider"
+                        :class="pendingMods.shift ? 'cyber-tab-active' : ''"
+                      >
+                        Shift
+                      </button>
+                      <button
+                        type="button"
+                        @click="toggleMod('alt')"
+                        class="cyber-preset-btn text-[9px] py-1 font-bold uppercase tracking-wider"
+                        :class="pendingMods.alt ? 'cyber-tab-active' : ''"
+                      >
+                        {{ altLabel }}
+                      </button>
+                    </div>
+                    <div class="flex gap-1.5">
+                      <Input
+                        v-model="manualKey"
+                        type="text"
+                        placeholder="Phím cuối (vd: Q, F4, Space)"
+                        class="flex-1 text-[10px] py-1 px-2"
+                        maxlength="10"
+                      />
+                      <button
+                        type="button"
+                        @click="
+                          applyManualKey(
+                            manualKey.trim().length === 1
+                              ? manualKey.trim().toUpperCase()
+                              : manualKey.trim(),
+                          )
+                        "
+                        :disabled="!manualKey.trim()"
+                        class="cyber-action-btn font-bold text-[10px] uppercase tracking-wider px-3 py-1 cursor-pointer disabled:opacity-40"
+                      >
+                        Áp dụng
+                      </button>
+                    </div>
+                  </div>
+                  <div class="flex flex-col gap-1.5 pt-2 cyber-divider">
+                    <span class="text-[9px] font-bold uppercase tracking-widest text-slate-500"
+                      >Mẫu gợi ý nhanh:</span
+                    >
+                    <div class="grid grid-cols-2 gap-1.5 max-h-[105px] overflow-y-auto pr-1">
+                      <button
+                        v-for="preset in shortcutPresets"
+                        :key="preset.value"
+                        @click="applyPreset(preset.value)"
+                        class="cyber-preset-btn text-[9px] text-left px-2 py-1 h-auto truncate font-bold"
+                      >
+                        {{ preset.label }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Media -->
+                <div v-else-if="activeTab === 'media'" class="flex flex-col gap-2">
+                  <span class="text-[9px] font-bold uppercase text-slate-400">Lệnh hệ thống:</span>
+                  <select
+                    v-model="selectedButton.mediaAction"
+                    class="w-full text-xs font-semibold cyber-select px-2.5 py-2.5 cursor-pointer"
+                    @change="saveButtonSettings"
                   >
-                    ⚠️ Nhấp tổ hợp phím bất kỳ trên bàn phím của bạn để ghi nhận...
+                    <option value="play_pause">Play/Pause</option>
+                    <option value="volume_up">Volume (+) Tăng</option>
+                    <option value="volume_down">Volume (-) Giảm</option>
+                    <option value="mute">Mute Tắt âm</option>
+                    <option value="next">Next Track</option>
+                    <option value="prev">Previous Track</option>
+                  </select>
+                </div>
+
+                <!-- App -->
+                <div v-else-if="activeTab === 'app'" class="flex flex-col gap-3">
+                  <div class="flex flex-col gap-1.5">
+                    <span class="text-[9px] font-bold uppercase text-slate-400">
+                      {{ isMac ? 'Đường dẫn App macOS (.app):' : 'Đường dẫn file chạy (.exe):' }}
+                    </span>
+                    <Input
+                      v-model="selectedButton.appPath"
+                      type="text"
+                      :placeholder="
+                        isMac ? 'e.g. /Applications/Safari.app' : 'e.g. C:\\Windows\\notepad.exe'
+                      "
+                      @input="saveButtonSettings"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-2 flex items-center gap-1.5"
+                    @click="appPickerOpen = true"
+                  >
+                    <Icon icon="lucide:search" class="text-xs" />
+                    <span>Browse installed apps...</span>
+                  </button>
+                  <div class="flex flex-col gap-1.5 pt-2 cyber-divider">
+                    <span class="text-[9px] font-bold uppercase tracking-widest text-slate-500"
+                      >Chọn nhanh ứng dụng:</span
+                    >
+                    <div class="grid grid-cols-2 gap-1.5 max-h-[120px] overflow-y-auto pr-1">
+                      <button
+                        v-for="preset in appPresets"
+                        :key="preset.path"
+                        @click="applyAppPreset(preset)"
+                        type="button"
+                        class="cyber-preset-btn text-[9px] text-left px-2 py-1.5 h-auto truncate font-bold flex items-center gap-1.5"
+                      >
+                        <Icon :icon="preset.icon" class="text-xs text-cyan-400 shrink-0" />
+                        <span class="truncate">{{ preset.name }}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Command -->
+                <div v-else-if="activeTab === 'command'" class="flex flex-col gap-2">
+                  <span class="text-[9px] font-bold uppercase text-slate-400">Lệnh shell:</span>
+                  <textarea
+                    v-model="selectedButton.commandValue"
+                    rows="3"
+                    spellcheck="false"
+                    placeholder='vd: open -a "Google Chrome" "https://github.com"'
+                    class="w-full text-[11px] font-mono cyber-input-group bg-transparent px-2.5 py-2 resize-y focus:outline-none"
+                    @input="saveButtonSettings"
+                  ></textarea>
+                  <p
+                    class="text-[9px] font-bold leading-relaxed text-amber-400/90 cyber-warning px-2 py-1.5"
+                  >
+                    ⚠ Lệnh chạy với quyền user hiện tại — chỉ dùng cho command bạn tin cậy. Trên
+                    macOS/Linux qua <span class="font-mono">/bin/sh -c</span>, Windows qua
+                    <span class="font-mono">cmd /C</span>.
                   </p>
                 </div>
-
-                <!-- Modifier toggles + manual key picker (fallback for OS-trapped combos like Cmd+Ctrl+Q on macOS) -->
-                <div v-if="isRecording" class="flex flex-col gap-2 pt-2 cyber-divider">
-                  <span class="text-[9px] font-bold uppercase tracking-widest text-slate-500">
-                    Hoặc gán thủ công (cho tổ hợp bị macOS chặn):
-                  </span>
-                  <div class="grid grid-cols-4 gap-1.5">
-                    <button
-                      type="button"
-                      @click="toggleMod('meta')"
-                      class="cyber-preset-btn text-[9px] py-1 font-bold uppercase tracking-wider"
-                      :class="pendingMods.meta ? 'cyber-tab-active' : ''"
-                    >
-                      {{ metaLabel }}
-                    </button>
-                    <button
-                      type="button"
-                      @click="toggleMod('ctrl')"
-                      class="cyber-preset-btn text-[9px] py-1 font-bold uppercase tracking-wider"
-                      :class="pendingMods.ctrl ? 'cyber-tab-active' : ''"
-                    >
-                      Ctrl
-                    </button>
-                    <button
-                      type="button"
-                      @click="toggleMod('shift')"
-                      class="cyber-preset-btn text-[9px] py-1 font-bold uppercase tracking-wider"
-                      :class="pendingMods.shift ? 'cyber-tab-active' : ''"
-                    >
-                      Shift
-                    </button>
-                    <button
-                      type="button"
-                      @click="toggleMod('alt')"
-                      class="cyber-preset-btn text-[9px] py-1 font-bold uppercase tracking-wider"
-                      :class="pendingMods.alt ? 'cyber-tab-active' : ''"
-                    >
-                      {{ altLabel }}
-                    </button>
-                  </div>
-                  <div class="flex gap-1.5">
-                    <Input
-                      v-model="manualKey"
-                      type="text"
-                      placeholder="Phím cuối (vd: Q, F4, Space)"
-                      class="flex-1 text-[10px] py-1 px-2"
-                      maxlength="10"
-                    />
-                    <button
-                      type="button"
-                      @click="
-                        applyManualKey(
-                          manualKey.trim().length === 1
-                            ? manualKey.trim().toUpperCase()
-                            : manualKey.trim(),
-                        )
-                      "
-                      :disabled="!manualKey.trim()"
-                      class="cyber-action-btn font-bold text-[10px] uppercase tracking-wider px-3 py-1 cursor-pointer disabled:opacity-40"
-                    >
-                      Áp dụng
-                    </button>
-                  </div>
-                </div>
-                <div class="flex flex-col gap-1.5 pt-2 cyber-divider">
-                  <span class="text-[9px] font-bold uppercase tracking-widest text-slate-500"
-                    >Mẫu gợi ý nhanh:</span
-                  >
-                  <div class="grid grid-cols-2 gap-1.5 max-h-[105px] overflow-y-auto pr-1">
-                    <button
-                      v-for="preset in shortcutPresets"
-                      :key="preset.value"
-                      @click="applyPreset(preset.value)"
-                      class="cyber-preset-btn text-[9px] text-left px-2 py-1 h-auto truncate font-bold"
-                    >
-                      {{ preset.label }}
-                    </button>
-                  </div>
-                </div>
               </div>
-
-              <!-- Media -->
-              <div v-else-if="activeTab === 'media'" class="flex flex-col gap-2">
-                <span class="text-[9px] font-bold uppercase text-slate-400">Lệnh hệ thống:</span>
-                <select
-                  v-model="selectedButton.mediaAction"
-                  class="w-full text-xs font-semibold cyber-select px-2.5 py-2.5 cursor-pointer"
-                  @change="saveButtonSettings"
-                >
-                  <option value="play_pause">Play/Pause</option>
-                  <option value="volume_up">Volume (+) Tăng</option>
-                  <option value="volume_down">Volume (-) Giảm</option>
-                  <option value="mute">Mute Tắt âm</option>
-                  <option value="next">Next Track</option>
-                  <option value="prev">Previous Track</option>
-                </select>
-              </div>
-
-              <!-- App -->
-              <div v-else-if="activeTab === 'app'" class="flex flex-col gap-3">
-                <div class="flex flex-col gap-1.5">
-                  <span class="text-[9px] font-bold uppercase text-slate-400">
-                    {{ isMac ? 'Đường dẫn App macOS (.app):' : 'Đường dẫn file chạy (.exe):' }}
-                  </span>
-                  <Input
-                    v-model="selectedButton.appPath"
-                    type="text"
-                    :placeholder="
-                      isMac ? 'e.g. /Applications/Safari.app' : 'e.g. C:\\Windows\\notepad.exe'
-                    "
-                    @input="saveButtonSettings"
-                  />
-                </div>
-                <button
-                  type="button"
-                  class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-2 flex items-center gap-1.5"
-                  @click="appPickerOpen = true"
-                >
-                  <Icon icon="lucide:search" class="text-xs" />
-                  <span>Browse installed apps...</span>
-                </button>
-                <div class="flex flex-col gap-1.5 pt-2 cyber-divider">
-                  <span class="text-[9px] font-bold uppercase tracking-widest text-slate-500"
-                    >Chọn nhanh ứng dụng:</span
-                  >
-                  <div class="grid grid-cols-2 gap-1.5 max-h-[120px] overflow-y-auto pr-1">
-                    <button
-                      v-for="preset in appPresets"
-                      :key="preset.path"
-                      @click="applyAppPreset(preset)"
-                      type="button"
-                      class="cyber-preset-btn text-[9px] text-left px-2 py-1.5 h-auto truncate font-bold flex items-center gap-1.5"
-                    >
-                      <Icon :icon="preset.icon" class="text-xs text-cyan-400 shrink-0" />
-                      <span class="truncate">{{ preset.name }}</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Command -->
-              <div v-else-if="activeTab === 'command'" class="flex flex-col gap-2">
-                <span class="text-[9px] font-bold uppercase text-slate-400">Lệnh shell:</span>
-                <textarea
-                  v-model="selectedButton.commandValue"
-                  rows="3"
-                  spellcheck="false"
-                  placeholder='vd: open -a "Google Chrome" "https://github.com"'
-                  class="w-full text-[11px] font-mono cyber-input-group bg-transparent px-2.5 py-2 resize-y focus:outline-none"
-                  @input="saveButtonSettings"
-                ></textarea>
-                <p
-                  class="text-[9px] font-bold leading-relaxed text-amber-400/90 cyber-warning px-2 py-1.5"
-                >
-                  ⚠ Lệnh chạy với quyền user hiện tại — chỉ dùng cho command bạn tin cậy. Trên
-                  macOS/Linux qua <span class="font-mono">/bin/sh -c</span>, Windows qua
-                  <span class="font-mono">cmd /C</span>.
-                </p>
-              </div>
-            </div>
             </template>
           </div>
 
@@ -1356,7 +1365,9 @@ const updateStatusText = computed(() => {
           <div class="flex flex-col gap-5 text-xs text-slate-300">
             <!-- Theme Selector -->
             <div class="flex flex-col gap-2.5">
-              <span class="text-[9px] font-bold uppercase tracking-wider text-cyan-400/70">Giao diện</span>
+              <span class="text-[9px] font-bold uppercase tracking-wider text-cyan-400/70"
+                >Giao diện</span
+              >
               <div class="flex gap-2">
                 <button
                   v-for="(meta, name) in THEMES"
@@ -1373,7 +1384,9 @@ const updateStatusText = computed(() => {
                     class="w-5 h-5 rounded-full border-2 border-black/20"
                     :style="{ backgroundColor: meta.previewColor }"
                   />
-                  <span class="text-[9px] font-bold uppercase tracking-wider text-slate-300">{{ meta.label }}</span>
+                  <span class="text-[9px] font-bold uppercase tracking-wider text-slate-300">{{
+                    meta.label
+                  }}</span>
                 </button>
               </div>
             </div>
