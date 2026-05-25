@@ -6,6 +6,7 @@ import { vDraggable } from 'vue-draggable-plus';
 const layoutStore = useLayoutStore();
 
 function handlePress(button: Parameters<typeof layoutStore.pressButton>[0]) {
+  if (button.buttonKind === 'monitor') return;
   layoutStore.pressButton(button);
 }
 

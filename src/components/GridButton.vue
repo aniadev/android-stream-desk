@@ -57,7 +57,7 @@ const metricValue = computed(() => {
 });
 
 function handleClick() {
-  if (!isMonitor.value) emit('press', props.button);
+  emit('press', props.button);
 }
 </script>
 
