@@ -1497,9 +1497,9 @@ const updateStatusText = computed(() => {
                   </p>
                   <button
                     class="cyber-action-btn font-bold w-full uppercase tracking-wider text-[10px] py-1.5 cursor-pointer"
-                    @click="updaterStore.startInstall"
+                    @click="updaterStore.startInstall()"
                   >
-                    Tùy chọn tải & nâng cấp ứng dụng
+                    {{ (updaterStore.update as any)?.isManual ? 'Mở trang tải xuống →' : 'Tải & nâng cấp tự động' }}
                   </button>
                 </div>
 

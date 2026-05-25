@@ -59,16 +59,19 @@ export const useUpdaterStore = defineStore("updater", () => {
       
       // 2. Manual fallback check via GitHub API
       try {
-        const res = await fetch("https://api.github.com/repos/aniadev/android-stream-desk/releases/latest");
+        const res = await fetch("https://api.github.com/repos/aniadev/android-stream-desk/releases");
         if (!res.ok) throw tauriError;
-        
-        const data = await res.json();
-        const latestTag = data.tag_name;
-        if (!latestTag) throw tauriError;
-        
-        const latestVersion = latestTag.replace(/^v/, "");
+
+        const releases: Array<{ tag_name: string; prerelease: boolean; draft: boolean; body: string }> = await res.json();
+        // Only consider full releases — ignore -win / -apk suffix builds
+        const fullRelease = releases.find(
+          r => !r.prerelease && !r.draft && /^v\d+\.\d+\.\d+$/.test(r.tag_name)
+        );
+        if (!fullRelease) throw tauriError;
+
+        const latestVersion = fullRelease.tag_name.replace(/^v/, "");
         const currentVersion = await getVersion();
-        
+
         if (latestVersion === currentVersion) {
           state.value = "no-update";
           if (!opts.silent) showToast("Ứng dụng đã ở phiên bản mới nhất!");
@@ -76,8 +79,8 @@ export const useUpdaterStore = defineStore("updater", () => {
         } else {
           update.value = {
             version: latestVersion,
-            currentVersion: currentVersion,
-            body: data.body || "",
+            currentVersion,
+            body: fullRelease.body || "",
             isManual: true,
           } as any;
           state.value = "available";
@@ -93,6 +96,13 @@ export const useUpdaterStore = defineStore("updater", () => {
 
   async function startInstall() {
     if (!update.value) return;
+
+    // GitHub fallback update — no binary to auto-install, open releases page
+    if ((update.value as any).isManual) {
+      window.open("https://github.com/aniadev/android-stream-desk/releases/latest", "_blank");
+      return;
+    }
+
     state.value = "downloading";
     downloadedBytes.value = 0;
     totalBytes.value = 0;
