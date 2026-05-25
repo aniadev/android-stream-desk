@@ -16,8 +16,16 @@ export const useConnectionStore = defineStore('connection', () => {
 
   let heartbeatInterval: number | null = null;
   let reconnectInterval: number | null = null;
+  let connectTimeout: number | null = null;
   let isAlive = false;
   let userDisconnected = false;
+
+  const clearConnectTimeout = () => {
+    if (connectTimeout !== null) {
+      clearTimeout(connectTimeout);
+      connectTimeout = null;
+    }
+  };
 
   if (typeof window !== 'undefined') {
     window.addEventListener('online', () => {
@@ -87,7 +95,19 @@ export const useConnectionStore = defineStore('connection', () => {
       const ws = new WebSocket(url);
       socket.value = ws;
 
+      connectTimeout = window.setTimeout(() => {
+        connectTimeout = null;
+        if (status.value === 'connecting' && socket.value === ws) {
+          detachSocket(ws);
+          ws.close();
+          socket.value = null;
+          status.value = 'disconnected';
+          if (!userDisconnected) triggerAutoReconnect();
+        }
+      }, 8000);
+
       ws.onopen = () => {
+        clearConnectTimeout();
         status.value = 'connected';
         isAlive = true;
         reconnectAttempts.value = 0;
@@ -112,10 +132,12 @@ export const useConnectionStore = defineStore('connection', () => {
       };
 
       ws.onerror = () => {
+        clearConnectTimeout();
         status.value = 'error';
       };
 
       ws.onclose = () => {
+        clearConnectTimeout();
         if (socket.value !== ws) {
           // Stale close from a superseded socket — ignore.
           return;
@@ -139,6 +161,7 @@ export const useConnectionStore = defineStore('connection', () => {
 
   const disconnect = () => {
     userDisconnected = true;
+    clearConnectTimeout();
     clearReconnect();
     stopHeartbeat();
     if (socket.value) {

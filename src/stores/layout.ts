@@ -4,11 +4,6 @@ import type { Layout, ButtonConfig } from '../types';
 import { useConnectionStore } from './connection';
 import { applyTheme, isValidTheme, type ThemeName } from '../lib/themes';
 
-export const currentMetrics = ref<{ ram_percent: number; cpu_percent: number }>({
-  ram_percent: 0,
-  cpu_percent: 0,
-});
-
 // Detect platform dynamically at runtime
 const detectOs = (): 'macos' | 'windows' => {
   const userAgent = navigator.userAgent.toLowerCase();
@@ -109,6 +104,10 @@ let wsListenerAttached = false;
 export const useLayoutStore = defineStore('layout', () => {
   const layout = ref<Layout>(defaultLayout());
   const lastToast = ref<{ kind: 'error' | 'info'; message: string; at: number } | null>(null);
+  const currentMetrics = ref<{ ram_percent: number; cpu_percent: number }>({
+    ram_percent: 0,
+    cpu_percent: 0,
+  });
 
   const connectionStore = useConnectionStore();
 
@@ -285,6 +284,7 @@ export const useLayoutStore = defineStore('layout', () => {
   return {
     layout,
     lastToast,
+    currentMetrics,
     updateLayout,
     resizeGrid,
     broadcastSync,

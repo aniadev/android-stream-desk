@@ -138,7 +138,7 @@ onMounted(async () => {
   document.addEventListener('visibilitychange', handleVisibilityChange);
 
   if (connectionStore.ipAddress) {
-    connectionStore.connect();
+    // connectionStore.connect();
     return;
   }
   try {
@@ -167,7 +167,10 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="h-screen w-screen flex flex-col overflow-hidden relative" :style="{ backgroundColor: 'var(--theme-bg)' }">
+  <div
+    class="h-screen w-screen flex flex-col overflow-hidden relative"
+    :style="{ backgroundColor: 'var(--theme-bg)' }"
+  >
     <!-- Grid Area occupies 98% of the screen when connected -->
     <div
       v-if="connectionStore.status === 'connected'"
@@ -302,25 +305,32 @@ onUnmounted(() => {
 
         <div class="w-full flex flex-col gap-2 mt-2">
           <button
-            @click="handleConnect"
+            @click="
+              connectionStore.status === 'connecting' && !connectionStore.isReconnecting
+                ? connectionStore.disconnect()
+                : handleConnect()
+            "
             class="w-full font-extrabold text-xs uppercase tracking-wider py-3 rounded-xl transition duration-150 transform hover:brightness-105 active:scale-98 shadow-md flex items-center justify-center gap-2 cursor-pointer text-white"
             :class="
-              connectionStore.status === 'connecting'
-                ? 'bg-amber-600 shadow-amber-900/10'
-                : 'bg-gradient-to-r from-violet-600 to-indigo-600 shadow-indigo-900/20'
+              connectionStore.status === 'connecting' && !connectionStore.isReconnecting
+                ? 'bg-rose-600 shadow-rose-900/10'
+                : connectionStore.status === 'connecting'
+                  ? 'bg-amber-600 shadow-amber-900/10'
+                  : 'bg-gradient-to-r from-violet-600 to-indigo-600 shadow-indigo-900/20'
             "
-            :disabled="connectionStore.status === 'connecting'"
           >
             <span
               v-if="connectionStore.status === 'connecting'"
               class="inline-block animate-spin h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full"
             ></span>
             {{
-              connectionStore.status === 'connecting'
-                ? 'Đang kết nối...'
-                : connectionStore.status === 'error'
-                  ? 'Lỗi - Thử lại ngay'
-                  : 'Kết nối ngay'
+              connectionStore.status === 'connecting' && !connectionStore.isReconnecting
+                ? 'Hủy'
+                : connectionStore.status === 'connecting'
+                  ? 'Đang kết nối...'
+                  : connectionStore.status === 'error'
+                    ? 'Lỗi - Thử lại ngay'
+                    : 'Kết nối ngay'
             }}
           </button>
         </div>

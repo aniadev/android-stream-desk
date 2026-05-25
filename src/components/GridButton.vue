@@ -4,7 +4,9 @@ import type { ButtonConfig } from '../types';
 import { Icon } from '@iconify/vue';
 import { hexToRgb, rgbToHsl } from '../lib/color';
 import { currentAccentH } from '../lib/themes';
-import { currentMetrics } from '../stores/layout';
+import { useLayoutStore } from '../stores/layout';
+
+const layoutStore = useLayoutStore();
 
 const props = defineProps<{
   button: ButtonConfig;
@@ -52,7 +54,7 @@ const monitorIcon = computed(() =>
 const metricValue = computed(() => {
   if (!props.button.monitorConfig) return '--';
   const mt = props.button.monitorConfig.metricType;
-  const val = mt === 'ram_percent' ? currentMetrics.value.ram_percent : currentMetrics.value.cpu_percent;
+  const val = mt === 'ram_percent' ? layoutStore.currentMetrics.ram_percent : layoutStore.currentMetrics.cpu_percent;
   return Math.round(val);
 });
 
