@@ -8,6 +8,8 @@ use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Listener, Manager};
 
 pub mod websocket;
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+pub mod metrics;
 
 pub const WS_PORT: u16 = 8089;
 
@@ -37,6 +39,10 @@ pub struct ButtonConfig {
     app_path: Option<String>,
     #[serde(rename = "commandValue")]
     command_value: Option<String>,
+    #[serde(rename = "buttonKind")]
+    button_kind: Option<String>,
+    #[serde(rename = "monitorConfig")]
+    monitor_config: Option<serde_json::Value>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -297,6 +303,9 @@ fn list_installed_apps() -> Vec<InstalledApp> {
 
 #[cfg(desktop)]
 async fn execute_logic(app_handle: AppHandle, button: ButtonConfig) -> Result<(), String> {
+    if button.button_kind.as_deref() == Some("monitor") {
+        return Ok(());
+    }
     let result = match button.action_type.as_str() {
         "shortcut" => {
             let shortcut = button
@@ -636,6 +645,18 @@ pub fn run() {
             tauri::async_runtime::spawn(async move {
                 websocket::start_ws_server(WS_PORT, app_handle_ws).await;
             });
+
+            // Spawn metrics broadcast loop (desktop only)
+            #[cfg(not(any(target_os = "android", target_os = "ios")))]
+            {
+                let config_dir = app
+                    .path()
+                    .app_config_dir()
+                    .map_err(|e| format!("Failed to resolve config dir: {}", e))?;
+                tauri::async_runtime::spawn(async move {
+                    metrics::metrics_loop(config_dir).await;
+                });
+            }
 
             // Proxy listen event triggered from WS client loop
             app.listen("trigger-macro", move |event| {

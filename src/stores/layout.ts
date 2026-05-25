@@ -4,6 +4,11 @@ import type { Layout, ButtonConfig } from '../types';
 import { useConnectionStore } from './connection';
 import { applyTheme, isValidTheme, type ThemeName } from '../lib/themes';
 
+export const currentMetrics = ref<{ ram_percent: number; cpu_percent: number }>({
+  ram_percent: 0,
+  cpu_percent: 0,
+});
+
 // Detect platform dynamically at runtime
 const detectOs = (): 'macos' | 'windows' => {
   const userAgent = navigator.userAgent.toLowerCase();
@@ -113,9 +118,8 @@ export const useLayoutStore = defineStore('layout', () => {
       const parsed = JSON.parse(localConfig);
       if (parsed.buttons && parsed.buttons.length > 0) {
         parsed.buttons = parsed.buttons.map((b: any) => {
-          if (b.emoji && !b.icon) {
-            b.icon = 'mdi:button';
-          }
+          if (b.emoji && !b.icon) b.icon = 'mdi:button';
+          b.buttonKind = b.buttonKind ?? 'action';
           return b;
         });
       }
@@ -183,11 +187,16 @@ export const useLayoutStore = defineStore('layout', () => {
         if (synced.buttons) {
           synced.buttons = synced.buttons.map((b: any) => {
             if (b.emoji && !b.icon) b.icon = 'mdi:button';
+            b.buttonKind = b.buttonKind ?? 'action';
             return b;
           });
         }
         updateLayout(synced, true);
         applyTheme(isValidTheme(synced.theme) ? (synced.theme as ThemeName) : 'cyber');
+      } else if (message.type === 'metric_update' && message.payload) {
+        const p = message.payload;
+        if (typeof p.cpu_percent === 'number') currentMetrics.value.cpu_percent = p.cpu_percent;
+        if (typeof p.ram_percent === 'number') currentMetrics.value.ram_percent = p.ram_percent;
       } else if (message.type === 'toast' && message.payload) {
         lastToast.value = {
           kind: message.payload.kind === 'info' ? 'info' : 'error',
@@ -250,6 +259,15 @@ export const useLayoutStore = defineStore('layout', () => {
       icon: typeof b?.icon === 'string' ? b.icon : 'mdi:button',
       backgroundColor: typeof b?.backgroundColor === 'string' ? b.backgroundColor : '#1e293b',
       actionType: validActions.has(b?.actionType) ? b.actionType : 'shortcut',
+      buttonKind: b?.buttonKind === 'monitor' ? 'monitor' : 'action',
+      monitorConfig: b?.buttonKind === 'monitor' && b?.monitorConfig
+        ? {
+            metricType: ['ram_percent', 'cpu_percent'].includes(b.monitorConfig.metricType)
+              ? b.monitorConfig.metricType
+              : 'cpu_percent',
+            intervalMs: Math.max(1000, Number(b.monitorConfig?.intervalMs) || 5000),
+          }
+        : undefined,
       shortcutValue: typeof b?.shortcutValue === 'string' ? b.shortcutValue : undefined,
       mediaAction: typeof b?.mediaAction === 'string' ? b.mediaAction : undefined,
       appPath: typeof b?.appPath === 'string' ? b.appPath : undefined,

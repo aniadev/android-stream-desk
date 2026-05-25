@@ -1,4 +1,10 @@
 export type ActionType = 'shortcut' | 'media' | 'app' | 'command';
+export type MetricType = 'ram_percent' | 'cpu_percent';
+
+export interface MonitorConfig {
+  metricType: MetricType;
+  intervalMs: number;
+}
 
 export interface ButtonConfig {
   id: string;
@@ -7,6 +13,8 @@ export interface ButtonConfig {
   emoji?: string; // Tương thích ngược cấu hình cũ
   backgroundColor: string;
   actionType: ActionType;
+  buttonKind?: 'action' | 'monitor';
+  monitorConfig?: MonitorConfig;
   // Cho 'shortcut': ví dụ "Ctrl+Shift+Tab" hoặc phím rời như "Play"
   shortcutValue?: string;
   // Cho 'media': play_pause, volume_up, volume_down, mute, next, prev
@@ -34,6 +42,6 @@ export interface InstalledApp {
 }
 
 export interface WSMessage {
-  type: 'auth' | 'ping' | 'pong' | 'press' | 'sync_layout' | 'toast';
+  type: 'auth' | 'ping' | 'pong' | 'press' | 'sync_layout' | 'toast' | 'metric_update';
   payload?: any;
 }

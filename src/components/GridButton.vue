@@ -4,6 +4,7 @@ import type { ButtonConfig } from '../types';
 import { Icon } from '@iconify/vue';
 import { hexToRgb, rgbToHsl } from '../lib/color';
 import { currentAccentH } from '../lib/themes';
+import { currentMetrics } from '../stores/layout';
 
 const props = defineProps<{
   button: ButtonConfig;
@@ -42,8 +43,21 @@ const neonGlow = computed(() => {
 
 const isLongLabel = computed(() => props.button.label && props.button.label.length > 8);
 
+const isMonitor = computed(() => props.button.buttonKind === 'monitor');
+
+const monitorIcon = computed(() =>
+  props.button.monitorConfig?.metricType === 'ram_percent' ? 'mdi:memory' : 'mdi:cpu-64-bit',
+);
+
+const metricValue = computed(() => {
+  if (!props.button.monitorConfig) return '--';
+  const mt = props.button.monitorConfig.metricType;
+  const val = mt === 'ram_percent' ? currentMetrics.value.ram_percent : currentMetrics.value.cpu_percent;
+  return Math.round(val);
+});
+
 function handleClick() {
-  emit('press', props.button);
+  if (!isMonitor.value) emit('press', props.button);
 }
 </script>
 
@@ -52,9 +66,10 @@ function handleClick() {
     @click="handleClick"
     class="cyber-btn group relative w-full h-full min-w-0 min-h-0 flex flex-col items-center justify-center cursor-pointer select-none overflow-hidden transition-all duration-150 ease-out"
     :class="{
-      'gap-1 p-1.5': !compact,
-      'gap-0.5 p-1': compact,
+      'gap-1 p-1.5': !compact && !isMonitor,
+      'gap-0.5 p-1': compact && !isMonitor,
       'cyber-btn--selected': selected,
+      'cyber-btn--monitor': isMonitor,
     }"
     :style="{
       '--neon': neonColor,
@@ -66,71 +81,103 @@ function handleClick() {
         : `0 0 5px 1px ${neonGlow}, 0 0 12px 1px ${neonGlow.replace('0.5)', '0.15)')}`,
     }"
   >
-    <!-- Selected ring indicator -->
-    <span
-      v-if="selected"
-      class="absolute inset-1 pointer-events-none border-2"
-      :style="{
-        borderColor: neonColor,
-        boxShadow: `inset 0 0 12px 2px ${neonGlow}, 0 0 8px 1px ${neonGlow}`,
-        clipPath: `polygon(3px 0%, calc(100% - 3px) 0%, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 0% calc(100% - 3px), 0% 3px)`,
-      }"
-    />
+    <!-- Monitor display -->
+    <template v-if="isMonitor">
+      <Icon
+        :icon="monitorIcon"
+        class="transition-all duration-150"
+        :style="{
+          color: neonColor,
+          fontSize: compact ? '1.1rem' : '1.4rem',
+          filter: `drop-shadow(0 0 4px ${neonGlow})`,
+        }"
+      />
+      <span
+        class="font-bold font-mono leading-none"
+        :style="{
+          color: neonColor,
+          fontSize: compact ? '0.85rem' : '1.1rem',
+          textShadow: `0 0 8px ${neonGlow}`,
+        }"
+      >{{ metricValue }}%</span>
+      <span
+        class="text-center leading-tight px-0.5 select-none uppercase tracking-wider"
+        :style="{
+          color: neonColor,
+          fontSize: compact ? '0.45rem' : '0.5rem',
+          opacity: 0.7,
+        }"
+      >{{ button.label || 'Monitor' }}</span>
+    </template>
 
-    <!-- Scanline overlay -->
-    <span
-      class="absolute inset-0 pointer-events-none opacity-[0.06]"
-      :style="{
-        background: `repeating-linear-gradient(0deg, transparent, transparent 2px, ${neonColor} 2px, ${neonColor} 3px)`,
-      }"
-    />
+    <!-- Action button content -->
+    <template v-else>
+      <!-- Selected ring indicator -->
+      <span
+        v-if="selected"
+        class="absolute inset-1 pointer-events-none border-2"
+        :style="{
+          borderColor: neonColor,
+          boxShadow: `inset 0 0 12px 2px ${neonGlow}, 0 0 8px 1px ${neonGlow}`,
+          clipPath: `polygon(3px 0%, calc(100% - 3px) 0%, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 0% calc(100% - 3px), 0% 3px)`,
+        }"
+      />
 
-    <!-- Corner accents -->
-    <span class="absolute top-1.5 left-1.5 w-2 h-2 border-t-2 border-l-2 pointer-events-none" :class="compact ? 'w-1.5 h-1.5' : 'w-2 h-2'" :style="{ borderColor: neonColor }" />
-    <span class="absolute top-1.5 right-1.5 border-t-2 border-r-2 pointer-events-none" :class="compact ? 'w-1.5 h-1.5' : 'w-2 h-2'" :style="{ borderColor: neonColor }" />
-    <span class="absolute bottom-1.5 left-1.5 border-b-2 border-l-2 pointer-events-none" :class="compact ? 'w-1.5 h-1.5' : 'w-2 h-2'" :style="{ borderColor: neonColor }" />
-    <span class="absolute bottom-1.5 right-1.5 border-b-2 border-r-2 pointer-events-none" :class="compact ? 'w-1.5 h-1.5' : 'w-2 h-2'" :style="{ borderColor: neonColor }" />
+      <!-- Scanline overlay -->
+      <span
+        class="absolute inset-0 pointer-events-none opacity-[0.06]"
+        :style="{
+          background: `repeating-linear-gradient(0deg, transparent, transparent 2px, ${neonColor} 2px, ${neonColor} 3px)`,
+        }"
+      />
 
-    <!-- Icon -->
-    <Icon
-      :icon="button.icon || 'mdi:button-pointer'"
-      class="icon-slot transition-all duration-150 group-hover:scale-110 group-active:scale-90"
-      :style="{
-        color: neonColor,
-        fontSize: isLongLabel
-          ? (compact ? 'clamp(1.1rem, 4vw, 1.4rem)' : 'clamp(1.4rem, 5vw, 1.8rem)')
-          : (compact ? 'clamp(1.3rem, 5vw, 1.6rem)' : 'clamp(1.6rem, 6vw, 2.2rem)'),
-        filter: `drop-shadow(0 0 6px ${neonGlow})`,
-      }"
-    />
+      <!-- Corner accents -->
+      <span class="absolute top-1.5 left-1.5 w-2 h-2 border-t-2 border-l-2 pointer-events-none" :class="compact ? 'w-1.5 h-1.5' : 'w-2 h-2'" :style="{ borderColor: neonColor }" />
+      <span class="absolute top-1.5 right-1.5 border-t-2 border-r-2 pointer-events-none" :class="compact ? 'w-1.5 h-1.5' : 'w-2 h-2'" :style="{ borderColor: neonColor }" />
+      <span class="absolute bottom-1.5 left-1.5 border-b-2 border-l-2 pointer-events-none" :class="compact ? 'w-1.5 h-1.5' : 'w-2 h-2'" :style="{ borderColor: neonColor }" />
+      <span class="absolute bottom-1.5 right-1.5 border-b-2 border-r-2 pointer-events-none" :class="compact ? 'w-1.5 h-1.5' : 'w-2 h-2'" :style="{ borderColor: neonColor }" />
 
-    <!-- Label -->
-    <span
-      :class="[
-        'label-slot text-center font-bold leading-tight px-0.5 select-none transition-all duration-150 tracking-wider uppercase group-hover:scale-105 group-active:scale-90',
-        isLongLabel
-          ? (compact ? 'text-[0.5rem] sm:text-[0.55rem]' : 'text-[0.55rem] sm:text-[0.6rem]')
-          : (compact ? 'text-[0.6rem] sm:text-[0.65rem]' : 'text-[0.65rem] sm:text-[0.7rem]'),
-      ]"
-      :style="{
-        color: neonColor,
-        textShadow: `0 0 6px ${neonGlow}, 0 0 12px ${neonGlow}`,
-      }"
-    >
-      {{ button.label || 'Untitled' }}
-    </span>
+      <!-- Icon -->
+      <Icon
+        :icon="button.icon || 'mdi:button-pointer'"
+        class="icon-slot transition-all duration-150 group-hover:scale-110 group-active:scale-90"
+        :style="{
+          color: neonColor,
+          fontSize: isLongLabel
+            ? (compact ? 'clamp(1.1rem, 4vw, 1.4rem)' : 'clamp(1.4rem, 5vw, 1.8rem)')
+            : (compact ? 'clamp(1.3rem, 5vw, 1.6rem)' : 'clamp(1.6rem, 6vw, 2.2rem)'),
+          filter: `drop-shadow(0 0 6px ${neonGlow})`,
+        }"
+      />
 
-    <!-- Selected checkmark -->
-    <span
-      v-if="selected"
-      class="absolute top-1 right-1 h-4 w-4 rounded-full flex items-center justify-center text-[8px] font-bold text-black pointer-events-none animate-scaleIn"
-      :style="{
-        backgroundColor: neonColor,
-        boxShadow: `0 0 8px ${neonGlow}`,
-      }"
-    >
-      ✓
-    </span>
+      <!-- Label -->
+      <span
+        :class="[
+          'label-slot text-center font-bold leading-tight px-0.5 select-none transition-all duration-150 tracking-wider uppercase group-hover:scale-105 group-active:scale-90',
+          isLongLabel
+            ? (compact ? 'text-[0.5rem] sm:text-[0.55rem]' : 'text-[0.55rem] sm:text-[0.6rem]')
+            : (compact ? 'text-[0.6rem] sm:text-[0.65rem]' : 'text-[0.65rem] sm:text-[0.7rem]'),
+        ]"
+        :style="{
+          color: neonColor,
+          textShadow: `0 0 6px ${neonGlow}, 0 0 12px ${neonGlow}`,
+        }"
+      >
+        {{ button.label || 'Untitled' }}
+      </span>
+
+      <!-- Selected checkmark -->
+      <span
+        v-if="selected"
+        class="absolute top-1 right-1 h-4 w-4 rounded-full flex items-center justify-center text-[8px] font-bold text-black pointer-events-none animate-scaleIn"
+        :style="{
+          backgroundColor: neonColor,
+          boxShadow: `0 0 8px ${neonGlow}`,
+        }"
+      >
+        ✓
+      </span>
+    </template>
   </button>
 </template>
 
@@ -182,5 +229,14 @@ function handleClick() {
 }
 .animate-scaleIn {
   animation: scaleIn 0.15s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.cyber-btn--monitor {
+  cursor: default;
+  gap: 0.25rem;
+  padding: 0.375rem;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
 }
 </style>

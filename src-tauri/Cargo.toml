@@ -26,6 +26,7 @@ lazy_static = "1.4"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 enigo = "0.3.0"
+sysinfo = { version = "0.33", default-features = false, features = ["system"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 winreg = "0.52"

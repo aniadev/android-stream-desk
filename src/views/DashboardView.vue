@@ -430,8 +430,21 @@ const syncLayout = () => {
 };
 
 let saveTimer: number | null = null;
+const setButtonKind = (kind: 'action' | 'monitor') => {
+  if (!selectedButton.value) return;
+  selectedButton.value.buttonKind = kind;
+  if (kind === 'monitor') {
+    if (!selectedButton.value.monitorConfig) {
+      selectedButton.value.monitorConfig = { metricType: 'cpu_percent', intervalMs: 5000 };
+    }
+  } else {
+    selectedButton.value.monitorConfig = undefined;
+  }
+  saveButtonSettings();
+};
+
 const saveButtonSettings = () => {
-  if (selectedButton.value) {
+  if (selectedButton.value && selectedButton.value.buttonKind !== 'monitor') {
     selectedButton.value.actionType = activeTab.value;
   }
   layoutStore.updateLayout({ ...layoutStore.layout });
@@ -885,7 +898,59 @@ const updateStatusText = computed(() => {
               </div>
             </div>
 
-            <!-- Action Type Tabs -->
+            <!-- Button Kind Toggle -->
+            <div class="flex flex-col gap-2">
+              <label class="cyber-input-label">Loại button</label>
+              <div class="cyber-tab-group flex p-1 text-[10px]">
+                <button
+                  v-for="kind in ['action', 'monitor'] as const"
+                  :key="kind"
+                  @click="setButtonKind(kind)"
+                  class="flex-1 text-center py-1.5 font-bold uppercase tracking-wider transition-all duration-150 h-auto cursor-pointer"
+                  :class="
+                    (selectedButton.buttonKind ?? 'action') === kind
+                      ? 'cyber-tab-active'
+                      : 'text-slate-500 hover:text-slate-300'
+                  "
+                >
+                  {{ kind === 'action' ? 'Action' : 'Monitor' }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Monitor Config -->
+            <div v-if="selectedButton.buttonKind === 'monitor' && selectedButton.monitorConfig" class="cyber-inset p-3 flex flex-col gap-3">
+              <div class="flex flex-col gap-1.5">
+                <label class="cyber-input-label">Dữ liệu hiển thị</label>
+                <select
+                  v-model="selectedButton.monitorConfig!.metricType"
+                  @change="saveButtonSettings"
+                  class="bg-slate-950 border border-slate-700 text-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500/50 cursor-pointer"
+                >
+                  <option value="cpu_percent">CPU Usage (%)</option>
+                  <option value="ram_percent">RAM Usage (%)</option>
+                </select>
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label class="cyber-input-label">Cập nhật mỗi (giây)</label>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  :value="(selectedButton.monitorConfig?.intervalMs ?? 5000) / 1000"
+                  @change="(e) => {
+                    if (selectedButton?.monitorConfig) {
+                      selectedButton.monitorConfig.intervalMs = Math.max(1, Number((e.target as HTMLInputElement).value)) * 1000;
+                      saveButtonSettings();
+                    }
+                  }"
+                  class="bg-slate-950 border border-slate-700 text-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+                />
+              </div>
+            </div>
+
+            <!-- Action Type Tabs (hidden when monitor) -->
+            <template v-if="selectedButton.buttonKind !== 'monitor'">
             <div class="flex flex-col gap-2">
               <label class="cyber-input-label">Loại sự kiện</label>
               <div class="cyber-tab-group flex p-1 text-[10px]">
@@ -1097,6 +1162,7 @@ const updateStatusText = computed(() => {
                 </p>
               </div>
             </div>
+            </template>
           </div>
 
           <!-- Empty state -->

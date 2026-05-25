@@ -70,6 +70,14 @@ pub async fn broadcast_toast(payload: Value) {
     broadcast_message("toast", payload).await;
 }
 
+pub async fn broadcast_metrics(cpu_percent: f32, ram_percent: f32) {
+    broadcast_message(
+        "metric_update",
+        serde_json::json!({ "cpu_percent": cpu_percent, "ram_percent": ram_percent }),
+    )
+    .await;
+}
+
 async fn broadcast_message(msg_type: &str, payload: Value) {
     if let Some(ref tx) = *WS_MUTEX.lock().await {
         let msg = WSMessage {
