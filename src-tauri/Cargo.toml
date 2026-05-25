@@ -1,6 +1,6 @@
 [package]
 name = "android-stream-desk"
-version = "1.3.2"
+version = "1.3.3"
 description = "Android Stream Desk Companion Windows Server"
 authors = ["Ania"]
 edition = "2021"

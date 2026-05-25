@@ -4,6 +4,16 @@ All notable changes to the **Android Stream Desk** project will be documented in
 
 ---
 
+## [1.3.3] - 2026-05-25
+
+### Fixed
+- **Auto-updater "not defined" crash**: Clicking "Tải & nâng cấp" khi Tauri native updater chưa được khởi tạo (chưa có minisign key) gây lỗi `downloadAndInstall is not a function`. Giờ fallback GitHub API tạo object thủ công với flag `isManual`, nút chuyển thành "Mở trang tải xuống →" và mở trình duyệt đến GitHub Releases thay vì gọi IPC không tồn tại.
+- **Auto-updater false positive với suffix tag**: GitHub fallback dùng `/releases/latest` nên có thể trả về tag `v1.3.2-win` hoặc `v1.3.2-apk`, so sánh sai với `currentVersion` và hiện "có bản cập nhật mới" nhầm. Đổi sang `/releases` list và filter bằng regex `^v\d+\.\d+\.\d+$` để chỉ xét full release.
+- **APK size giảm ~50%**: Universal APK từ ~70MB xuống ~25-35MB bằng cách bỏ target x86/x86_64 (emulator-only), thêm `abiFilters` Gradle giới hạn `arm64-v8a` + `armeabi-v7a`, và kích hoạt Rust release profile `opt-level = "z"`, `lto = true`, `codegen-units = 1`, `panic = "abort"`, `strip = true`.
+- **TypeScript error `window.__TAURI_INTERNALS__`**: Thêm `src/tauri.d.ts` khai báo `interface Window { __TAURI_INTERNALS__?: unknown }` để IDE và vue-tsc không báo lỗi.
+
+---
+
 ## [1.3.2] - 2026-05-25
 
 ### Added
