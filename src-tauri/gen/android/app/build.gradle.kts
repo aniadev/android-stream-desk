@@ -85,7 +85,9 @@ android {
         outputs.all {
             val out = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
             val ver = variant.versionName.replace('.', '_')
-            out.outputFileName = "android-stream-desk-v${ver}${if (variant.buildType.name == "debug") "-debug" else ""}.apk"
+            val isUnsigned = variant.buildType.name == "release" && variant.signingConfig == null
+            val suffix = if (variant.buildType.name == "debug") "-debug" else if (isUnsigned) "-unsigned" else ""
+            out.outputFileName = "android-stream-desk-v${ver}${suffix}.apk"
         }
     }
 }

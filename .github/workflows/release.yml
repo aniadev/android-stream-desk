@@ -197,7 +197,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.create-release.outputs.tag }}
-          files: src-tauri/gen/android/app/build/outputs/apk/universal/release/android-stream-desk-v*.apk
+          files: src-tauri/gen/android/app/build/outputs/apk/universal/release/android-stream-desk-v*-unsigned.apk
 
   update-manifest:
     name: Refresh updater manifest

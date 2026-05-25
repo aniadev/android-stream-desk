@@ -127,7 +127,7 @@ fn open_accessibility_settings() -> Result<(), String> {
             .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
             .spawn()
             .map_err(|e| format!("Mở System Settings thất bại: {}", e))?;
-        return Ok(());
+        Ok(())
     }
     #[cfg(not(target_os = "macos"))]
     {
@@ -200,7 +200,7 @@ fn list_installed_apps_windows() -> Vec<InstalledApp> {
                 || dn_lower.contains("hotfix")
                 || dn_lower.contains("security update")
                 || dn_lower.contains("redistributable")
-                || (dn_lower.starts_with("kb") && dn[2..].chars().next().map_or(false, |c| c.is_ascii_digit()));
+                || (dn_lower.starts_with("kb") && dn[2..].chars().next().is_some_and(|c| c.is_ascii_digit()));
             if is_junk {
                 continue;
             }
@@ -243,7 +243,7 @@ fn list_installed_apps_windows() -> Vec<InstalledApp> {
     }
 
     let mut result: Vec<InstalledApp> = seen.into_values().collect();
-    result.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    result.sort_by_key(|a| a.name.to_lowercase());
     result
 }
 
@@ -272,7 +272,7 @@ fn resolve_exe_path(display_icon: Option<&str>, install_location: Option<&str>) 
                 let fname = fpath.to_string_lossy().to_lowercase();
                 if fname.ends_with(".exe") {
                     let size = std::fs::metadata(&fpath).map(|m| m.len()).unwrap_or(0);
-                    if best.as_ref().map_or(true, |(_, s)| size > *s) {
+                    if best.as_ref().is_none_or(|(_, s)| size > *s) {
                         best = Some((fpath.to_string_lossy().to_string(), size));
                     }
                 }
@@ -441,10 +441,10 @@ fn parse_shortcut(shortcut: &str) -> Result<(Vec<Key>, Key), String> {
 fn enigo_init_err(e: impl std::fmt::Display) -> String {
     #[cfg(target_os = "macos")]
     {
-        return format!(
+        format!(
             "Không khởi tạo được Enigo: {}. macOS yêu cầu Accessibility permission. Mở System Settings → Privacy & Security → Accessibility. Nếu vừa build lại app, XOÁ entry cũ \"Android Stream Desk\" trong danh sách rồi kéo app mới vào và bật lại (chữ ký thay đổi sau mỗi build).",
             e
-        );
+        )
     }
     #[cfg(not(target_os = "macos"))]
     {

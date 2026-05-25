@@ -1,6 +1,6 @@
 #![cfg(not(any(target_os = "android", target_os = "ios")))]
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 use sysinfo::System;
 use tokio::time;
@@ -51,7 +51,7 @@ pub async fn metrics_loop(config_dir: PathBuf) {
     }
 }
 
-async fn compute_interval_ms(config_dir: &PathBuf) -> u64 {
+async fn compute_interval_ms(config_dir: &Path) -> u64 {
     let default = 5000u64;
     let layout_path = config_dir.join("layout.json");
     let content = match tokio::fs::read_to_string(&layout_path).await {
