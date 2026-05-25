@@ -46,6 +46,30 @@ jobs:
         with:
           workspaces: src-tauri
 
+      - name: Create BuildTools→Enterprise junction for cargo linker path
+        shell: pwsh
+        run: |
+          $buildTools = "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools"
+          $enterprise  = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise"
+          if (-not (Test-Path $enterprise)) {
+            Write-Host "Enterprise not found at $enterprise — skipping junction"; exit 0
+          }
+          if (Test-Path $buildTools) {
+            Write-Host "BuildTools already exists — no junction needed"; exit 0
+          }
+          New-Item -ItemType Junction -Path $buildTools -Target $enterprise -Force | Out-Null
+          Write-Host "Junction: $buildTools -> $enterprise"
+
+      - name: Setup MSVC environment (vcvarsall → PATH/INCLUDE/LIB)
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Override broken CC/CXX env vars (runner image sets them to paths with spaces)
+        shell: bash
+        run: |
+          echo "CC_x86_64-pc-windows-msvc=cl.exe"  >> "$GITHUB_ENV"
+          echo "CXX_x86_64-pc-windows-msvc=cl.exe" >> "$GITHUB_ENV"
+          echo "AR_x86_64-pc-windows-msvc=lib.exe"  >> "$GITHUB_ENV"
+
       - name: Clippy
         working-directory: src-tauri
         run: cargo clippy --all-targets -- -D warnings
