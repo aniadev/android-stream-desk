@@ -4,6 +4,24 @@ All notable changes to the **Android Stream Desk** project will be documented in
 
 ---
 
+## [1.3.0] - 2026-05-25
+
+### Added
+- **Monitor Button (Ambient Monitoring)**: A new display-only button type visually showing system hardware metrics (CPU / RAM percentage) using real-time information streamed from the Companion app via WebSockets.
+- **Brand Icons (Simple Icons)**: Expand offline curations with `@iconify-json/simple-icons`, supplying over 80 pre-selected apps including popular brand assets such as Discord, Steam, Spotify, and GitHub.
+- **Full-Pack Icon Search & Virtual Scroll**: Lifted search constraints beyond the manually curated list. Enter text, and it pulls icons from the entire @iconify collection using `getIconList()`. Incorporates lazy loaded DOM elements handling grids mapping over 7000 items seamlessly. Search input is now cleanly positioned below the pack tabs for better UX.
+- **Multi-Theme Engine**: Introduced 3 custom themes globally applied & synchronized seamlessly from Desktop to Client via layout JSON config. Includes the default 'Cyber', 'Midnight' (Violet Neon), and 'Ember' (Warm Orange Retro).
+- **Android Screen Wake Lock**: Utilizes the modern `navigator.wakeLock` Web API to intercept auto-sleep cycles natively for the Client WebView, seamlessly regaining active sessions upon returning to the foreground tab without asking for device app permissions.
+- **Dynamic CI Build Iterations**: Github Actions now explicitly attach semantic build numbers (e.g. `android-stream-desk-v1_3_0.apk`) onto APK names during the universal generation cycle ensuring output clarity.
+
+### Changed
+- **Branding Update**: App icon has been redesigned and replaced, bringing a fresh identity look across Android & Desktop deployments.
+
+### Fixed
+- **Windows MSVC CI Stability**: Improved dependency resolutions bridging native MSVC integrations via junction fallbacks tracking `cc-rs` variables. Fixed linking fatal crashes (`cc-rs spaces-in-path crash`). The deployment CI flow now correctly detects Visual Build Tools directories.
+
+---
+
 ## [1.2.0] - 2026-05-24
 
 ### Added
