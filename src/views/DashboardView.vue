@@ -106,92 +106,15 @@ const applyAppPreset = (preset: { name: string; path: string; icon: string }) =>
 
 // Iconify Picker Logic
 const searchQuery = ref('');
-const activeIconGroup = ref<'mdi' | 'lucide' | 'material'>('mdi');
+const activeIconGroup = ref<'mdi' | 'lucide' | 'material' | 'si'>('mdi');
 
-const mdiIcons = [
-  'mdi:play',
-  'mdi:pause',
-  'mdi:skip-next',
-  'mdi:skip-previous',
-  'mdi:volume-minus',
-  'mdi:volume-plus',
-  'mdi:volume-mute',
-  'mdi:power',
-  'mdi:restart',
-  'mdi:lock',
-  'mdi:logout',
-  'mdi:cog',
-  'mdi:web',
-  'mdi:google-chrome',
-  'mdi:firefox',
-  'mdi:microsoft-edge',
-  'mdi:folder-open',
-  'mdi:xml',
-  'mdi:git',
-  'mdi:github',
-  'mdi:terminal',
-  'mdi:calculator',
-  'mdi:monitor-screenshot',
-  'mdi:brightness-5',
-  'mdi:keyboard',
-];
-const lucideIcons = [
-  'lucide:play',
-  'lucide:pause',
-  'lucide:skip-forward',
-  'lucide:skip-back',
-  'lucide:music',
-  'lucide:settings',
-  'lucide:mic',
-  'lucide:mic-off',
-  'lucide:video',
-  'lucide:video-off',
-  'lucide:chrome',
-  'lucide:globe',
-  'lucide:folder',
-  'lucide:monitor',
-  'lucide:terminal',
-  'lucide:code-2',
-  'lucide:heart-crack',
-  'lucide:undo',
-  'lucide:save',
-  'lucide:refresh-cw',
-  'lucide:lock',
-  'lucide:unlock',
-  'lucide:search',
-  'lucide:bell',
-];
-const materialIcons = [
-  'material-symbols:play-arrow',
-  'material-symbols:pause',
-  'material-symbols:skip-next',
-  'material-symbols:skip-previous',
-  'material-symbols:volume-up',
-  'material-symbols:home',
-  'material-symbols:settings',
-  'material-symbols:sync',
-  'material-symbols:close',
-  'material-symbols:power-settings-new',
-  'material-symbols:public',
-  'material-symbols:folder-open',
-  'material-symbols:desktop-windows',
-  'material-symbols:description',
-  'material-symbols:mail',
-  'material-symbols:code',
-  'material-symbols:edit',
-  'material-symbols:file-copy',
-  'material-symbols:settings-backup-restore',
-  'material-symbols:terminal',
-  'material-symbols:open-in-new',
-  'material-symbols:download',
-  'material-symbols:cloud',
-  'material-symbols:notifications',
-];
+import { mdiIcons, lucideIcons, materialIcons, siIcons } from '@/config/icons';
 
 const filteredIcons = computed(() => {
   let pool = mdiIcons;
   if (activeIconGroup.value === 'lucide') pool = lucideIcons;
   if (activeIconGroup.value === 'material') pool = materialIcons;
+  if (activeIconGroup.value === 'si') pool = siIcons;
   if (!searchQuery.value) return pool;
   return pool.filter(ico => ico.toLowerCase().includes(searchQuery.value.toLowerCase()));
 });
@@ -910,7 +833,7 @@ const updateStatusText = computed(() => {
                 <div class="cyber-inset p-2.5 flex flex-col gap-2">
                   <div class="flex items-center gap-1.5 cyber-divider pb-2">
                     <button
-                      v-for="group in ['mdi', 'lucide', 'material'] as const"
+                      v-for="group in ['mdi', 'lucide', 'material', 'si'] as const"
                       :key="group"
                       @click="activeIconGroup = group"
                       type="button"
@@ -921,7 +844,7 @@ const updateStatusText = computed(() => {
                           : 'text-slate-500 hover:text-slate-300'
                       "
                     >
-                      {{ group }}
+                      {{ group === 'si' ? 'brands' : group }}
                     </button>
                     <Input
                       v-model="searchQuery"
