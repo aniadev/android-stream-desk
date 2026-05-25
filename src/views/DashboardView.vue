@@ -26,7 +26,7 @@ const copyHint = ref<string>('');
 const colorCopyHint = ref<string>('');
 const syncHint = ref<string>('');
 let syncTimer: ReturnType<typeof setTimeout> | null = null;
-const appVersion = ref<string>('1.3.0');
+const appVersion = ref<string>('1.3.1');
 
 const isMac = computed(() => {
   return (
