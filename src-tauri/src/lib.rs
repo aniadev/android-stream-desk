@@ -298,6 +298,43 @@ fn list_installed_apps() -> Vec<InstalledApp> {
 }
 
 // -------------------------------------------------------------
+// Shortcut (.lnk) resolver — Windows only
+// -------------------------------------------------------------
+
+#[tauri::command]
+fn resolve_shortcut(lnk_path: String) -> Result<String, String> {
+    #[cfg(target_os = "windows")]
+    {
+        use std::process::Command;
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        // Use PowerShell WScript.Shell COM to read .lnk target + arguments
+        let script = format!(
+            "$sh = New-Object -ComObject WScript.Shell; \
+             $lnk = $sh.CreateShortcut([System.IO.Path]::GetFullPath('{}')); \
+             $t = $lnk.TargetPath; $a = $lnk.Arguments; \
+             if ($a) {{ \"$t $a\" }} else {{ $t }}",
+            lnk_path.replace('\'', "''")
+        );
+        let out = Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command", &script])
+            .creation_flags(CREATE_NO_WINDOW)
+            .output()
+            .map_err(|e| format!("PowerShell error: {}", e))?;
+        let result = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        if result.is_empty() {
+            return Err("Could not resolve shortcut target".to_string());
+        }
+        Ok(result)
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = lnk_path;
+        Err("resolve_shortcut only supported on Windows".to_string())
+    }
+}
+
+// -------------------------------------------------------------
 // Core Macro Action Execution (Enigo / Media / App Exec)
 // -------------------------------------------------------------
 
@@ -521,6 +558,19 @@ fn simulate_media(action: &str) -> Result<(), String> {
 }
 
 #[cfg(desktop)]
+fn parse_exe_and_args(input: &str) -> (&str, &str) {
+    // Split on .exe boundary so callers can paste a full Windows shortcut target
+    // e.g. "C:/foo/bar.exe --flag value" → ("C:/foo/bar.exe", "--flag value")
+    let lower = input.to_lowercase();
+    if let Some(idx) = lower.find(".exe") {
+        let exe_end = idx + 4;
+        (&input[..exe_end], input[exe_end..].trim())
+    } else {
+        (input, "")
+    }
+}
+
+#[cfg(desktop)]
 fn launch_application(path: &str) -> Result<(), String> {
     use std::path::Path;
     use std::process::Command;
@@ -529,16 +579,31 @@ fn launch_application(path: &str) -> Result<(), String> {
     if trimmed.is_empty() {
         return Err("Application path is empty".to_string());
     }
-    let target = Path::new(trimmed);
-    if !target.exists() {
-        return Err(format!("Application path does not exist: {}", trimmed));
+
+    let (exe, _args_str) = parse_exe_and_args(trimmed);
+    if !Path::new(exe).exists() {
+        return Err(format!("Application path does not exist: {}", exe));
     }
 
     #[cfg(target_os = "windows")]
     {
-        Command::new(trimmed)
-            .spawn()
-            .map_err(|e| format!("Failed to spawn App process: {}", e))?;
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        let args: Vec<&str> = _args_str.split_whitespace().collect();
+        match Command::new(exe).args(&args).spawn() {
+            Ok(_) => {}
+            // 740 = elevation required, 5 = access denied (protected exe, e.g. anti-cheat)
+            // Both handled by delegating to the Windows shell via ShellExecute
+            Err(e) if matches!(e.raw_os_error(), Some(740) | Some(5)) => {
+                Command::new("cmd")
+                    .args(["/c", "start", "", exe])
+                    .args(&args)
+                    .creation_flags(CREATE_NO_WINDOW)
+                    .spawn()
+                    .map_err(|e| format!("Failed to spawn App process: {}", e))?;
+            }
+            Err(e) => return Err(format!("Failed to spawn App process: {}", e)),
+        }
     }
 
     #[cfg(target_os = "macos")]
@@ -632,7 +697,8 @@ pub fn run() {
             set_android_orientation,
             open_accessibility_settings,
             probe_input_permission,
-            list_installed_apps
+            list_installed_apps,
+            resolve_shortcut
         ])
         .setup(|app| {
             let app_handle_ws = app.handle().clone();

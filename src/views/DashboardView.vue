@@ -115,6 +115,37 @@ const applyAppPreset = (preset: { name: string; path: string; icon: string }) =>
   }
 };
 
+const appPathHint = ref<string>('');
+
+const handleAppPathPaste = async (e: ClipboardEvent) => {
+  const raw = e.clipboardData?.getData('text') ?? '';
+  const text = raw.trim().replace(/^"|"$/g, ''); // strip surrounding quotes
+
+  if (!selectedButton.value || !window.__TAURI_INTERNALS__) return;
+
+  if (text.toLowerCase().endsWith('.lnk')) {
+    e.preventDefault();
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const resolved = await invoke<string>('resolve_shortcut', { lnkPath: text });
+      selectedButton.value.appPath = resolved;
+      saveButtonSettings();
+      appPathHint.value = '✓ Đã giải shortcut';
+    } catch {
+      appPathHint.value = '✗ Không đọc được shortcut';
+    }
+    setTimeout(() => (appPathHint.value = ''), 3000);
+    return;
+  }
+
+  // Strip surrounding quotes from quoted exe path (e.g. pasted from Properties dialog)
+  if (text !== raw.trim()) {
+    e.preventDefault();
+    selectedButton.value.appPath = text;
+    saveButtonSettings();
+  }
+};
+
 // Iconify Picker Logic
 const searchQuery = ref('');
 const activeIconGroup = ref<'mdi' | 'lucide' | 'material' | 'si'>('mdi');
@@ -1189,16 +1220,30 @@ const updateStatusText = computed(() => {
                 <div v-else-if="activeTab === 'app'" class="flex flex-col gap-3">
                   <div class="flex flex-col gap-1.5">
                     <span class="text-[9px] font-bold uppercase text-slate-400">
-                      {{ isMac ? 'Đường dẫn App macOS (.app):' : 'Đường dẫn file chạy (.exe):' }}
+                      {{
+                        isMac
+                          ? 'Đường dẫn App macOS (.app):'
+                          : 'Đường dẫn .exe hoặc dán shortcut (.lnk):'
+                      }}
                     </span>
                     <Input
                       v-model="selectedButton.appPath"
                       type="text"
                       :placeholder="
-                        isMac ? 'e.g. /Applications/Safari.app' : 'e.g. C:\\Windows\\notepad.exe'
+                        isMac
+                          ? 'e.g. /Applications/Safari.app'
+                          : 'Dán shortcut hoặc C:\\path\\app.exe --args'
                       "
                       @input="saveButtonSettings"
+                      @paste="handleAppPathPaste"
                     />
+                    <span
+                      v-if="appPathHint"
+                      class="text-[9px] font-bold"
+                      :class="appPathHint.startsWith('✓') ? 'text-green-400' : 'text-red-400'"
+                    >
+                      {{ appPathHint }}
+                    </span>
                   </div>
                   <button
                     type="button"
