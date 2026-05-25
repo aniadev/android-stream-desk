@@ -355,7 +355,7 @@ onUnmounted(() => {
         @click.self="settingsOpen = false"
       >
         <div
-          class="w-[325px] max-w-full bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-2xl flex flex-col gap-5 relative"
+          class="w-[325px] max-w-full overflow-auto bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-2xl flex flex-col gap-5 relative max-h-[90vh]"
         >
           <!-- Close button -->
           <button
@@ -366,7 +366,7 @@ onUnmounted(() => {
           </button>
 
           <!-- Header -->
-          <div class="flex items-center gap-2.5 border-b border-slate-800/80 pb-3">
+          <div class="flex items-center gap-2.5 border-b border-slate-800/80 pb-3 shrink-0">
             <div
               class="h-8 w-8 rounded-lg bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center text-sm shadow"
             >
@@ -381,7 +381,7 @@ onUnmounted(() => {
           </div>
 
           <!-- Body -->
-          <div class="flex flex-col gap-3">
+          <div class="flex-1 min-h-0 overflow-y-auto pr-1 flex flex-col gap-3 scrollbar-thin">
             <div
               class="flex flex-col gap-1 rounded-xl bg-slate-950/60 p-3 border border-slate-850/60 text-xs"
             >
