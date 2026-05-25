@@ -23,6 +23,10 @@ android {
         applicationId = "com.ania.android.stream.desk"
         minSdk = 24
         targetSdk = 36
+        // arm64-v8a  = modern 64-bit Android (API 21+, covers 2015+ devices)
+        // armeabi-v7a = 32-bit ARM for older devices (the primary target of this app)
+        // x86/x86_64 omitted — emulator-only, not shipped to real devices
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
     }

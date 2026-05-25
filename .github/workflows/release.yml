@@ -157,7 +157,8 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+          # arm64-v8a + armeabi-v7a only — x86/x86_64 are emulator-only targets
+          targets: aarch64-linux-android,armv7-linux-androideabi
 
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2

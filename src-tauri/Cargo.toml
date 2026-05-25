@@ -31,3 +31,10 @@ sysinfo = { version = "0.33", default-features = false, features = ["system"] }
 [target.'cfg(target_os = "windows")'.dependencies]
 winreg = "0.52"
 
+[profile.release]
+opt-level = "z"      # optimize for binary size
+lto = true           # cross-crate dead-code elimination
+codegen-units = 1    # required for full LTO
+panic = "abort"      # drop unwind tables (~10% size saving)
+strip = true         # strip symbols from .so
+
