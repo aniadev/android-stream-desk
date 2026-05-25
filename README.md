@@ -91,6 +91,34 @@ android-stream-desk/
 
 ---
 
+## 📥 Tải về & Cài đặt nhanh
+
+> Không cần tự build — tải thẳng bản dựng sẵn từ [**GitHub Releases**](https://github.com/aniadev/android-stream-desk/releases/latest).
+
+### Windows Companion (máy tính)
+
+1. Vào trang [Releases](https://github.com/aniadev/android-stream-desk/releases) → chọn phiên bản mới nhất.
+2. Trong mục **Assets**, tải file:
+   - `.msi` — khuyến nghị, trình cài đặt Windows Installer.
+   - `_x64-setup.exe` — NSIS installer (nếu không dùng được `.msi`).
+3. Chạy file vừa tải, làm theo hướng dẫn cài đặt.
+4. Khởi động **Android Stream Desk** — ứng dụng chạy ngầm trong System Tray.
+
+> **Lưu ý tag**: Releases có suffix `-win` (vd: `v1.3.2-win`) chỉ chứa file Windows, không có APK.
+
+### Android Client (điện thoại / máy tính bảng)
+
+1. Vào trang [Releases](https://github.com/aniadev/android-stream-desk/releases) → chọn phiên bản mới nhất.
+2. Trong mục **Assets**, tải file `.apk`:
+   - `android-stream-desk-vX.Y.Z.apk` — bản đã ký (có keystore).
+   - `android-stream-desk-vX.Y.Z-unsigned.apk` — bản chưa ký (fallback).
+3. Trên điện thoại: **Cài đặt** → **Bảo mật** → bật **Nguồn không xác định** (hoặc cho phép khi được hỏi).
+4. Mở file APK vừa tải để cài đặt.
+
+> **Lưu ý tag**: Releases có suffix `-apk` (vd: `v1.3.2-apk`) chỉ chứa APK, không có file Windows.
+
+---
+
 ## 🚀 Hướng dẫn Thiết lập và Cài đặt
 
 ### Yêu cầu tiên quyết
