@@ -21,6 +21,7 @@ export interface Layout {
   rows: number;
   cols: number;
   buttons: ButtonConfig[];
+  theme?: string;
 }
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error';

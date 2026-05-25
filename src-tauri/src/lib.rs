@@ -39,6 +39,15 @@ pub struct ButtonConfig {
     command_value: Option<String>,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Layout {
+    pub rows: u32,
+    pub cols: u32,
+    pub buttons: Vec<ButtonConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub theme: Option<String>,
+}
+
 // -------------------------------------------------------------
 // Tauri IPC Commands
 // -------------------------------------------------------------

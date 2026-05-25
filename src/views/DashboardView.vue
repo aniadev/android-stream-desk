@@ -7,6 +7,7 @@ import type { ButtonConfig, ActionType } from '../types';
 import { Icon } from '@iconify/vue';
 import { vDraggable } from 'vue-draggable-plus';
 import { normalizeHex } from '../lib/color';
+import { applyTheme, isValidTheme, THEMES, type ThemeName } from '../lib/themes';
 
 // Import Shadcn UI Components
 import Input from '../components/ui/Input.vue';
@@ -33,6 +34,16 @@ const isMac = computed(() => {
     navigator.platform.toLowerCase().includes('mac')
   );
 });
+
+// Theme
+const activeTheme = computed(() =>
+  isValidTheme(layoutStore.layout.theme) ? layoutStore.layout.theme : 'cyber',
+);
+const setTheme = (name: ThemeName) => {
+  layoutStore.layout.theme = name;
+  applyTheme(name);
+  layoutStore.broadcastSync();
+};
 
 // Modal Control
 const settingsOpen = ref(false);
@@ -1201,6 +1212,30 @@ const updateStatusText = computed(() => {
 
           <!-- Modal Body -->
           <div class="flex flex-col gap-5 text-xs text-slate-300">
+            <!-- Theme Selector -->
+            <div class="flex flex-col gap-2.5">
+              <span class="text-[9px] font-bold uppercase tracking-wider text-cyan-400/70">Giao diện</span>
+              <div class="flex gap-2">
+                <button
+                  v-for="(meta, name) in THEMES"
+                  :key="name"
+                  @click="setTheme(name as ThemeName)"
+                  class="flex-1 flex flex-col items-center gap-1.5 py-2 px-1 rounded-xl border transition-all duration-150 cursor-pointer"
+                  :class="
+                    activeTheme === name
+                      ? 'border-cyan-400/70 bg-slate-800/60 shadow shadow-cyan-900/20'
+                      : 'border-slate-700 bg-slate-900/40 hover:border-slate-600'
+                  "
+                >
+                  <span
+                    class="w-5 h-5 rounded-full border-2 border-black/20"
+                    :style="{ backgroundColor: meta.previewColor }"
+                  />
+                  <span class="text-[9px] font-bold uppercase tracking-wider text-slate-300">{{ meta.label }}</span>
+                </button>
+              </div>
+            </div>
+
             <!-- App Info -->
             <div class="flex flex-col gap-2.5">
               <span class="text-[9px] font-bold uppercase tracking-wider text-cyan-400/70"

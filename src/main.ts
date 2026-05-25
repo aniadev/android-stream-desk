@@ -8,6 +8,15 @@ initOfflineIcons();
 
 // Styles loading
 import './assets/tailwind.css';
+import { isValidTheme } from './lib/themes';
+
+// Apply saved theme synchronously before first render to avoid flash-of-cyber
+try {
+  const saved = localStorage.getItem('theme');
+  if (saved && isValidTheme(saved)) {
+    document.documentElement.setAttribute('data-theme', saved);
+  }
+} catch (_) {}
 
 // Components & Views imports
 import App from './App.vue';

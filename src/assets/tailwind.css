@@ -2,10 +2,59 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Theme tokens (cyber defaults, applied before data-theme is set) ─── */
+:root {
+  --theme-bg:           #0f172a;
+  --theme-btn-bg:       rgba(2, 6, 14, 0.92);
+  --theme-btn-hover:    rgba(4, 12, 24, 0.96);
+  --theme-accent:       #00d4ff;
+  --theme-corner-a:     rgba(0, 200, 255, 0.6);
+  --theme-corner-b:     rgba(200, 0, 255, 0.6);
+  --theme-shell-top:    rgba(0, 240, 255, 0.04);
+  --theme-shell-bottom: rgba(255, 0, 255, 0.03);
+  --theme-shell-border: rgba(0, 240, 255, 0.08);
+}
+
+:root[data-theme="cyber"] {
+  --theme-bg:           #0f172a;
+  --theme-btn-bg:       rgba(2, 6, 14, 0.92);
+  --theme-btn-hover:    rgba(4, 12, 24, 0.96);
+  --theme-accent:       #00d4ff;
+  --theme-corner-a:     rgba(0, 200, 255, 0.6);
+  --theme-corner-b:     rgba(200, 0, 255, 0.6);
+  --theme-shell-top:    rgba(0, 240, 255, 0.04);
+  --theme-shell-bottom: rgba(255, 0, 255, 0.03);
+  --theme-shell-border: rgba(0, 240, 255, 0.08);
+}
+
+:root[data-theme="midnight"] {
+  --theme-bg:           #0a0012;
+  --theme-btn-bg:       rgba(10, 0, 18, 0.92);
+  --theme-btn-hover:    rgba(16, 4, 28, 0.96);
+  --theme-accent:       #a855f7;
+  --theme-corner-a:     rgba(168, 85, 247, 0.6);
+  --theme-corner-b:     rgba(120, 40, 200, 0.6);
+  --theme-shell-top:    rgba(168, 85, 247, 0.04);
+  --theme-shell-bottom: rgba(168, 85, 247, 0.03);
+  --theme-shell-border: rgba(168, 85, 247, 0.08);
+}
+
+:root[data-theme="ember"] {
+  --theme-bg:           #100804;
+  --theme-btn-bg:       rgba(16, 8, 4, 0.92);
+  --theme-btn-hover:    rgba(24, 14, 6, 0.96);
+  --theme-accent:       #f97316;
+  --theme-corner-a:     rgba(249, 115, 22, 0.6);
+  --theme-corner-b:     rgba(220, 60, 0, 0.6);
+  --theme-shell-top:    rgba(249, 115, 22, 0.04);
+  --theme-shell-bottom: rgba(255, 60, 0, 0.03);
+  --theme-shell-border: rgba(249, 115, 22, 0.08);
+}
+
 body {
   margin: 0;
   padding: 0;
-  background-color: #0f172a; /* brand.dark */
+  background-color: var(--theme-bg);
   color: #f8fafc; /* slate-50 */
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   overflow-x: hidden;

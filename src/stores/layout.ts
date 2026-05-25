@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import type { Layout, ButtonConfig } from '../types';
 import { useConnectionStore } from './connection';
+import { applyTheme, isValidTheme, type ThemeName } from '../lib/themes';
 
 // Detect platform dynamically at runtime
 const detectOs = (): 'macos' | 'windows' => {
@@ -118,6 +119,7 @@ export const useLayoutStore = defineStore('layout', () => {
           return b;
         });
       }
+      if (!isValidTheme(parsed.theme)) parsed.theme = undefined;
       layout.value = parsed;
     } catch (_) {}
   }
@@ -185,6 +187,7 @@ export const useLayoutStore = defineStore('layout', () => {
           });
         }
         updateLayout(synced, true);
+        applyTheme(isValidTheme(synced.theme) ? (synced.theme as ThemeName) : 'cyber');
       } else if (message.type === 'toast' && message.payload) {
         lastToast.value = {
           kind: message.payload.kind === 'info' ? 'info' : 'error',
@@ -257,6 +260,7 @@ export const useLayoutStore = defineStore('layout', () => {
       rows: Math.max(2, Math.min(6, parsed.rows | 0)),
       cols: Math.max(2, Math.min(8, parsed.cols | 0)),
       buttons: sanitized,
+      theme: isValidTheme(parsed.theme) ? parsed.theme : undefined,
     });
   };
 

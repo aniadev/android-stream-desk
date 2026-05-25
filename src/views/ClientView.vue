@@ -167,7 +167,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="h-screen w-screen flex flex-col bg-slate-950 overflow-hidden relative">
+  <div class="h-screen w-screen flex flex-col overflow-hidden relative" :style="{ backgroundColor: 'var(--theme-bg)' }">
     <!-- Grid Area occupies 98% of the screen when connected -->
     <div
       v-if="connectionStore.status === 'connected'"

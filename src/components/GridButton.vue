@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import type { ButtonConfig } from '../types';
 import { Icon } from '@iconify/vue';
 import { hexToRgb, rgbToHsl } from '../lib/color';
+import { currentAccentH } from '../lib/themes';
 
 const props = defineProps<{
   button: ButtonConfig;
@@ -22,20 +23,20 @@ const neonHsl = computed(() => {
   const { h, s, l } = rgbToHsl(rgb.r, rgb.g, rgb.b);
   const clampedL = Math.min(70, Math.max(45, l));
   if (s < 10) {
-    return { h: 187, s: 80, l: clampedL };
+    return { h: currentAccentH.value, s: 80, l: clampedL };
   }
   return { h, s: Math.max(60, s), l: clampedL };
 });
 
 const neonColor = computed(() => {
   const hsl = neonHsl.value;
-  if (!hsl) return 'hsl(187, 100%, 55%)';
+  if (!hsl) return `hsl(${currentAccentH.value}, 100%, 55%)`;
   return `hsl(${hsl.h}, ${hsl.s}%, ${hsl.l}%)`;
 });
 
 const neonGlow = computed(() => {
   const hsl = neonHsl.value;
-  if (!hsl) return 'rgba(0,240,255,0.5)';
+  if (!hsl) return `hsla(${currentAccentH.value}, 100%, 55%, 0.5)`;
   return `hsla(${hsl.h}, ${hsl.s}%, ${hsl.l}%, 0.5)`;
 });
 
@@ -58,7 +59,7 @@ function handleClick() {
     :style="{
       '--neon': neonColor,
       '--neon-glow': neonGlow,
-      backgroundColor: 'rgba(2, 6, 14, 0.92)',
+      backgroundColor: 'var(--theme-btn-bg)',
       borderColor: neonColor,
       boxShadow: selected
         ? `0 0 10px 2px ${neonGlow}, 0 0 25px 4px ${neonGlow.replace('0.5)', '0.25)')}`
@@ -145,7 +146,7 @@ function handleClick() {
 }
 
 .cyber-btn:hover {
-  background-color: rgba(4, 12, 24, 0.96) !important;
+  background-color: var(--theme-btn-hover) !important;
   box-shadow:
     inset 0 0 20px 2px var(--neon-glow),
     0 0 10px 1px var(--neon-glow),
@@ -161,7 +162,7 @@ function handleClick() {
 }
 
 .cyber-btn--selected {
-  background-color: rgba(6, 14, 28, 0.96) !important;
+  background-color: var(--theme-btn-hover) !important;
   box-shadow:
     inset 0 0 24px 3px var(--neon-glow),
     0 0 14px 2px var(--neon-glow),

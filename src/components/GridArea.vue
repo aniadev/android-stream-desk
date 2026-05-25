@@ -28,10 +28,10 @@ function onUpdate() {
       <div class="absolute inset-0 pointer-events-none opacity-[0.03] bg-grid-dot" />
 
       <!-- Corner neon brackets -->
-      <span class="absolute top-3 left-3 w-5 h-5 border-t-[3px] border-l-[3px] border-cyan-500/60 pointer-events-none" />
-      <span class="absolute top-3 right-3 w-5 h-5 border-t-[3px] border-r-[3px] border-fuchsia-500/60 pointer-events-none" />
-      <span class="absolute bottom-3 left-3 w-5 h-5 border-b-[3px] border-l-[3px] border-fuchsia-500/60 pointer-events-none" />
-      <span class="absolute bottom-3 right-3 w-5 h-5 border-b-[3px] border-r-[3px] border-cyan-500/60 pointer-events-none" />
+      <span class="absolute top-3 left-3 w-5 h-5 border-t-[3px] border-l-[3px] pointer-events-none" :style="{ borderColor: 'var(--theme-corner-a)' }" />
+      <span class="absolute top-3 right-3 w-5 h-5 border-t-[3px] border-r-[3px] pointer-events-none" :style="{ borderColor: 'var(--theme-corner-b)' }" />
+      <span class="absolute bottom-3 left-3 w-5 h-5 border-b-[3px] border-l-[3px] pointer-events-none" :style="{ borderColor: 'var(--theme-corner-b)' }" />
+      <span class="absolute bottom-3 right-3 w-5 h-5 border-b-[3px] border-r-[3px] pointer-events-none" :style="{ borderColor: 'var(--theme-corner-a)' }" />
 
       <div
         v-draggable="[layoutStore.layout.buttons, {
@@ -63,15 +63,15 @@ function onUpdate() {
 <style scoped>
 .cyber-shell {
   background:
-    radial-gradient(ellipse at 50% 0%, rgba(0, 240, 255, 0.04) 0%, transparent 60%),
-    radial-gradient(ellipse at 50% 100%, rgba(255, 0, 255, 0.03) 0%, transparent 60%),
+    radial-gradient(ellipse at 50% 0%, var(--theme-shell-top) 0%, transparent 60%),
+    radial-gradient(ellipse at 50% 100%, var(--theme-shell-bottom) 0%, transparent 60%),
     linear-gradient(180deg, #050a14 0%, #02050c 50%, #050a14 100%);
-  border: 1px solid rgba(0, 240, 255, 0.08);
+  border: 1px solid var(--theme-shell-border);
   box-shadow:
-    0 0 0 1px rgba(0, 240, 255, 0.04),
+    0 0 0 1px var(--theme-shell-border),
     0 4px 40px -8px rgba(0, 0, 0, 0.6),
-    0 0 80px -16px rgba(0, 240, 255, 0.04),
-    inset 0 0 40px -16px rgba(0, 240, 255, 0.02);
+    0 0 80px -16px var(--theme-shell-top),
+    inset 0 0 40px -16px var(--theme-shell-top);
   clip-path: polygon(
     6px 0%, calc(100% - 6px) 0%,
     100% 6px, 100% calc(100% - 6px),
@@ -82,7 +82,7 @@ function onUpdate() {
 
 .bg-grid-dot {
   background-image:
-    radial-gradient(circle, rgba(0, 240, 255, 0.2) 1px, transparent 1px);
+    radial-gradient(circle, var(--theme-shell-top) 1px, transparent 1px);
   background-size: 24px 24px;
 }
 
@@ -91,8 +91,8 @@ function onUpdate() {
     0deg,
     transparent,
     transparent 2px,
-    rgba(0, 240, 255, 0.03) 2px,
-    rgba(0, 240, 255, 0.03) 3px
+    var(--theme-shell-top) 2px,
+    var(--theme-shell-top) 3px
   );
 }
 
