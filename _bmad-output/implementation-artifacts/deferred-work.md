@@ -63,3 +63,8 @@ Surfaced during step-04 review of `spec-shell-command-action.md`. Accepted under
 - Unused `computed` import in `App.vue` (BH-12) — tsc handles dead imports.
 - Dead `'auth'` variant in `WSMessage` union (AA-25) — reserved for upcoming auth handshake, keep.
 - `isAlive` closure sharing (BH-20) — superseded by reconnect detach (P-7 patch).
+
+## S-ICON2 deferred (2026-05-25)
+
+- **Debounce searchQuery in icon picker**: Each keypress triggers `listIcons(undefined, prefix)` + filter over 7000+ icons synchronously. Consider debouncing `searchQuery` by ~150ms for smoother typing on slow devices.
+- **Module-level `iconObserver` HMR issue**: `iconObserver` is declared at module scope — in Vite HMR dev mode, the reference persists across hot-reloads, holding a stale IntersectionObserver. Refactor to component scope (`ref`) if HMR issues arise.

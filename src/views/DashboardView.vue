@@ -4,7 +4,7 @@ import { useLayoutStore } from '../stores/layout';
 import { useConnectionStore } from '../stores/connection';
 import { useUpdaterStore } from '../stores/updater';
 import type { ButtonConfig, ActionType } from '../types';
-import { Icon } from '@iconify/vue';
+import { Icon, listIcons } from '@iconify/vue';
 import { vDraggable } from 'vue-draggable-plus';
 import { normalizeHex } from '../lib/color';
 import { applyTheme, isValidTheme, THEMES, type ThemeName } from '../lib/themes';
@@ -118,17 +118,83 @@ const applyAppPreset = (preset: { name: string; path: string; icon: string }) =>
 // Iconify Picker Logic
 const searchQuery = ref('');
 const activeIconGroup = ref<'mdi' | 'lucide' | 'material' | 'si'>('mdi');
+const visibleCount = ref(120);
+const iconScrollRef = ref<HTMLElement | null>(null);
+const sentinelRef = ref<HTMLElement | null>(null);
 
 import { mdiIcons, lucideIcons, materialIcons, siIcons } from '@/config/icons';
 
+const prefixMap: Record<'mdi' | 'lucide' | 'material' | 'si', string> = {
+  mdi: 'mdi',
+  lucide: 'lucide',
+  material: 'material-symbols',
+  si: 'simple-icons',
+};
+
 const filteredIcons = computed(() => {
-  let pool = mdiIcons;
-  if (activeIconGroup.value === 'lucide') pool = lucideIcons;
-  if (activeIconGroup.value === 'material') pool = materialIcons;
-  if (activeIconGroup.value === 'si') pool = siIcons;
-  if (!searchQuery.value) return pool;
-  return pool.filter(ico => ico.toLowerCase().includes(searchQuery.value.toLowerCase()));
+  const group = activeIconGroup.value;
+  let pool: string[];
+  if (group === 'mdi') pool = mdiIcons;
+  else if (group === 'lucide') pool = lucideIcons;
+  else if (group === 'material') pool = materialIcons;
+  else pool = siIcons;
+
+  if (!searchQuery.value || group === 'si') {
+    if (!searchQuery.value) return pool;
+    return pool.filter(ico => ico.toLowerCase().includes(searchQuery.value.toLowerCase()));
+  }
+
+  const q = searchQuery.value.toLowerCase();
+  const prefix = prefixMap[group];
+  const all = listIcons(undefined, prefix);
+  if (all.length > 0) {
+    return all
+      .filter(name => name.toLowerCase().includes(q))
+      .slice(0, 200)
+      .map(name => `${prefix}:${name}`);
+  }
+  return pool.filter(ico => ico.toLowerCase().includes(q));
 });
+
+const isFullSearch = computed(
+  () => searchQuery.value !== '' && activeIconGroup.value !== 'si',
+);
+
+const packLabel = computed(() => {
+  const labels: Record<'mdi' | 'lucide' | 'material' | 'si', string> = {
+    mdi: 'MDI',
+    lucide: 'Lucide',
+    material: 'Material Symbols',
+    si: 'Brands',
+  };
+  return labels[activeIconGroup.value];
+});
+
+const visibleIcons = computed(() => filteredIcons.value.slice(0, visibleCount.value));
+
+watch(filteredIcons, () => {
+  visibleCount.value = 120;
+});
+
+let iconObserver: IntersectionObserver | null = null;
+
+watch(
+  sentinelRef,
+  newSentinel => {
+    iconObserver?.disconnect();
+    iconObserver = null;
+    if (newSentinel && iconScrollRef.value) {
+      iconObserver = new IntersectionObserver(
+        entries => {
+          if (entries[0]?.isIntersecting) visibleCount.value += 60;
+        },
+        { root: iconScrollRef.value, threshold: 0.1 },
+      );
+      iconObserver.observe(newSentinel);
+    }
+  },
+  { flush: 'post' },
+);
 
 const selectIconForButton = (icoName: string) => {
   if (selectedButton.value) {
@@ -243,6 +309,7 @@ onUnmounted(() => {
     clearInterval(permissionPollTimer);
     permissionPollTimer = null;
   }
+  iconObserver?.disconnect();
 });
 
 // Accessibility / input permission state
@@ -876,9 +943,15 @@ const updateStatusText = computed(() => {
                       class="h-6 text-[9px] py-1 px-2.5 cyber-input-sm"
                     />
                   </div>
-                  <div class="grid grid-cols-6 gap-2 max-h-[140px] overflow-y-auto pr-1">
+                  <p
+                    v-if="isFullSearch"
+                    class="text-[8px] text-cyan-400/70 font-mono text-center leading-tight pb-0.5"
+                  >
+                    Đang tìm trong toàn bộ {{ packLabel }} ({{ filteredIcons.length }} kết quả)
+                  </p>
+                  <div ref="iconScrollRef" class="grid grid-cols-6 gap-2 max-h-[140px] overflow-y-auto pr-1" style="contain: layout">
                     <button
-                      v-for="ico in filteredIcons"
+                      v-for="ico in visibleIcons"
                       :key="ico"
                       @click="selectIconForButton(ico)"
                       type="button"
@@ -893,6 +966,7 @@ const updateStatusText = computed(() => {
                     >
                       Không tìm thấy biểu tượng
                     </p>
+                    <div ref="sentinelRef" v-if="filteredIcons.length > visibleCount" class="col-span-6 h-4" />
                   </div>
                 </div>
               </div>
