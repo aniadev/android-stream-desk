@@ -4,6 +4,8 @@ Biến thiết bị Android cũ hoặc dư thừa của bạn thành bàn phím 
 
 Giải pháp thay thế mã nguồn mở tiện lợi và dung lượng cực nhẹ cho thiết bị vật lý đắt đỏ như Elgato Stream Deck.
 
+Buy me a coffee: https://ko-fi.com/ania9
+
 ---
 
 ## 🛠️ Kiến trúc Hệ thống
