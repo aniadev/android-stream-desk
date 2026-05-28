@@ -7,11 +7,12 @@ import { useSettingsStore } from '../stores/settings';
 import GridArea from '../components/GridArea.vue';
 import { Icon } from '@iconify/vue';
 import { acquireWakeLock, releaseWakeLock, isWakeLockActive } from '../lib/wakelock';
+import { unlockAudio } from '../lib/clicksound';
 
 const connectionStore = useConnectionStore();
 const layoutStore = useLayoutStore();
 const settingsStore = useSettingsStore();
-const { keepScreenOn } = storeToRefs(settingsStore);
+const { keepScreenOn, vibrateOnClick, soundOnClick } = storeToRefs(settingsStore);
 
 const showConnectModal = computed(() => {
   return !connectionStore.hasConnectedOnce && connectionStore.status !== 'connected';
@@ -135,6 +136,12 @@ watch(keepScreenOn, async val => {
 
 onMounted(async () => {
   applyOrientation(orientationMode.value);
+
+  const unlock = () => {
+    unlockAudio();
+    window.removeEventListener('pointerdown', unlock);
+  };
+  window.addEventListener('pointerdown', unlock, { once: true });
 
   if (keepScreenOn.value) {
     await acquireWakeLock();
@@ -476,6 +483,52 @@ onUnmounted(() => {
                 "
               >
                 {{ keepScreenOn ? 'Bật' : 'Tắt' }}
+              </button>
+            </div>
+
+            <!-- Vibrate on click -->
+            <div
+              class="flex items-center justify-between rounded-xl bg-slate-950/60 px-3 py-2.5 border border-slate-850/60"
+            >
+              <div class="flex items-center gap-2">
+                <Icon icon="mdi:vibrate" class="text-base text-slate-400" />
+                <span class="text-[10px] font-bold uppercase tracking-wider text-slate-300"
+                  >Rung khi nhấn</span
+                >
+              </div>
+              <button
+                @click="vibrateOnClick = !vibrateOnClick"
+                class="text-[10px] font-extrabold uppercase tracking-wider px-3 py-1.5 rounded-lg border transition duration-150 cursor-pointer"
+                :class="
+                  vibrateOnClick
+                    ? 'bg-violet-600 border-violet-500 text-white shadow shadow-violet-900/40'
+                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+                "
+              >
+                {{ vibrateOnClick ? 'Bật' : 'Tắt' }}
+              </button>
+            </div>
+
+            <!-- Sound on click -->
+            <div
+              class="flex items-center justify-between rounded-xl bg-slate-950/60 px-3 py-2.5 border border-slate-850/60"
+            >
+              <div class="flex items-center gap-2">
+                <Icon icon="mdi:volume-high" class="text-base text-slate-400" />
+                <span class="text-[10px] font-bold uppercase tracking-wider text-slate-300"
+                  >Âm thanh khi nhấn</span
+                >
+              </div>
+              <button
+                @click="soundOnClick = !soundOnClick"
+                class="text-[10px] font-extrabold uppercase tracking-wider px-3 py-1.5 rounded-lg border transition duration-150 cursor-pointer"
+                :class="
+                  soundOnClick
+                    ? 'bg-violet-600 border-violet-500 text-white shadow shadow-violet-900/40'
+                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+                "
+              >
+                {{ soundOnClick ? 'Bật' : 'Tắt' }}
               </button>
             </div>
 

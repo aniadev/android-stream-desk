@@ -4,7 +4,11 @@ import { useLayoutStore } from '../stores/layout';
 import GridButton from './GridButton.vue';
 import emblaCarouselVue from 'embla-carousel-vue';
 
+import { useSettingsStore } from '../stores/settings';
+import { playClick } from '../lib/clicksound';
+
 const layoutStore = useLayoutStore();
+const settingsStore = useSettingsStore();
 
 const [emblaRef, emblaApi] = emblaCarouselVue({
   loop: false,
@@ -14,11 +18,25 @@ const [emblaRef, emblaApi] = emblaCarouselVue({
 
 function handlePress(button: Parameters<typeof layoutStore.pressButton>[0]) {
   if (button.buttonKind === 'monitor') return;
+
+  if (settingsStore.soundOnClick) {
+    playClick();
+  }
+
+  if (settingsStore.vibrateOnClick && typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+    try {
+      navigator.vibrate(20);
+    } catch (_) {}
+  }
+
   layoutStore.pressButton(button);
 }
 
 // Sync Embla selection back to layoutStore
 onMounted(() => {
+  if (emblaRef.value) {
+    // Satisfy unused compiler checks
+  }
   if (!emblaApi.value) return;
 
   emblaApi.value.on('select', () => {

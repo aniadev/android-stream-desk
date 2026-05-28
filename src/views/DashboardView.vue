@@ -48,6 +48,26 @@ const setTheme = (name: ThemeName) => {
 // Modal Control
 const settingsOpen = ref(false);
 const appPickerOpen = ref(false);
+const autostartOn = ref(false);
+
+const toggleAutostart = async () => {
+  try {
+    const { enable, disable, isEnabled } = await import('@tauri-apps/plugin-autostart');
+    if (autostartOn.value) {
+      await disable();
+    } else {
+      await enable();
+    }
+    autostartOn.value = await isEnabled();
+  } catch (err: any) {
+    console.error('Failed to toggle autostart:', err);
+    layoutStore.lastToast = {
+      kind: 'error',
+      message: `Lỗi autostart: ${err?.message || err}`,
+      at: Date.now()
+    };
+  }
+};
 
 const isRecording = ref(false);
 const shortcutPresets = [
@@ -224,7 +244,7 @@ const handleCustomIconUpload = (e: Event) => {
         // Cap is 20KB = 20480 bytes * 1.37 = ~28057 chars.
         if (dataURL.length > 28057) {
           layoutStore.lastToast = {
-            kind: 'warning',
+            kind: 'info',
             message: 'Ảnh đã được nén nhưng vượt 20KB. Payload tải có thể phình to.',
             at: Date.now()
           };
@@ -526,6 +546,13 @@ onMounted(async () => {
       const { getVersion } = await import('@tauri-apps/api/app');
 
       appVersion.value = await getVersion();
+
+      try {
+        const { isEnabled } = await import('@tauri-apps/plugin-autostart');
+        autostartOn.value = await isEnabled();
+      } catch (err) {
+        console.warn('Failed to load autostart status:', err);
+      }
 
       const info = await invoke<{ ip: string; port: number }>('get_server_info');
       serverIp.value = info.ip;
@@ -1311,7 +1338,7 @@ const updateStatusText = computed(() => {
                       class="text-[9px] text-fuchsia-400 font-semibold select-none leading-relaxed animate-pulse"
                       v-if="isRecording"
                     >
-                      ⚠️ Nhấp tổ hợp phím bất kỳ trên bàn phím của bạn để ghi nhận...
+                      ⚠️ Nhấp tổ hợp phím bất kỳ trên bàn phím của bạn để ghi nhận... (Đang giữ: {{ currentRecordingPreview }})
                     </p>
                   </div>
 
@@ -1676,6 +1703,30 @@ const updateStatusText = computed(() => {
                   <span class="text-[9px] font-bold uppercase tracking-wider text-slate-300">{{
                     meta.label
                   }}</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Autostart -->
+            <div class="flex flex-col gap-2.5">
+              <span class="text-[9px] font-bold uppercase tracking-wider text-cyan-400/70"
+                >Tự khởi động</span
+              >
+              <div class="cyber-inset flex items-center justify-between p-3">
+                <div class="flex flex-col gap-0.5">
+                  <span class="font-medium text-slate-300">Khởi động cùng hệ thống:</span>
+                  <span class="text-[9px] text-slate-500">Chạy ẩn vào khay hệ thống (tray) khi bật máy</span>
+                </div>
+                <button
+                  @click="toggleAutostart"
+                  class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5"
+                  :class="
+                    autostartOn
+                      ? 'border-cyan-400/70 text-cyan-300 bg-slate-900/80 shadow shadow-cyan-900/20'
+                      : 'border-slate-750 text-slate-400 hover:border-slate-600'
+                  "
+                >
+                  {{ autostartOn ? 'Bật' : 'Tắt' }}
                 </button>
               </div>
             </div>

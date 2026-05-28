@@ -18,6 +18,7 @@
   "dependencies": {
     "@iconify/vue": "^5.0.1",
     "@tauri-apps/api": "^2.2.0",
+    "@tauri-apps/plugin-autostart": "^2.2.0",
     "@tauri-apps/plugin-dialog": "^2.0.0",
     "@tauri-apps/plugin-process": "^2.3.1",
     "@tauri-apps/plugin-shell": "^2.2.0",

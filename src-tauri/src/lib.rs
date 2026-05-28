@@ -853,6 +853,10 @@ pub fn run() {
                 let _ = window.set_focus();
             }
         }));
+        builder = builder.plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec!["--hidden"]),
+        ));
     }
 
     builder = builder.plugin(tauri_plugin_dialog::init());
@@ -875,7 +879,14 @@ pub fn run() {
             let app_handle_listener = app.handle().clone();
 
             #[cfg(desktop)]
-            setup_tray(app.handle())?;
+            {
+                setup_tray(app.handle())?;
+                if std::env::args().any(|arg| arg == "--hidden") {
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.hide();
+                    }
+                }
+            }
 
             // Spawn localized tokio WS thread pool on start
             tauri::async_runtime::spawn(async move {
