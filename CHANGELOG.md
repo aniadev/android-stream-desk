@@ -4,6 +4,30 @@ All notable changes to the **Android Stream Desk** project will be documented in
 
 ---
 
+## [1.4.0] - 2026-05-29
+
+### Added
+- **Multi-page macro pad**: Tổ chức button thành nhiều trang dùng chung `rows`/`cols`. Client chuyển trang bằng carousel (vuốt) + dot pagination; Dashboard editor có page tabs CLICK để thêm (`+`) / xóa (`×`) / đổi tên trang (vẫn kéo-thả sắp xếp button). Layout single-page cũ tự migrate sang `pages`, không mất button. Trạng thái trang là cục bộ từng client (không broadcast).
+- **Record chord nâng cao**: Ghi tổ hợp nhiều phím nhấn ĐỒNG THỜI (vd `Alt+P+W`) — Companion giữ rồi nhả ngược thay vì click tuần tự; preview chuỗi đang giữ realtime. Hỗ trợ `PrintScreen` (bắt qua keyup) và preset "phím hệ thống" cho combo bị OS chặn (`Win+Shift+S`, `Win+S`, `Win+L`).
+- **Upload icon tùy biến**: Tải ảnh PNG/JPG từ máy làm icon button (downscale ~96px, lưu data URI), render `<img>` trên cả Companion và Client; chọn chế độ phủ ảnh `cover` / `contain` / `fill` / gốc.
+- **App Picker quét Start Menu**: Liệt kê thêm shortcut `.lnk` (`%ProgramData%` + `%AppData%`) mang `target + arguments`, merge/dedupe với registry (ưu tiên entry có args) — chạy được app cần launcher như League of Legends qua `RiotClientServices.exe --launch-product=...`.
+- **Reconnect ngầm**: Mất kết nối giữa session giữ nguyên grid, đổi status icon 3 trạng thái (connected / reconnecting / disconnected), tự kết nối lại mỗi 30s — không bật modal/lỗi phiền. Modal connect chỉ hiện lần đầu hoặc khi chủ động ngắt.
+- **Sound + vibration khi nhấn**: Phản hồi âm thanh (Web Audio click) và rung (`navigator.vibrate`) khi nhấn button trên Client, bật/tắt độc lập trong settings, có guard khi nền tảng không hỗ trợ.
+- **Tự khởi động cùng Windows**: Toggle trong settings Dashboard; app khởi động ẩn vào tray (arg `--hidden`) khi đăng nhập.
+- **Export chọn đường dẫn**: Native save dialog (`stream-desk-layout-<ts>.json`, filter JSON) + ghi file atomic; không toast khi user hủy.
+- **Build macOS + Linux**: CI sinh `.dmg` (macOS unsigned) và `.deb`/`.AppImage` (Linux); README có hướng dẫn vượt Gatekeeper (`xattr -dr com.apple.quarantine`) và deps Linux (caveat Wayland).
+
+### Fixed
+- **Paste shortcut đã copy (Windows)**: Sửa typo type literal PowerShell `[System.Windows.Forms.Clipboard]` (trước là `Forms::Clipboard`) khiến `read_clipboard_files` luôn trả rỗng — giờ dán shortcut Chrome/app đã copy vào ô App path resolve đúng `.lnk`.
+- **Import bypass sanitize (multi-page)**: Button trong `pages[]` giờ được sanitize icon + validate action khi import; trước đó file multi-page lách toàn bộ kiểm tra (chặn data URI lạ / XSS).
+- **App Picker treo khi nhiều shortcut**: Resolve mọi `.lnk` trong MỘT lần gọi PowerShell thay vì spawn một tiến trình mỗi shortcut.
+- **Client carousel desync**: `reInit` embla khi số trang thay đổi qua broadcast (thêm/xóa trang ở Dashboard).
+- **macOS PrintScreen gõ nhầm**: Bỏ mapping `Key::Other(0)` (gõ ra 'a') trên macOS — giờ trả lỗi parse thay vì gõ bậy.
+- **Metrics loop**: Bỏ qua `pages` rỗng để mảng `buttons` top-level vẫn quyết định interval; quét monitor button trên TẤT CẢ các trang.
+- **Record kẹt khi mất focus**: Hủy ghi chord sạch khi cửa sổ mất focus giữa chừng.
+
+---
+
 ## [1.3.3] - 2026-05-25
 
 ### Fixed
