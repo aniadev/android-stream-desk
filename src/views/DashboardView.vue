@@ -128,6 +128,7 @@ const handleAppPathPaste = async (e: ClipboardEvent) => {
 
   if (!selectedButton.value || !window.__TAURI_INTERNALS__) return;
 
+  // Let browser paste or do custom resolving
   if (text.toLowerCase().endsWith('.lnk')) {
     e.preventDefault();
     try {
@@ -144,10 +145,38 @@ const handleAppPathPaste = async (e: ClipboardEvent) => {
   }
 
   // Strip surrounding quotes from quoted exe path (e.g. pasted from Properties dialog)
-  if (text !== raw.trim()) {
+  if (text && text !== raw.trim()) {
     e.preventDefault();
     selectedButton.value.appPath = text;
     saveButtonSettings();
+    return;
+  }
+
+  // Fallback: If clipboard has no valid text path but might contain a copied file (CF_HDROP)
+  if (!text || (!text.toLowerCase().endsWith('.lnk') && !text.includes('\\') && !text.includes('/'))) {
+    e.preventDefault();
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const files = await invoke<string[]>('read_clipboard_files');
+      
+      const file = files.find(f => f.toLowerCase().endsWith('.lnk') || f.toLowerCase().endsWith('.exe'));
+      if (file) {
+        if (file.toLowerCase().endsWith('.lnk')) {
+          const resolved = await invoke<string>('resolve_shortcut', { lnkPath: file });
+          selectedButton.value.appPath = resolved;
+        } else {
+          selectedButton.value.appPath = file;
+        }
+        saveButtonSettings();
+        appPathHint.value = '✓ Đã dán shortcut copy thành công';
+      } else {
+        appPathHint.value = '✗ Không có gì để dán. Hãy chọn App Picker!';
+      }
+    } catch (err: any) {
+      console.warn('Clipboard file read error:', err);
+      appPathHint.value = '✗ Không đọc được Clipboard. Hãy dùng App Picker!';
+    }
+    setTimeout(() => (appPathHint.value = ''), 4000);
   }
 };
 

@@ -180,6 +180,79 @@ pub struct InstalledApp {
 }
 
 #[cfg(target_os = "windows")]
+fn scan_start_menu_shortcuts() -> Vec<InstalledApp> {
+    use std::fs;
+    use std::path::{Path, PathBuf};
+
+    let mut apps = Vec::new();
+    let mut shortcut_dirs = Vec::new();
+
+    // 1. Resolve %ProgramData% Start Menu Programs path
+    if let Ok(prog_data) = std::env::var("ProgramData") {
+        let p1 = Path::new(&prog_data).join("Microsoft\\Windows\\Start Menu\\Programs");
+        if p1.is_dir() {
+            shortcut_dirs.push(p1);
+        }
+    }
+
+    // 2. Resolve %AppData% Start Menu Programs path
+    if let Ok(app_data) = std::env::var("AppData") {
+        let p2 = Path::new(&app_data).join("Microsoft\\Windows\\Start Menu\\Programs");
+        if p2.is_dir() {
+            shortcut_dirs.push(p2);
+        }
+    }
+
+    // Helper closure for recursive directory traversing
+    fn visit_dirs(dir: &Path, shortcuts: &mut Vec<PathBuf>) {
+        if let Ok(entries) = fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    visit_dirs(&path, shortcuts);
+                } else if path.extension().is_some_and(|ext| ext.to_ascii_lowercase() == "lnk") {
+                    shortcuts.push(path);
+                }
+            }
+        }
+    }
+
+    let mut shortcut_paths = Vec::new();
+    for dir in shortcut_dirs {
+        visit_dirs(&dir, &mut shortcut_paths);
+    }
+
+    // Process each shortcut (.lnk)
+    for lnk in shortcut_paths {
+        let lnk_str = lnk.to_string_lossy().to_string();
+        if let Ok(resolved) = resolve_shortcut(lnk_str.clone()) {
+            // Get file name without extension for the application name representation
+            let name = lnk
+                .file_stem()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or_else(|| "Unknown App".to_string());
+
+            // Simple heuristic to extract the executable name for the icon
+            // Split by space/quote to isolate target exe
+            let clean_exe_target = if resolved.starts_with('"') {
+                resolved.split('"').nth(1).unwrap_or(&resolved).trim().to_string()
+            } else {
+                resolved.split_whitespace().next().unwrap_or(&resolved).to_string()
+            };
+
+            apps.push(InstalledApp {
+                name,
+                path: resolved,
+                icon: Some(clean_exe_target),
+                publisher: Some("Start Menu".to_string()),
+            });
+        }
+    }
+
+    apps
+}
+
+#[cfg(target_os = "windows")]
 fn list_installed_apps_windows() -> Vec<InstalledApp> {
     use std::collections::HashMap;
     use winreg::enums::*;
@@ -193,6 +266,10 @@ fn list_installed_apps_windows() -> Vec<InstalledApp> {
 
     let mut apps: Vec<InstalledApp> = Vec::new();
 
+    // 1. Quét Start Menu Shortcuts (ưu tiên)
+    apps.extend(scan_start_menu_shortcuts());
+
+    // 2. Quét Registry Uninstall
     for (hive, path) in hives {
         let uninstall_key = match hive.open_subkey_with_flags(path, KEY_READ) {
             Ok(k) => k,
@@ -254,13 +331,31 @@ fn list_installed_apps_windows() -> Vec<InstalledApp> {
         }
     }
 
+    // Deduplicate: Trực quan hóa khóa theo TARGET EXE trần
+    // Ví dụ: "riotclientservices.exe --launch-product=..." và "riotclientservices.exe"
+    // Gộp chung và ưu tiên entry CÓ chứa arguments
     let mut seen: HashMap<String, InstalledApp> = HashMap::new();
     for app in apps {
-        let key = app.path.to_lowercase();
-        seen.entry(key)
+        // Trích xuất tên exe trần làm khóa so khớp trùng
+        let clean_exe_key = if app.path.starts_with('"') {
+            app.path.split('"').nth(1).unwrap_or(&app.path).trim().to_lowercase()
+        } else {
+            app.path.split_whitespace().next().unwrap_or(&app.path).to_lowercase()
+        };
+
+        seen.entry(clean_exe_key)
             .and_modify(|existing| {
-                if existing.publisher.is_none() && app.publisher.is_some() {
-                    existing.publisher = app.publisher.clone();
+                // Nếu entry mới có Arguments (độ dài chuỗi path dài hơn / chứa tham số) thì ưu tiên lưu đè
+                let new_has_args = app.path.trim().contains(' ');
+                let ext_has_args = existing.path.trim().contains(' ');
+                
+                if new_has_args && !ext_has_args {
+                    *existing = app.clone();
+                } else if !new_has_args && !ext_has_args {
+                    // Nếu cả hai đều trần, ưu tiên Start Menu vì tên hiển thị đẹp hơn
+                    if app.publisher.as_deref() == Some("Start Menu") {
+                        *existing = app.clone();
+                    }
                 }
             })
             .or_insert(app);
@@ -321,6 +416,35 @@ fn list_installed_apps() -> Vec<InstalledApp> {
     }
 }
 
+#[tauri::command]
+fn read_clipboard_files() -> Result<Vec<String>, String> {
+    #[cfg(target_os = "windows")]
+    {
+        use std::process::Command;
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        let script = "[void][System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms'); \
+                      $clip = [System.Windows.Forms::Clipboard]::GetFileDropList(); \
+                      if ($clip) { $clip } else { @() }";
+        let out = Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command", script])
+            .creation_flags(CREATE_NO_WINDOW)
+            .output()
+            .map_err(|e| format!("PowerShell clipboard error: {}", e))?;
+        let output_str = String::from_utf8_lossy(&out.stdout);
+        let list: Vec<String> = output_str
+            .lines()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+        Ok(list)
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Err("read_clipboard_files only supported on Windows".to_string())
+    }
+}
+
 // -------------------------------------------------------------
 // Shortcut (.lnk) resolver — Windows only
 // -------------------------------------------------------------
@@ -337,7 +461,7 @@ fn resolve_shortcut(lnk_path: String) -> Result<String, String> {
             "$sh = New-Object -ComObject WScript.Shell; \
              $lnk = $sh.CreateShortcut([System.IO.Path]::GetFullPath('{}')); \
              $t = $lnk.TargetPath; $a = $lnk.Arguments; \
-             if ($a) {{ \"$t $a\" }} else {{ $t }}",
+             if ($a) {{ \"`\"$t`\" $a\" }} else {{ $t }}",
             lnk_path.replace('\'', "''")
         );
         let out = Command::new("powershell")
@@ -741,7 +865,8 @@ pub fn run() {
             open_accessibility_settings,
             probe_input_permission,
             list_installed_apps,
-            resolve_shortcut
+            resolve_shortcut,
+            read_clipboard_files
         ])
         .setup(|app| {
             let app_handle_ws = app.handle().clone();
