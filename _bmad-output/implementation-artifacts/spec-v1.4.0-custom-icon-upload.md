@@ -3,7 +3,7 @@ title: 'v1.4.0 S-IMG1 — Upload icon tùy biến (png/jpg) + downscale + render
 type: 'feature'
 created: '2026-05-28'
 baseline_commit: 'd68a193'
-status: 'ready-for-dev'
+status: 'done'
 ---
 
 <frozen-after-approval reason="human-owned intent — do not modify unless human renegotiates">
