@@ -1,4 +1,9 @@
 let ctx: AudioContext | null = null;
+let clickBuffer: AudioBuffer | null = null;
+let loadPromise: Promise<void> | null = null;
+
+const CLICK_URL = '/sound/poop.wav';
+const CLICK_VOLUME = 0.9;
 
 function getCtx(): AudioContext | null {
   if (typeof window === 'undefined') return null;
@@ -15,40 +20,62 @@ function getCtx(): AudioContext | null {
   return ctx;
 }
 
+function loadBuffer(context: AudioContext): Promise<void> {
+  if (clickBuffer) return Promise.resolve();
+  if (loadPromise) return loadPromise;
+
+  loadPromise = fetch(CLICK_URL)
+    .then((res) => res.arrayBuffer())
+    .then((data) => context.decodeAudioData(data))
+    .then((buf) => {
+      clickBuffer = buf;
+    })
+    .catch((err) => {
+      console.warn('Failed to load click sound:', err);
+      loadPromise = null; // allow retry
+    });
+
+  return loadPromise;
+}
+
 export function unlockAudio() {
   const context = getCtx();
-  if (context && context.state === 'suspended') {
+  if (!context) return;
+
+  if (context.state === 'suspended') {
     context.resume().catch((err) => {
       console.warn('Failed to resume AudioContext:', err);
     });
   }
+
+  // Preload on first gesture so the first tap has the buffer ready.
+  void loadBuffer(context);
 }
 
 export function playClick() {
   const context = getCtx();
   if (!context) return;
 
-  // Make sure it is resumed (handle browser autoplay restriction)
   if (context.state === 'suspended') {
     context.resume().catch(() => {});
   }
 
+  if (!clickBuffer) {
+    void loadBuffer(context); // not decoded yet — this tap is silent, next plays
+    return;
+  }
+
   try {
-    const osc = context.createOscillator();
+    const source = context.createBufferSource();
     const gain = context.createGain();
 
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(1000, context.currentTime); // 1kHz beep
-    osc.frequency.exponentialRampToValueAtTime(1200, context.currentTime + 0.04);
+    source.buffer = clickBuffer;
+    gain.gain.setValueAtTime(CLICK_VOLUME, context.currentTime);
 
-    gain.gain.setValueAtTime(0.04, context.currentTime); // Low volume
-    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.04); // Fast fade
-
-    osc.connect(gain);
+    source.connect(gain);
     gain.connect(context.destination);
 
-    osc.start(context.currentTime);
-    osc.stop(context.currentTime + 0.04);
+    source.start(context.currentTime);
   } catch (err) {
     console.warn('Failed to play click sound:', err);
   }
