@@ -4,6 +4,17 @@ All notable changes to the **Android Stream Desk** project will be documented in
 
 ---
 
+## [1.4.1] - 2026-05-29
+
+### Changed
+- **Client carousel → CSS scroll-snap**: Bỏ engine `embla-carousel-vue`, chuyển sang pager `scroll-snap` HTML/CSS thuần (native vuốt, bỏ slide animation, tap dot nhảy tức thì) — mượt hơn trên chip yếu (POCO C40), gỡ dependency.
+
+### Fixed
+- **Rung khi nhấn không hoạt động (Android)**: Thêm quyền `android.permission.VIBRATE` vào AndroidManifest — trước đó WebView gọi `navigator.vibrate()` bị no-op do thiếu quyền.
+- **Âm thanh khi nhấn (Android)**: Thay synth oscillator âm lượng nhỏ (gain 0.04) bằng file `public/sound/poop.wav` phát qua Web Audio buffer (preload ở gesture đầu, BufferSource mỗi tap) — nghe rõ trên loa máy yếu.
+
+---
+
 ## [1.4.0] - 2026-05-29
 
 ### Added
