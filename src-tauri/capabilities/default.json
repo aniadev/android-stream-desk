@@ -4,6 +4,7 @@
   "description": "Default permissions for Android Stream Desk Companion",
   "windows": ["main"],
   "permissions": [
-    "core:default"
+    "core:default",
+    "dialog:default"
   ]
 }

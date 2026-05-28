@@ -59,6 +59,11 @@ const shortcutPresets = [
   { label: 'Switch Tab (Ctrl+Tab)', value: 'Ctrl+Tab' },
   { label: 'Task Manager (Ctrl+Shift+Escape)', value: 'Ctrl+Shift+Escape' },
   { label: 'Show Desktop (Win+D)', value: 'Win+D' },
+  { label: 'Snipping Tool (Win+Shift+S)', value: 'Win+Shift+S' },
+  { label: 'Search (Win+S)', value: 'Win+S' },
+  { label: 'Lock PC (Win+L)', value: 'Win+L' },
+  { label: 'PrintScreen', value: 'PrintScreen' },
+  { label: 'Alt+PrintScreen', value: 'Alt+PrintScreen' },
 ];
 
 // App Presets dynamic mapping based on OS
@@ -240,6 +245,7 @@ const applyPreset = (value: string) => {
 // combos (Cmd+Q, Cmd+Ctrl+Q on macOS) can still be assembled by pressing
 // only the base key on keyboard.
 const pendingMods = ref({ ctrl: false, shift: false, alt: false, meta: false });
+const heldKeys = ref<Set<string>>(new Set());
 
 const metaLabel = computed(() => (isMac.value ? 'Cmd' : 'Win'));
 const altLabel = computed(() => (isMac.value ? 'Opt' : 'Alt'));
@@ -260,6 +266,13 @@ const buildModifiers = (e?: KeyboardEvent): string[] => {
   if (meta) mods.push('Meta');
   return mods;
 };
+
+const currentRecordingPreview = computed(() => {
+  const modifiers = buildModifiers();
+  const bases = Array.from(heldKeys.value);
+  if (modifiers.length === 0 && bases.length === 0) return 'Đang chờ phím...';
+  return [...modifiers, ...bases].join(' + ');
+});
 
 const handleKeyDown = (e: KeyboardEvent) => {
   if (!isRecording.value || !selectedButton.value) return;
@@ -289,14 +302,60 @@ const handleKeyDown = (e: KeyboardEvent) => {
   else if (keyName === 'Escape') keyName = 'Esc';
   else if (keyName.length === 1) keyName = keyName.toUpperCase();
 
-  const modifiers = buildModifiers(e);
-  const shortcutString = [...modifiers, keyName].join('+');
-  selectedButton.value.shortcutValue = shortcutString;
+  heldKeys.value.add(keyName);
+};
 
-  isRecording.value = false;
-  pendingMods.value = { ctrl: false, shift: false, alt: false, meta: false };
-  window.removeEventListener('keydown', handleKeyDown, true);
-  saveButtonSettings();
+const handleKeyUp = (e: KeyboardEvent) => {
+  if (!isRecording.value || !selectedButton.value) return;
+
+  let keyName = e.key;
+
+  // Sync modifier keyup if they release modifiers physically
+  if (keyName === 'Control') {
+    pendingMods.value.ctrl = false;
+    return;
+  }
+  if (keyName === 'Shift') {
+    pendingMods.value.shift = false;
+    return;
+  }
+  if (keyName === 'Alt') {
+    pendingMods.value.alt = false;
+    return;
+  }
+  if (keyName === 'Meta') {
+    pendingMods.value.meta = false;
+    return;
+  }
+
+  if (keyName === ' ') keyName = 'Space';
+  else if (keyName === 'Escape') keyName = 'Esc';
+  else if (keyName === 'PrintScreen') keyName = 'PrintScreen';
+  else if (keyName.length === 1) keyName = keyName.toUpperCase();
+
+  // PrintScreen usually only fires keyup on Windows, catch it here.
+  if (keyName === 'PrintScreen') {
+    heldKeys.value.add(keyName);
+  }
+
+  // Once a base key is released and we have at least one base key captured, we finalize the chord.
+  if (heldKeys.value.size > 0) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const modifiers = buildModifiers(e);
+    const bases = Array.from(heldKeys.value);
+    const shortcutString = [...modifiers, ...bases].join('+');
+
+    selectedButton.value.shortcutValue = shortcutString;
+
+    isRecording.value = false;
+    pendingMods.value = { ctrl: false, shift: false, alt: false, meta: false };
+    heldKeys.value.clear();
+    window.removeEventListener('keydown', handleKeyDown, true);
+    window.removeEventListener('keyup', handleKeyUp, true);
+    saveButtonSettings();
+  }
 };
 
 // Apply current modifier toggles + a manually-picked key. Used by the
@@ -308,7 +367,9 @@ const applyManualKey = (keyName: string) => {
   selectedButton.value.shortcutValue = [...modifiers, keyName].filter(Boolean).join('+');
   isRecording.value = false;
   pendingMods.value = { ctrl: false, shift: false, alt: false, meta: false };
+  heldKeys.value.clear();
   window.removeEventListener('keydown', handleKeyDown, true);
+  window.removeEventListener('keyup', handleKeyUp, true);
   saveButtonSettings();
 };
 
@@ -318,16 +379,21 @@ const toggleRecording = () => {
   if (isRecording.value) {
     isRecording.value = false;
     pendingMods.value = { ctrl: false, shift: false, alt: false, meta: false };
+    heldKeys.value.clear();
     window.removeEventListener('keydown', handleKeyDown, true);
+    window.removeEventListener('keyup', handleKeyUp, true);
   } else {
     isRecording.value = true;
     manualKey.value = '';
+    heldKeys.value.clear();
     window.addEventListener('keydown', handleKeyDown, true);
+    window.addEventListener('keyup', handleKeyUp, true);
   }
 };
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown, true);
+  window.removeEventListener('keyup', handleKeyUp, true);
   window.removeEventListener('focus', probePermission);
   if (syncTimer !== null) clearTimeout(syncTimer);
   if (saveTimer !== null) clearTimeout(saveTimer);
@@ -415,7 +481,7 @@ const copyColor = async () => {
 };
 
 const selectedButton = computed(() => {
-  return layoutStore.layout.buttons.find(btn => btn.id === selectedButtonId.value) || null;
+  return layoutStore.currentButtons.find(btn => btn.id === selectedButtonId.value) || null;
 });
 
 watch(selectedButton, newVal => {
@@ -478,7 +544,7 @@ const updateGridDimensions = (type: 'rows' | 'cols', delta: number) => {
   if (type === 'cols') newCols = Math.max(2, Math.min(8, newCols + delta));
 
   const totalButtonsNeeded = newRows * newCols;
-  const currentButtons = [...layoutStore.layout.buttons];
+  const currentButtons = [...layoutStore.currentButtons];
   let newButtons: ButtonConfig[] = [];
 
   for (let i = 0; i < totalButtonsNeeded; i++) {
@@ -549,14 +615,16 @@ const saveButtonSettings = () => {
 
 const importInput = ref<HTMLInputElement | null>(null);
 
-const handleExport = () => {
+const handleExport = async () => {
   try {
-    layoutStore.exportLayout();
-    layoutStore.lastToast = {
-      kind: 'info',
-      message: 'Đã xuất cấu hình ra file JSON.',
-      at: Date.now(),
-    };
+    const ok = await layoutStore.exportLayout();
+    if (ok) {
+      layoutStore.lastToast = {
+        kind: 'info',
+        message: 'Đã xuất cấu hình ra file JSON.',
+        at: Date.now(),
+      };
+    }
   } catch (e: any) {
     layoutStore.lastToast = {
       kind: 'error',
@@ -1191,7 +1259,8 @@ const updateStatusText = computed(() => {
                         v-for="preset in shortcutPresets"
                         :key="preset.value"
                         @click="applyPreset(preset.value)"
-                        class="cyber-preset-btn text-[9px] text-left px-2 py-1 h-auto truncate font-bold"
+                        class="cyber-preset-btn text-[9px] text-left px-2 py-1 h-auto truncate font-bold min-h-6"
+                        :title="preset.label"
                       >
                         {{ preset.label }}
                       </button>
@@ -1321,28 +1390,75 @@ const updateStatusText = computed(() => {
         </span>
 
         <!-- Cyberpunk Stream Deck Shell -->
-        <div
-          class="cyber-shell max-w-2xl w-full h-[80%] flex items-center justify-center p-4 relative"
-        >
+        <div class="cyber-shell max-w-2xl w-full h-[80%] flex flex-col p-4 relative">
           <div class="scanline absolute inset-0 pointer-events-none opacity-[0.03]" />
           <div class="absolute inset-0 pointer-events-none opacity-[0.025] bg-grid-dot" />
 
           <span
-            class="absolute top-2 left-2 w-4 h-4 border-t-[3px] border-l-[3px] border-cyan-500/60 pointer-events-none"
+            class="absolute top-2 left-2 w-4 h-4 border-t-[3px] border-l-[3px] border-cyan-500/60 pointer-events-none z-20"
           />
           <span
-            class="absolute top-2 right-2 w-4 h-4 border-t-[3px] border-r-[3px] border-fuchsia-500/60 pointer-events-none"
+            class="absolute top-2 right-2 w-4 h-4 border-t-[3px] border-r-[3px] border-fuchsia-500/60 pointer-events-none z-20"
           />
           <span
-            class="absolute bottom-2 left-2 w-4 h-4 border-b-[3px] border-l-[3px] border-fuchsia-500/60 pointer-events-none"
+            class="absolute bottom-2 left-2 w-4 h-4 border-b-[3px] border-l-[3px] border-fuchsia-500/60 pointer-events-none z-20"
           />
           <span
-            class="absolute bottom-2 right-2 w-4 h-4 border-b-[3px] border-r-[3px] border-cyan-500/60 pointer-events-none"
+            class="absolute bottom-2 right-2 w-4 h-4 border-b-[3px] border-r-[3px] border-cyan-500/60 pointer-events-none z-20"
           />
 
+          <!-- Page Tabs CLICK Navigation & Actions Panel (S-PAGE4) -->
           <div
+            v-if="layoutStore.layout.pages"
+            class="flex items-center gap-2 mb-3 z-20 border-b border-slate-800 pb-2 px-1 shrink-0 overflow-x-auto no-scrollbar scroll-smooth"
+          >
+            <div
+              v-for="(page, idx) in layoutStore.layout.pages"
+              :key="page.id"
+              class="group relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[10px] font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer"
+              :class="
+                layoutStore.currentPageIndex === idx
+                  ? 'border-cyan-500/50 bg-cyan-950/20 text-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.15)]'
+                  : 'border-slate-800 hover:border-slate-700 bg-slate-900/50 text-slate-400 hover:text-slate-200'
+              "
+              @click="layoutStore.setPage(idx)"
+            >
+              <!-- Rename Input -->
+              <input
+                v-if="page.name !== undefined"
+                :value="page.name"
+                class="bg-transparent border-none text-[10px] font-bold uppercase tracking-wider focus:outline-none p-0 w-16 text-center select-all"
+                :class="layoutStore.currentPageIndex === idx ? 'text-cyan-400' : 'text-slate-400'"
+                @input="layoutStore.renamePage(idx, ($event.target as HTMLInputElement).value)"
+                @click.stop
+              />
+              <span v-else>Trang {{ idx + 1 }}</span>
+
+              <!-- Remove Page tab button (visible on hover/active, disabled if only 1 page remains) -->
+              <button
+                v-if="layoutStore.layout.pages.length > 1"
+                class="text-xs hover:text-rose-500 transition-colors p-0.5 rounded cursor-pointer"
+                title="Xóa trang"
+                @click.stop="layoutStore.removePage(idx)"
+              >
+                <Icon icon="lucide:x" class="text-[9px]" />
+              </button>
+            </div>
+
+            <!-- Add Page Button -->
+            <button
+              class="w-6 h-6 flex items-center justify-center rounded-lg border border-dashed border-slate-700 hover:border-cyan-500/50 text-slate-500 hover:text-cyan-400 bg-slate-900/10 transition-all duration-200 cursor-pointer"
+              title="Thêm trang mới"
+              @click="layoutStore.addPage()"
+            >
+              <Icon icon="lucide:plus" class="text-xs" />
+            </button>
+          </div>
+
+          <div
+            :key="layoutStore.currentPage?.id"
             v-draggable="[
-              layoutStore.layout.buttons,
+              layoutStore.currentButtons,
               {
                 ghostClass: 'cyber-ghost',
                 animation: 200,
@@ -1354,14 +1470,14 @@ const updateStatusText = computed(() => {
                 onUpdate,
               },
             ]"
-            class="grid gap-3 w-full h-full max-w-full max-h-full items-stretch justify-items-stretch relative z-10 min-h-0 min-w-0"
+            class="grid gap-3 w-full h-[calc(100%-40px)] max-w-full max-h-full items-stretch justify-items-stretch relative z-10 min-h-0 min-w-0"
             :style="{
               gridTemplateColumns: `repeat(${layoutStore.layout.cols}, minmax(0, 1fr))`,
               gridTemplateRows: `repeat(${layoutStore.layout.rows}, minmax(0, 1fr))`,
             }"
           >
             <div
-              v-for="btn in layoutStore.layout.buttons"
+              v-for="btn in layoutStore.currentButtons"
               :key="btn.id"
               class="grid-item-wrap min-w-0 min-h-0"
             >
@@ -1499,7 +1615,11 @@ const updateStatusText = computed(() => {
                     class="cyber-action-btn font-bold w-full uppercase tracking-wider text-[10px] py-1.5 cursor-pointer"
                     @click="updaterStore.startInstall()"
                   >
-                    {{ (updaterStore.update as any)?.isManual ? 'Mở trang tải xuống →' : 'Tải & nâng cấp tự động' }}
+                    {{
+                      (updaterStore.update as any)?.isManual
+                        ? 'Mở trang tải xuống →'
+                        : 'Tải & nâng cấp tự động'
+                    }}
                   </button>
                 </div>
 

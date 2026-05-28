@@ -1,8 +1,35 @@
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
-import type { Layout, ButtonConfig } from '../types';
+import { ref, computed } from 'vue';
+import type { Layout, ButtonConfig, Page } from '../types';
 import { useConnectionStore } from './connection';
 import { applyTheme, isValidTheme, type ThemeName } from '../lib/themes';
+
+const backfillButton = (b: any): ButtonConfig => {
+  if (b.emoji && !b.icon) b.icon = 'mdi:button';
+  b.buttonKind = b.buttonKind ?? 'action';
+  return b as ButtonConfig;
+};
+
+const migrateLayout = (raw: any): Layout => {
+  let pages: Page[];
+  if (Array.isArray(raw.pages) && raw.pages.length > 0) {
+    pages = (raw.pages as any[]).map((p) => ({
+      id: p.id ?? 'page_1',
+      name: p.name,
+      buttons: (Array.isArray(p.buttons) ? p.buttons : []).map(backfillButton),
+    }));
+  } else {
+    const btns = (Array.isArray(raw.buttons) ? raw.buttons : []).map(backfillButton);
+    pages = [{ id: 'page_1', buttons: btns }];
+  }
+  return {
+    rows: raw.rows ?? 3,
+    cols: raw.cols ?? 3,
+    theme: isValidTheme(raw.theme) ? raw.theme : undefined,
+    buttons: pages[0]?.buttons ?? [],
+    pages,
+  };
+};
 
 // Detect platform dynamically at runtime
 const detectOs = (): 'macos' | 'windows' => {
@@ -96,17 +123,37 @@ const defaultLayout = (): Layout => {
     rows: 3,
     cols: 3,
     buttons,
+    pages: [{ id: 'page_1', buttons }],
   };
 };
+
+const createEmptyButton = (pageId: string, index: number): ButtonConfig => ({
+  id: `btn_${Date.now()}_${pageId}_${index}`,
+  label: `Button ${index + 1}`,
+  icon: 'mdi:button',
+  backgroundColor: '#1e293b',
+  actionType: 'shortcut',
+  shortcutValue: 'Ctrl+F1',
+});
 
 let wsListenerAttached = false;
 
 export const useLayoutStore = defineStore('layout', () => {
   const layout = ref<Layout>(defaultLayout());
+  const currentPageIndex = ref(0);
   const lastToast = ref<{ kind: 'error' | 'info'; message: string; at: number } | null>(null);
   const currentMetrics = ref<{ ram_percent: number; cpu_percent: number }>({
     ram_percent: 0,
     cpu_percent: 0,
+  });
+
+  const currentPage = computed(() => {
+    const pages = layout.value.pages || [];
+    return pages[currentPageIndex.value] ?? pages[0];
+  });
+
+  const currentButtons = computed(() => {
+    return currentPage.value?.buttons ?? [];
   });
 
   const connectionStore = useConnectionStore();
@@ -114,21 +161,16 @@ export const useLayoutStore = defineStore('layout', () => {
   const localConfig = localStorage.getItem('local_layout');
   if (localConfig) {
     try {
-      const parsed = JSON.parse(localConfig);
-      if (parsed.buttons && parsed.buttons.length > 0) {
-        parsed.buttons = parsed.buttons.map((b: any) => {
-          if (b.emoji && !b.icon) b.icon = 'mdi:button';
-          b.buttonKind = b.buttonKind ?? 'action';
-          return b;
-        });
-      }
-      if (!isValidTheme(parsed.theme)) parsed.theme = undefined;
-      layout.value = parsed;
+      layout.value = migrateLayout(JSON.parse(localConfig));
     } catch (_) {}
   }
 
   const updateLayout = (newLayout: Layout, skipBroadcast = false) => {
     layout.value = newLayout;
+    if (layout.value.pages && layout.value.pages[0]) {
+      layout.value.buttons.splice(0, layout.value.buttons.length, ...layout.value.pages[0].buttons);
+    }
+    currentPageIndex.value = Math.max(0, Math.min(currentPageIndex.value, (layout.value.pages?.length ?? 1) - 1));
     localStorage.setItem('local_layout', JSON.stringify(newLayout));
     if (!skipBroadcast) {
       broadcastSync();
@@ -141,20 +183,99 @@ export const useLayoutStore = defineStore('layout', () => {
   const resizeGrid = (rows: number, cols: number, newButtons: ButtonConfig[]) => {
     layout.value.rows = rows;
     layout.value.cols = cols;
-    layout.value.buttons.splice(0, layout.value.buttons.length, ...newButtons);
+
+    if (layout.value.pages) {
+      layout.value.pages.forEach((page, idx) => {
+        if (idx === currentPageIndex.value) {
+          page.buttons.splice(0, page.buttons.length, ...newButtons);
+        } else {
+          const totalNeeded = rows * cols;
+          const currentBtns = [...page.buttons];
+          const newBtns: ButtonConfig[] = [];
+          for (let i = 0; i < totalNeeded; i++) {
+            if (currentBtns[i]) {
+              newBtns.push(currentBtns[i]);
+            } else {
+              newBtns.push(createEmptyButton(page.id, i));
+            }
+          }
+          page.buttons.splice(0, page.buttons.length, ...newBtns);
+        }
+      });
+    }
+
+    const activeButtons = layout.value.pages?.[0]?.buttons ?? newButtons;
+    layout.value.buttons.splice(0, layout.value.buttons.length, ...activeButtons);
+
     broadcastSync();
   };
 
   const reorderButtons = (fromIndex: number, toIndex: number) => {
-    const len = layout.value.buttons.length;
+    const len = currentButtons.value.length;
     if (fromIndex === toIndex) return;
     if (fromIndex < 0 || fromIndex >= len || toIndex < 0 || toIndex > len) return;
-    const buttons = [...layout.value.buttons];
+    const buttons = [...currentButtons.value];
     const [moved] = buttons.splice(fromIndex, 1);
     if (!moved) return;
     const insertAt = toIndex > fromIndex ? toIndex - 1 : toIndex;
     buttons.splice(insertAt, 0, moved);
-    updateLayout({ ...layout.value, buttons });
+
+    if (currentPage.value) {
+      currentPage.value.buttons.splice(0, currentPage.value.buttons.length, ...buttons);
+    }
+
+    if (layout.value.pages?.[0]) {
+      layout.value.buttons.splice(0, layout.value.buttons.length, ...layout.value.pages[0].buttons);
+    }
+
+    updateLayout({ ...layout.value });
+  };
+
+  const addPage = () => {
+    if (!layout.value.pages) {
+      layout.value.pages = [];
+    }
+    const pageId = `page_${Date.now()}`;
+    const totalButtons = layout.value.rows * layout.value.cols;
+    const buttons: ButtonConfig[] = [];
+    for (let i = 0; i < totalButtons; i++) {
+      buttons.push(createEmptyButton(pageId, i));
+    }
+    const newPage: Page = {
+      id: pageId,
+      name: `Trang ${layout.value.pages.length + 1}`,
+      buttons,
+    };
+    layout.value.pages.push(newPage);
+    currentPageIndex.value = layout.value.pages.length - 1;
+    updateLayout({ ...layout.value });
+  };
+
+  const removePage = (idx: number) => {
+    if (!layout.value.pages || layout.value.pages.length <= 1) return;
+    layout.value.pages.splice(idx, 1);
+    currentPageIndex.value = Math.max(0, Math.min(currentPageIndex.value, layout.value.pages.length - 1));
+    updateLayout({ ...layout.value });
+  };
+
+  const renamePage = (idx: number, name: string) => {
+    if (!layout.value.pages || idx < 0 || idx >= layout.value.pages.length) return;
+    layout.value.pages[idx].name = name;
+    updateLayout({ ...layout.value });
+  };
+
+  const goNextPage = () => {
+    if (!layout.value.pages) return;
+    currentPageIndex.value = Math.min(currentPageIndex.value + 1, layout.value.pages.length - 1);
+  };
+
+  const goPrevPage = () => {
+    currentPageIndex.value = Math.max(0, currentPageIndex.value - 1);
+  };
+
+  const setPage = (idx: number) => {
+    if (!layout.value.pages) return;
+    currentPageIndex.value = Math.max(0, Math.min(idx, layout.value.pages.length - 1));
   };
 
   const broadcastSync = () => {
@@ -182,14 +303,7 @@ export const useLayoutStore = defineStore('layout', () => {
     window.addEventListener('ws-message', (event: any) => {
       const message = event.detail;
       if (message.type === 'sync_layout' && message.payload) {
-        const synced = message.payload;
-        if (synced.buttons) {
-          synced.buttons = synced.buttons.map((b: any) => {
-            if (b.emoji && !b.icon) b.icon = 'mdi:button';
-            b.buttonKind = b.buttonKind ?? 'action';
-            return b;
-          });
-        }
+        const synced = migrateLayout(message.payload);
         updateLayout(synced, true);
         applyTheme(isValidTheme(synced.theme) ? (synced.theme as ThemeName) : 'cyber');
       } else if (message.type === 'metric_update' && message.payload) {
@@ -228,18 +342,38 @@ export const useLayoutStore = defineStore('layout', () => {
     }
   };
 
-  const exportLayout = (): void => {
+  const exportLayout = async (): Promise<boolean> => {
+    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const defaultName = `stream-desk-layout-${ts}.json`;
+    // @ts-ignore
+    if (window.__TAURI_INTERNALS__) {
+      try {
+        const { save } = await import('@tauri-apps/plugin-dialog');
+        const { invoke } = await import('@tauri-apps/api/core');
+        const path = await save({
+          defaultPath: defaultName,
+          filters: [{ name: 'JSON', extensions: ['json'] }],
+        });
+        if (!path) return false; // user hủy
+        await invoke('export_layout_to_path', { path, layout: layout.value });
+        return true;
+      } catch (err) {
+        console.error('Tauri export error', err);
+        throw err;
+      }
+    }
+    // web fallback: blob + anchor (GIỮ NGUYÊN)
     const json = JSON.stringify(layout.value, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
     a.href = url;
-    a.download = `stream-desk-layout-${ts}.json`;
+    a.download = defaultName;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    return true;
   };
 
   const importLayout = async (file: File): Promise<void> => {
@@ -273,16 +407,20 @@ export const useLayoutStore = defineStore('layout', () => {
       commandValue: typeof b?.commandValue === 'string' ? b.commandValue : undefined,
     }));
 
-    updateLayout({
+    updateLayout(migrateLayout({
       rows: Math.max(2, Math.min(6, parsed.rows | 0)),
       cols: Math.max(2, Math.min(8, parsed.cols | 0)),
       buttons: sanitized,
+      pages: parsed.pages,
       theme: isValidTheme(parsed.theme) ? parsed.theme : undefined,
-    });
+    }));
   };
 
   return {
     layout,
+    currentPageIndex,
+    currentPage,
+    currentButtons,
     lastToast,
     currentMetrics,
     updateLayout,
@@ -290,6 +428,12 @@ export const useLayoutStore = defineStore('layout', () => {
     broadcastSync,
     reorderButtons,
     pressButton,
+    addPage,
+    removePage,
+    renamePage,
+    goNextPage,
+    goPrevPage,
+    setPage,
     exportLayout,
     importLayout,
   };

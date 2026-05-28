@@ -62,9 +62,17 @@ async fn compute_interval_ms(config_dir: &Path) -> u64 {
         Ok(v) => v,
         Err(_) => return default,
     };
-    let buttons = match val.get("buttons").and_then(|b| b.as_array()) {
-        Some(b) => b.clone(),
-        None => return default,
+    let buttons: Vec<serde_json::Value> = if let Some(pages) = val.get("pages").and_then(|p| p.as_array()) {
+        pages
+            .iter()
+            .filter_map(|p| p.get("buttons").and_then(|b| b.as_array()).cloned())
+            .flatten()
+            .collect()
+    } else {
+        match val.get("buttons").and_then(|b| b.as_array()) {
+            Some(b) => b.clone(),
+            None => return default,
+        }
     };
     let min = buttons
         .iter()

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch } from 'vue';
+import { onMounted, onUnmounted, ref, watch, computed } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useConnectionStore } from '../stores/connection';
 import { useLayoutStore } from '../stores/layout';
@@ -12,6 +12,10 @@ const connectionStore = useConnectionStore();
 const layoutStore = useLayoutStore();
 const settingsStore = useSettingsStore();
 const { keepScreenOn } = storeToRefs(settingsStore);
+
+const showConnectModal = computed(() => {
+  return !connectionStore.hasConnectedOnce && connectionStore.status !== 'connected';
+});
 
 const toastMessage = ref<string | null>(null);
 const isSubmitted = ref(false);
@@ -173,7 +177,7 @@ onUnmounted(() => {
   >
     <!-- Grid Area occupies 98% of the screen when connected -->
     <div
-      v-if="connectionStore.status === 'connected'"
+      v-if="connectionStore.status === 'connected' || (connectionStore.hasConnectedOnce && !showConnectModal)"
       class="flex-1 w-full h-full flex items-center justify-center"
     >
       <GridArea class="w-full h-full origin-center" />
@@ -181,7 +185,7 @@ onUnmounted(() => {
 
     <!-- Offline Glass Connection Modal Popup centered when not connected -->
     <div
-      v-else
+      v-else-if="showConnectModal"
       class="absolute inset-0 z-40 bg-slate-950/70 backdrop-blur-md flex flex-col items-center justify-center p-4 select-none"
     >
       <!-- Offline banner if network is down altogether -->
@@ -337,13 +341,20 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- Absolute miniature HUD float: small pill on the top right when connected -->
+    <!-- Absolute miniature HUD float: small pill on the top right when connected or silently reconnecting -->
     <div
-      v-if="connectionStore.status === 'connected'"
+      v-if="connectionStore.status === 'connected' || connectionStore.hasConnectedOnce"
       class="absolute top-4 right-4 z-40 bg-slate-900/80 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-2 border border-slate-800 shadow-lg select-none duration-150 hover:bg-slate-850 cursor-pointer animate-pulse"
       @click="settingsOpen = true"
     >
-      <span class="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
+      <span
+        class="inline-flex h-2.5 w-2.5 rounded-full"
+        :class="{
+          'bg-emerald-500': connectionStore.status === 'connected',
+          'bg-amber-500': connectionStore.status !== 'connected' && connectionStore.isReconnecting,
+          'bg-rose-500': connectionStore.status !== 'connected' && !connectionStore.isReconnecting
+        }"
+      ></span>
       <Icon icon="mdi:cog" class="text-slate-400 text-base" />
     </div>
 
@@ -393,9 +404,29 @@ onUnmounted(() => {
               </div>
               <div class="flex justify-between py-1">
                 <span class="text-slate-450 font-semibold">Trạng thái:</span>
-                <span class="text-emerald-400 font-bold flex items-center gap-1.5">
-                  <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  Đang hoạt động
+                <span
+                  class="font-bold flex items-center gap-1.5"
+                  :class="{
+                    'text-emerald-400': connectionStore.status === 'connected',
+                    'text-amber-400': connectionStore.status !== 'connected' && connectionStore.isReconnecting,
+                    'text-rose-400': connectionStore.status !== 'connected' && !connectionStore.isReconnecting
+                  }"
+                >
+                  <span
+                    class="h-1.5 w-1.5 rounded-full animate-pulse"
+                    :class="{
+                      'bg-emerald-500': connectionStore.status === 'connected',
+                      'bg-amber-500': connectionStore.status !== 'connected' && connectionStore.isReconnecting,
+                      'bg-rose-500': connectionStore.status !== 'connected' && !connectionStore.isReconnecting
+                    }"
+                  ></span>
+                  {{
+                    connectionStore.status === 'connected'
+                      ? 'Đang hoạt động'
+                      : connectionStore.isReconnecting
+                        ? 'Đang kết nối lại...'
+                        : 'Mất kết nối'
+                  }}
                 </span>
               </div>
             </div>

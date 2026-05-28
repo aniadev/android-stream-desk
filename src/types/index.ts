@@ -25,10 +25,17 @@ export interface ButtonConfig {
   commandValue?: string;
 }
 
+export interface Page {
+  id: string;
+  name?: string;
+  buttons: ButtonConfig[];
+}
+
 export interface Layout {
   rows: number;
   cols: number;
   buttons: ButtonConfig[];
+  pages?: Page[];
   theme?: string;
 }
 

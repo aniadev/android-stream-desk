@@ -13,6 +13,7 @@ export const useConnectionStore = defineStore('connection', () => {
   const reconnectAttempts = ref(0);
   const maxReconnectAttempts = ref(MAX_RECONNECT_ATTEMPTS);
   const isOnline = ref(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const hasConnectedOnce = ref(false);
 
   let heartbeatInterval: number | null = null;
   let reconnectInterval: number | null = null;
@@ -111,6 +112,7 @@ export const useConnectionStore = defineStore('connection', () => {
         status.value = 'connected';
         isAlive = true;
         reconnectAttempts.value = 0;
+        hasConnectedOnce.value = true;
         clearReconnect();
         startHeartbeat();
       };
@@ -161,6 +163,7 @@ export const useConnectionStore = defineStore('connection', () => {
 
   const disconnect = () => {
     userDisconnected = true;
+    hasConnectedOnce.value = false;
     clearConnectTimeout();
     clearReconnect();
     stopHeartbeat();
@@ -211,6 +214,21 @@ export const useConnectionStore = defineStore('connection', () => {
 
   const triggerAutoReconnect = () => {
     if (reconnectInterval !== null || userDisconnected) return;
+
+    if (hasConnectedOnce.value) {
+      isReconnecting.value = true;
+      reconnectInterval = window.setInterval(() => {
+        if (userDisconnected) {
+          clearReconnect();
+          return;
+        }
+        reconnectAttempts.value += 1;
+        console.log(`Silent auto-reconnect attempt ${reconnectAttempts.value} (30s interval)`);
+        connect(true);
+      }, 30000);
+      return;
+    }
+
     if (reconnectAttempts.value >= MAX_RECONNECT_ATTEMPTS) {
       status.value = 'error';
       isReconnecting.value = false;
@@ -247,6 +265,7 @@ export const useConnectionStore = defineStore('connection', () => {
     reconnectAttempts,
     maxReconnectAttempts,
     isOnline,
+    hasConnectedOnce,
     connect,
     disconnect,
     cancelReconnect,

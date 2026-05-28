@@ -46,10 +46,20 @@ pub struct ButtonConfig {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Page {
+    pub id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    pub buttons: Vec<ButtonConfig>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Layout {
     pub rows: u32,
     pub cols: u32,
     pub buttons: Vec<ButtonConfig>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pages: Option<Vec<Page>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub theme: Option<String>,
 }
@@ -84,6 +94,20 @@ async fn save_layout_config(app_handle: AppHandle, layout: Value) -> Result<(), 
 
     websocket::broadcast_layout_to_clients(layout).await;
 
+    Ok(())
+}
+
+#[tauri::command]
+async fn export_layout_to_path(path: String, layout: serde_json::Value) -> Result<(), String> {
+    let serialized = serde_json::to_string_pretty(&layout).map_err(|e| e.to_string())?;
+    let final_path = std::path::PathBuf::from(&path);
+    let tmp_path = final_path.with_extension("json.tmp");
+    tokio::fs::write(&tmp_path, serialized)
+        .await
+        .map_err(|e| format!("Failed staging export: {}", e))?;
+    tokio::fs::rename(&tmp_path, &final_path)
+        .await
+        .map_err(|e| format!("Failed committing export: {}", e))?;
     Ok(())
 }
 
@@ -436,13 +460,19 @@ fn parse_key(token: &str) -> Option<Key> {
         "down" | "arrowdown" => Some(Key::DownArrow),
         "left" | "arrowleft" => Some(Key::LeftArrow),
         "right" | "arrowright" => Some(Key::RightArrow),
+        #[cfg(target_os = "windows")]
+        "printscreen" | "prtsc" | "print" => Some(Key::PrintScr),
+        #[cfg(target_os = "linux")]
+        "printscreen" | "prtsc" | "print" => Some(Key::Print),
+        #[cfg(target_os = "macos")]
+        "printscreen" | "prtsc" | "print" => Some(Key::Other(0)),
         other if other.chars().count() == 1 => other.chars().next().map(Key::Unicode),
         _ => None,
     }
 }
 
 #[cfg(desktop)]
-fn parse_shortcut(shortcut: &str) -> Result<(Vec<Key>, Key), String> {
+fn parse_shortcut(shortcut: &str) -> Result<(Vec<Key>, Vec<Key>), String> {
     let parts: Vec<&str> = shortcut
         .split('+')
         .map(str::trim)
@@ -452,26 +482,20 @@ fn parse_shortcut(shortcut: &str) -> Result<(Vec<Key>, Key), String> {
         return Err(format!("Empty shortcut: '{}'", shortcut));
     }
     let mut modifiers: Vec<Key> = Vec::new();
-    let mut base: Option<Key> = None;
+    let mut bases: Vec<Key> = Vec::new();
     for part in parts {
         if let Some(m) = parse_modifier(part) {
             modifiers.push(m);
         } else if let Some(k) = parse_key(part) {
-            if base.is_some() {
-                return Err(format!(
-                    "Shortcut '{}' has multiple base keys",
-                    shortcut
-                ));
-            }
-            base = Some(k);
+            bases.push(k);
         } else {
             return Err(format!("Unrecognized key token: '{}'", part));
         }
     }
-    let base = base.ok_or_else(|| {
-        format!("Shortcut '{}' has only modifiers and no base key", shortcut)
-    })?;
-    Ok((modifiers, base))
+    if bases.is_empty() {
+        return Err(format!("Shortcut '{}' has only modifiers and no base key", shortcut));
+    }
+    Ok((modifiers, bases))
 }
 
 #[cfg(desktop)]
@@ -506,7 +530,7 @@ fn probe_input_permission() -> bool {
 
 #[cfg(desktop)]
 fn simulate_shortcut(shortcut: &str) -> Result<(), String> {
-    let (modifiers, base_key) = parse_shortcut(shortcut)?;
+    let (modifiers, base_keys) = parse_shortcut(shortcut)?;
     let _guard = ENIGO_LOCK
         .lock()
         .map_err(|e| format!("Enigo lock poisoned: {}", e))?;
@@ -524,16 +548,32 @@ fn simulate_shortcut(shortcut: &str) -> Result<(), String> {
         }
     }
 
-    let click_result = enigo
-        .key(base_key, Direction::Click)
-        .map_err(|e| format!("Key click failed ({:?}): {}", base_key, e));
+    // Press base keys; on first failure release already pressed base keys and modifiers, then bail.
+    for (idx, b) in base_keys.iter().enumerate() {
+        if let Err(e) = enigo.key(*b, Direction::Press) {
+            // Release already pressed base keys in reverse order
+            for already_b in base_keys[..idx].iter().rev() {
+                let _ = enigo.key(*already_b, Direction::Release);
+            }
+            // Release all modifiers in reverse order
+            for m in modifiers.iter().rev() {
+                let _ = enigo.key(*m, Direction::Release);
+            }
+            return Err(format!("Base key press failed ({:?}): {}", b, e));
+        }
+    }
 
-    // Always release modifiers — never leave Ctrl/Shift held down.
+    // Release base keys in reverse order
+    for b in base_keys.iter().rev() {
+        let _ = enigo.key(*b, Direction::Release);
+    }
+
+    // Always release modifiers in reverse order
     for m in modifiers.iter().rev() {
         let _ = enigo.key(*m, Direction::Release);
     }
 
-    click_result
+    Ok(())
 }
 
 #[cfg(desktop)]
@@ -689,9 +729,12 @@ pub fn run() {
         }));
     }
 
+    builder = builder.plugin(tauri_plugin_dialog::init());
+
     builder
         .invoke_handler(tauri::generate_handler![
             save_layout_config,
+            export_layout_to_path,
             execute_button_action,
             get_server_info,
             set_android_orientation,
