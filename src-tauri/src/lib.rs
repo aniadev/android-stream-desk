@@ -183,72 +183,79 @@ pub struct InstalledApp {
 
 #[cfg(target_os = "windows")]
 fn scan_start_menu_shortcuts() -> Vec<InstalledApp> {
-    use std::fs;
-    use std::path::{Path, PathBuf};
+    use std::os::windows::process::CommandExt;
+    use std::process::Command;
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
 
     let mut apps = Vec::new();
-    let mut shortcut_dirs = Vec::new();
 
-    // 1. Resolve %ProgramData% Start Menu Programs path
-    if let Ok(prog_data) = std::env::var("ProgramData") {
-        let p1 = Path::new(&prog_data).join("Microsoft\\Windows\\Start Menu\\Programs");
-        if p1.is_dir() {
-            shortcut_dirs.push(p1);
-        }
+    // Resolve every .lnk under both Start Menu trees in a SINGLE PowerShell run.
+    // Spawning one process per shortcut froze the App Picker for seconds on
+    // machines with hundreds of shortcuts; one batched COM walk is ~1 process.
+    // Each emitted line: "<BaseName>\t<resolved target (quoted) + args>".
+    let script = r#"$ErrorActionPreference='SilentlyContinue';
+$dirs=@();
+if($env:ProgramData){$dirs+=Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs'}
+if($env:AppData){$dirs+=Join-Path $env:AppData 'Microsoft\Windows\Start Menu\Programs'}
+$sh=New-Object -ComObject WScript.Shell;
+foreach($d in $dirs){
+  if(Test-Path $d){
+    Get-ChildItem -Path $d -Recurse -Filter *.lnk -ErrorAction SilentlyContinue | ForEach-Object {
+      $lnk=$sh.CreateShortcut($_.FullName);
+      $t=$lnk.TargetPath;
+      if($t){
+        $a=$lnk.Arguments;
+        if($a){$p="`"$t`" $a"}else{$p=$t}
+        "$($_.BaseName)`t$p"
+      }
     }
+  }
+}"#;
 
-    // 2. Resolve %AppData% Start Menu Programs path
-    if let Ok(app_data) = std::env::var("AppData") {
-        let p2 = Path::new(&app_data).join("Microsoft\\Windows\\Start Menu\\Programs");
-        if p2.is_dir() {
-            shortcut_dirs.push(p2);
+    let out = match Command::new("powershell")
+        .args(["-NoProfile", "-NonInteractive", "-Command", script])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+    {
+        Ok(o) => o,
+        Err(_) => return apps,
+    };
+
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    for line in stdout.lines() {
+        let line = line.trim_end_matches('\r');
+        if line.is_empty() {
+            continue;
         }
-    }
-
-    // Helper closure for recursive directory traversing
-    fn visit_dirs(dir: &Path, shortcuts: &mut Vec<PathBuf>) {
-        if let Ok(entries) = fs::read_dir(dir) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.is_dir() {
-                    visit_dirs(&path, shortcuts);
-                } else if path.extension().is_some_and(|ext| ext.to_ascii_lowercase() == "lnk") {
-                    shortcuts.push(path);
-                }
-            }
+        let mut parts = line.splitn(2, '\t');
+        let name = parts.next().unwrap_or("").trim().to_string();
+        let resolved = match parts.next() {
+            Some(p) => p.trim().to_string(),
+            None => continue,
+        };
+        if resolved.is_empty() {
+            continue;
         }
-    }
 
-    let mut shortcut_paths = Vec::new();
-    for dir in shortcut_dirs {
-        visit_dirs(&dir, &mut shortcut_paths);
-    }
+        // Isolate the bare target exe (strip quotes/args) for the icon heuristic.
+        let clean_exe_target = if resolved.starts_with('"') {
+            resolved.split('"').nth(1).unwrap_or(&resolved).trim().to_string()
+        } else {
+            resolved.split_whitespace().next().unwrap_or(&resolved).to_string()
+        };
 
-    // Process each shortcut (.lnk)
-    for lnk in shortcut_paths {
-        let lnk_str = lnk.to_string_lossy().to_string();
-        if let Ok(resolved) = resolve_shortcut(lnk_str.clone()) {
-            // Get file name without extension for the application name representation
-            let name = lnk
-                .file_stem()
-                .map(|s| s.to_string_lossy().to_string())
-                .unwrap_or_else(|| "Unknown App".to_string());
+        let name = if name.is_empty() {
+            "Unknown App".to_string()
+        } else {
+            name
+        };
 
-            // Simple heuristic to extract the executable name for the icon
-            // Split by space/quote to isolate target exe
-            let clean_exe_target = if resolved.starts_with('"') {
-                resolved.split('"').nth(1).unwrap_or(&resolved).trim().to_string()
-            } else {
-                resolved.split_whitespace().next().unwrap_or(&resolved).to_string()
-            };
-
-            apps.push(InstalledApp {
-                name,
-                path: resolved,
-                icon: Some(clean_exe_target),
-                publisher: Some("Start Menu".to_string()),
-            });
-        }
+        apps.push(InstalledApp {
+            name,
+            path: resolved,
+            icon: Some(clean_exe_target),
+            publisher: Some("Start Menu".to_string()),
+        });
     }
 
     apps
@@ -426,7 +433,7 @@ fn read_clipboard_files() -> Result<Vec<String>, String> {
         use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x08000000;
         let script = "[void][System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms'); \
-                      $clip = [System.Windows.Forms::Clipboard]::GetFileDropList(); \
+                      $clip = [System.Windows.Forms.Clipboard]::GetFileDropList(); \
                       if ($clip) { $clip } else { @() }";
         let out = Command::new("powershell")
             .args(["-NoProfile", "-NonInteractive", "-Command", script])
@@ -590,8 +597,7 @@ fn parse_key(token: &str) -> Option<Key> {
         "printscreen" | "prtsc" | "print" => Some(Key::PrintScr),
         #[cfg(target_os = "linux")]
         "printscreen" | "prtsc" | "print" => Some(Key::Print),
-        #[cfg(target_os = "macos")]
-        "printscreen" | "prtsc" | "print" => Some(Key::Other(0)),
+        // PrintScreen has no portable macOS keycode — fall through to None (Err on parse)
         other if other.chars().count() == 1 => other.chars().next().map(Key::Unicode),
         _ => None,
     }

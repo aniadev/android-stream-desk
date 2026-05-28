@@ -10,6 +10,46 @@ const backfillButton = (b: any): ButtonConfig => {
   return b as ButtonConfig;
 };
 
+const VALID_ACTIONS = new Set<ButtonConfig['actionType']>(['shortcut', 'media', 'app', 'command']);
+
+// Only accept image data URIs; reject foreign data:/javascript:/url schemes (XSS/SSRF guard).
+const sanitizeIcon = (iconStr: any): string => {
+  if (typeof iconStr !== 'string') return 'mdi:button';
+  const trimmed = iconStr.trim();
+  if (trimmed.startsWith('data:')) {
+    const match = trimmed.match(/^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/=]+)$/);
+    if (match) return trimmed;
+    return 'mdi:button';
+  }
+  if (trimmed.includes('://') || trimmed.toLowerCase().startsWith('javascript:')) {
+    return 'mdi:button';
+  }
+  return trimmed;
+};
+
+const sanitizeButton = (b: any, i: number): ButtonConfig => ({
+  id: typeof b?.id === 'string' && b.id ? b.id : `btn_${Date.now()}_${i}`,
+  label: typeof b?.label === 'string' ? b.label : `Button ${i + 1}`,
+  icon: sanitizeIcon(b?.icon),
+  backgroundColor: typeof b?.backgroundColor === 'string' ? b.backgroundColor : '#1e293b',
+  actionType: VALID_ACTIONS.has(b?.actionType) ? b.actionType : 'shortcut',
+  buttonKind: b?.buttonKind === 'monitor' ? 'monitor' : 'action',
+  monitorConfig:
+    b?.buttonKind === 'monitor' && b?.monitorConfig
+      ? {
+          metricType: ['ram_percent', 'cpu_percent'].includes(b.monitorConfig.metricType)
+            ? b.monitorConfig.metricType
+            : 'cpu_percent',
+          intervalMs: Math.max(1000, Number(b.monitorConfig?.intervalMs) || 5000),
+        }
+      : undefined,
+  shortcutValue: typeof b?.shortcutValue === 'string' ? b.shortcutValue : undefined,
+  mediaAction: typeof b?.mediaAction === 'string' ? b.mediaAction : undefined,
+  appPath: typeof b?.appPath === 'string' ? b.appPath : undefined,
+  commandValue: typeof b?.commandValue === 'string' ? b.commandValue : undefined,
+  iconSizing: ['normal', 'cover', 'contain', 'fill'].includes(b?.iconSizing) ? b.iconSizing : undefined,
+});
+
 const migrateLayout = (raw: any): Layout => {
   let pages: Page[];
   if (Array.isArray(raw.pages) && raw.pages.length > 0) {
@@ -385,50 +425,25 @@ export const useLayoutStore = defineStore('layout', () => {
     }
     if (!Array.isArray(parsed.buttons)) throw new Error('Thiếu mảng buttons');
 
-    const validActions = new Set<ButtonConfig['actionType']>(['shortcut', 'media', 'app', 'command']);
-    const sanitizeIcon = (iconStr: any): string => {
-      if (typeof iconStr !== 'string') return 'mdi:button';
-      const trimmed = iconStr.trim();
-      if (trimmed.startsWith('data:')) {
-        // Chấp nhận data URIs đúng định dạng ảnh base64 (png, jpeg, webp)
-        const match = trimmed.match(/^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/=]+)$/);
-        if (match) return trimmed;
-        return 'mdi:button'; // Chặn scheme data lạ hoặc bị hỏng
-      }
-      // Chặn bất cứ chuỗi HTTP/HTTPS/Script để tránh XSS / SSRF
-      if (trimmed.includes('://') || trimmed.toLowerCase().startsWith('javascript:')) {
-        return 'mdi:button';
-      }
-      return trimmed;
-    };
+    const sanitized: ButtonConfig[] = parsed.buttons.map((b: any, i: number) => sanitizeButton(b, i));
 
-    const sanitized: ButtonConfig[] = parsed.buttons.map((b: any, i: number) => ({
-      id: typeof b?.id === 'string' && b.id ? b.id : `btn_${Date.now()}_${i}`,
-      label: typeof b?.label === 'string' ? b.label : `Button ${i + 1}`,
-      icon: sanitizeIcon(b?.icon),
-      backgroundColor: typeof b?.backgroundColor === 'string' ? b.backgroundColor : '#1e293b',
-      actionType: validActions.has(b?.actionType) ? b.actionType : 'shortcut',
-      buttonKind: b?.buttonKind === 'monitor' ? 'monitor' : 'action',
-      monitorConfig: b?.buttonKind === 'monitor' && b?.monitorConfig
-        ? {
-            metricType: ['ram_percent', 'cpu_percent'].includes(b.monitorConfig.metricType)
-              ? b.monitorConfig.metricType
-              : 'cpu_percent',
-            intervalMs: Math.max(1000, Number(b.monitorConfig?.intervalMs) || 5000),
-          }
-        : undefined,
-      shortcutValue: typeof b?.shortcutValue === 'string' ? b.shortcutValue : undefined,
-      mediaAction: typeof b?.mediaAction === 'string' ? b.mediaAction : undefined,
-      appPath: typeof b?.appPath === 'string' ? b.appPath : undefined,
-      commandValue: typeof b?.commandValue === 'string' ? b.commandValue : undefined,
-      iconSizing: ['normal', 'cover', 'contain', 'fill'].includes(b?.iconSizing) ? b.iconSizing : undefined,
-    }));
+    // migrateLayout prefers `pages` when present, so sanitize per-page buttons too —
+    // otherwise a multi-page import bypasses icon/action validation entirely.
+    const sanitizedPages: Page[] | undefined = Array.isArray(parsed.pages)
+      ? parsed.pages.map((p: any, pi: number) => ({
+          id: typeof p?.id === 'string' && p.id ? p.id : `page_${Date.now()}_${pi}`,
+          name: typeof p?.name === 'string' ? p.name : undefined,
+          buttons: (Array.isArray(p?.buttons) ? p.buttons : []).map((b: any, i: number) =>
+            sanitizeButton(b, i)
+          ),
+        }))
+      : undefined;
 
     updateLayout(migrateLayout({
       rows: Math.max(2, Math.min(6, parsed.rows | 0)),
       cols: Math.max(2, Math.min(8, parsed.cols | 0)),
       buttons: sanitized,
-      pages: parsed.pages,
+      pages: sanitizedPages,
       theme: isValidTheme(parsed.theme) ? parsed.theme : undefined,
     }));
   };

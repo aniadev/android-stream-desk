@@ -460,6 +460,7 @@ const handleKeyUp = (e: KeyboardEvent) => {
     heldKeys.value.clear();
     window.removeEventListener('keydown', handleKeyDown, true);
     window.removeEventListener('keyup', handleKeyUp, true);
+    window.removeEventListener('blur', handleWindowBlur);
     saveButtonSettings();
   }
 };
@@ -481,6 +482,18 @@ const applyManualKey = (keyName: string) => {
 
 const manualKey = ref<string>('');
 
+// If the window loses focus mid-chord (alt-tab, OS overlay), keydown/keyup can be
+// swallowed and leave recording stuck on. Abort cleanly without saving the partial chord.
+const handleWindowBlur = () => {
+  if (!isRecording.value) return;
+  isRecording.value = false;
+  pendingMods.value = { ctrl: false, shift: false, alt: false, meta: false };
+  heldKeys.value.clear();
+  window.removeEventListener('keydown', handleKeyDown, true);
+  window.removeEventListener('keyup', handleKeyUp, true);
+  window.removeEventListener('blur', handleWindowBlur);
+};
+
 const toggleRecording = () => {
   if (isRecording.value) {
     isRecording.value = false;
@@ -488,18 +501,21 @@ const toggleRecording = () => {
     heldKeys.value.clear();
     window.removeEventListener('keydown', handleKeyDown, true);
     window.removeEventListener('keyup', handleKeyUp, true);
+    window.removeEventListener('blur', handleWindowBlur);
   } else {
     isRecording.value = true;
     manualKey.value = '';
     heldKeys.value.clear();
     window.addEventListener('keydown', handleKeyDown, true);
     window.addEventListener('keyup', handleKeyUp, true);
+    window.addEventListener('blur', handleWindowBlur);
   }
 };
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown, true);
   window.removeEventListener('keyup', handleKeyUp, true);
+  window.removeEventListener('blur', handleWindowBlur);
   window.removeEventListener('focus', probePermission);
   if (syncTimer !== null) clearTimeout(syncTimer);
   if (saveTimer !== null) clearTimeout(saveTimer);

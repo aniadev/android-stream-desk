@@ -60,6 +60,19 @@ watch(
     }
   }
 );
+
+// Pages count changes via broadcast (Dashboard add/remove page). Embla caches its
+// snap list, so without reInit the new/removed slides desync swipe + dots. flush:'post'
+// runs after the v-for DOM patch so embla measures the updated slide set.
+watch(
+  () => layoutStore.layout.pages?.length ?? 0,
+  () => {
+    if (!emblaApi.value) return;
+    emblaApi.value.reInit();
+    emblaApi.value.scrollTo(layoutStore.currentPageIndex, true);
+  },
+  { flush: 'post' }
+);
 </script>
 
 <template>

@@ -68,3 +68,7 @@ Surfaced during step-04 review of `spec-shell-command-action.md`. Accepted under
 
 - **Debounce searchQuery in icon picker**: Each keypress triggers `listIcons(undefined, prefix)` + filter over 7000+ icons synchronously. Consider debouncing `searchQuery` by ~150ms for smoother typing on slow devices.
 - **Module-level `iconObserver` HMR issue**: `iconObserver` is declared at module scope — in Vite HMR dev mode, the reference persists across hot-reloads, holding a stale IntersectionObserver. Refactor to component scope (`ref`) if HMR issues arise.
+
+## Deferred from: code review of v1.4.0 (2026-05-29)
+
+- **W1 (BH) — legacy `layout.buttons` mirror is dead-weight** [`src/stores/layout.ts`: `updateLayout`, `resizeGrid`, `reorderButtons`]: with multi-page, `layout.buttons` is always force-synced from `pages[0]` while every live consumer (GridArea, DashboardView, metrics.rs, broadcast→migrateLayout) now reads `pages`/`currentButtons`. So the mirror is never read correctly on pages ≥ 1, duplicates page-0 buttons in every `sync_layout` broadcast, and is a footgun if a future caller reads `layout.buttons` expecting the active page. Cleanup: drop the mirror (make `buttons` derived/removed from the wire format) or document it as page-0-only. Not done now — no live consumer reads it wrongly, so behavior is correct today.
