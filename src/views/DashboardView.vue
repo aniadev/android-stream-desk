@@ -1109,14 +1109,14 @@ const updateStatusText = computed(() => {
                  <!-- Icon Picker -->
                 <div class="cyber-inset p-2.5 flex flex-col gap-2">
                   <div class="flex flex-col gap-1.5 cyber-divider pb-2">
-                    <div class="flex items-center justify-between gap-1.5">
-                      <div class="flex items-center gap-1.5">
+                    <div class="flex flex-wrap items-center justify-between gap-1.5 min-w-0">
+                      <div class="flex flex-wrap items-center gap-1 min-w-0">
                         <button
                           v-for="group in ['mdi', 'lucide', 'material', 'si'] as const"
                           :key="group"
                           @click="activeIconGroup = group"
                           type="button"
-                          class="text-[9px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 cursor-pointer duration-100"
+                          class="text-[9px] uppercase tracking-wider font-extrabold px-1 py-0.5 cursor-pointer duration-100 whitespace-nowrap"
                           :class="
                             activeIconGroup === group
                               ? 'cyber-tab-active'
@@ -1128,7 +1128,7 @@ const updateStatusText = computed(() => {
                       </div>
                       
                       <!-- Upload Custom Icon Button (S-IMG1) -->
-                      <div>
+                      <div class="shrink-0">
                         <input
                           type="file"
                           ref="iconFileInput"
@@ -1139,10 +1139,10 @@ const updateStatusText = computed(() => {
                         <button
                           type="button"
                           @click="($refs.iconFileInput as HTMLInputElement).click()"
-                          class="text-[8px] uppercase tracking-widest font-extrabold px-2 py-0.5 rounded border border-cyan-500/30 hover:border-cyan-400 bg-cyan-950/10 text-cyan-400 hover:bg-cyan-500/20 transition-all cursor-pointer flex items-center gap-1"
+                          class="text-[8px] uppercase tracking-widest font-extrabold px-1.5 py-0.5 rounded border border-cyan-500/30 hover:border-cyan-400 bg-cyan-950/10 text-cyan-400 hover:bg-cyan-500/20 transition-all cursor-pointer flex items-center gap-0.5 whitespace-nowrap shrink-0"
                           title="Tải ảnh PNG/JPG từ máy tính làm biểu tượng nút"
                         >
-                          <Icon icon="lucide:upload" class="text-[9px]" />
+                          <Icon icon="lucide:upload" class="text-[8px]" />
                           Tải ảnh
                         </button>
                       </div>
