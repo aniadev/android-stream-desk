@@ -108,6 +108,46 @@ android-stream-desk/
 
 > **Lưu ý tag**: Releases có suffix `-win` (vd: `v1.3.2-win`) chỉ chứa file Windows, không có APK.
 
+### macOS Companion (máy tính)
+
+Do bản phát hành macOS là **chưa đăng ký bản quyền Apple (unsigned)**, vui lòng làm theo các bước sau để khởi chạy:
+
+1. Vào trang [Releases](https://github.com/aniadev/android-stream-desk/releases) tải file `.dmg` mới nhất.
+2. Mở file `.dmg` và kéo ứng dụng vào thư mục `Applications`.
+3. Nhấp đúp mở ứng dụng. Hệ thống (Gatekeeper) sẽ hiển thị thông báo chặn app từ nhà phát triển không xác định.
+4. **Vượt Gatekeeper**:
+   - Truy cập **System Settings → Privacy & Security**, kéo xuống dưới cùng tìm mục app bị chặn và chọn **Open Anyway** (Vẫn mở).
+   - *Cách 2 (qua Terminal)*: Chạy lệnh sau rồi mở lại app bình thường:
+     ```bash
+     xattr -dr com.apple.quarantine "/Applications/Android Stream Desk.app"
+     ```
+5. **Cấp quyền phím macro**: Đi tới **System Settings → Privacy & Security → Accessibility**, tích chọn bật cho phép **Android Stream Desk** phát tín hiệu click mô phỏng phím hệ thống.
+
+> **Lưu ý tag**: Releases có suffix `-mac` (vd: `v1.4.0-mac`) chỉ chứa bản build macOS.
+
+### Linux Companion (máy tính)
+
+Ứng dụng hỗ trợ chạy trực tiếp thông qua tệp gói `.deb` hoặc đóng gói di động `.AppImage`.
+
+1. Vào trang [Releases](https://github.com/aniadev/android-stream-desk/releases) tải tệp `.deb` hoặc `.AppImage`.
+2. **Cài đặt tệp `.deb`**:
+   ```bash
+   sudo dpkg -i <ten_file>.deb
+   sudo apt-get install -f # Tự động vá các gói dependency bị thiếu (nếu có)
+   ```
+3. **Chạy tệp `.AppImage`**:
+   ```bash
+   chmod +x <ten_file>.AppImage
+   ./<ten_file>.AppImage
+   ```
+4. **Các thư viện hệ thống cần thiết (Runtime dependencies)**:
+   Gói chạy yêu cầu các thư viện hệ thống tối thiểu:
+   `libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `libxdo-dev`, `libappindicator3-dev`, `librsvg2-dev`.
+
+> **Lưu ý về Wayland (Caveat)**: Thư viện giả lập phím thô `enigo` hoạt động hiệu quả nhất trên kiến trúc đồ họa Windowing **X11**. Trên môi trường **Wayland thuần**, các thao tác nhấn giữ phím nóng hệ thống có thể bị hạn chế. Khuyến nghị chuyển phiên đăng nhập OS sang chế độ **X11** để đạt hiệu năng giả lập phím tốt nhất.
+
+> **Lưu ý tag**: Releases có suffix `-linux` (vd: `v1.4.0-linux`) chỉ chứa bản build Linux.
+
 ### Android Client (điện thoại / máy tính bảng)
 
 1. Vào trang [Releases](https://github.com/aniadev/android-stream-desk/releases) → chọn phiên bản mới nhất.
