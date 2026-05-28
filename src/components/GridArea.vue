@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { onMounted, watch } from 'vue';
+import { onMounted, onUnmounted, nextTick, ref, watch } from 'vue';
 import { useLayoutStore } from '../stores/layout';
 import GridButton from './GridButton.vue';
-import emblaCarouselVue from 'embla-carousel-vue';
 
 import { useSettingsStore } from '../stores/settings';
 import { playClick } from '../lib/clicksound';
@@ -10,11 +9,7 @@ import { playClick } from '../lib/clicksound';
 const layoutStore = useLayoutStore();
 const settingsStore = useSettingsStore();
 
-const [emblaRef, emblaApi] = emblaCarouselVue({
-  loop: false,
-  align: 'center',
-  containScroll: 'trimSnaps',
-});
+const scrollerRef = ref<HTMLElement | null>(null);
 
 function handlePress(button: Parameters<typeof layoutStore.pressButton>[0]) {
   if (button.buttonKind === 'monitor') return;
@@ -32,44 +27,77 @@ function handlePress(button: Parameters<typeof layoutStore.pressButton>[0]) {
   layoutStore.pressButton(button);
 }
 
-// Sync Embla selection back to layoutStore
-onMounted(() => {
-  if (emblaRef.value) {
-    // Satisfy unused compiler checks
-  }
-  if (!emblaApi.value) return;
+function pageFromScroll(el: HTMLElement): number {
+  if (el.clientWidth === 0) return layoutStore.currentPageIndex;
+  return Math.round(el.scrollLeft / el.clientWidth);
+}
 
-  emblaApi.value.on('select', () => {
-    if (!emblaApi.value) return;
-    const selectedSnap = emblaApi.value.selectedScrollSnap();
-    if (layoutStore.currentPageIndex !== selectedSnap) {
-      layoutStore.setPage(selectedSnap);
+function scrollToIndex(idx: number) {
+  const el = scrollerRef.value;
+  if (!el) return;
+  el.scrollTo({ left: idx * el.clientWidth, behavior: 'auto' });
+}
+
+// Native scroll-snap → layoutStore. Throttle to one pending rAF so a swipe's
+// scroll-event burst collapses into a single setPage when it settles.
+let rafId = 0;
+let rafPending = false;
+function onScroll() {
+  if (rafPending) return;
+  rafPending = true;
+  rafId = requestAnimationFrame(() => {
+    rafPending = false;
+    const el = scrollerRef.value;
+    if (!el) return;
+    const idx = pageFromScroll(el);
+    if (idx !== layoutStore.currentPageIndex) {
+      layoutStore.setPage(idx);
     }
   });
+}
 
-  // Init alignment on mount
-  emblaApi.value.scrollTo(layoutStore.currentPageIndex, true);
+// Rotate/resize: pages are clientWidth-wide but scrollLeft is in px, so realign
+// the snap to currentPageIndex when the viewport changes size.
+function onResize() {
+  scrollToIndex(layoutStore.currentPageIndex);
+}
+
+onMounted(() => {
+  // clientWidth can be 0 before first layout (mounted under v-if); defer so the
+  // initial scroll lands on currentPageIndex instead of px 0 → page 0.
+  const el = scrollerRef.value;
+  if (el && el.clientWidth > 0) {
+    scrollToIndex(layoutStore.currentPageIndex);
+  } else {
+    nextTick(() => scrollToIndex(layoutStore.currentPageIndex));
+  }
+  window.addEventListener('resize', onResize);
 });
 
-// Watch for internal page index changes (e.g. from Dashboard or actions)
+onUnmounted(() => {
+  window.removeEventListener('resize', onResize);
+  if (rafId) cancelAnimationFrame(rafId);
+});
+
+// Index changed by dot tap / action / Dashboard. Guard: skip scrollTo when the
+// snap is already there (swipe-driven change) to avoid fighting native momentum.
 watch(
   () => layoutStore.currentPageIndex,
   (newIdx) => {
-    if (emblaApi.value && emblaApi.value.selectedScrollSnap() !== newIdx) {
-      emblaApi.value.scrollTo(newIdx);
+    const el = scrollerRef.value;
+    if (!el) return;
+    if (pageFromScroll(el) !== newIdx) {
+      scrollToIndex(newIdx);
     }
   }
 );
 
-// Pages count changes via broadcast (Dashboard add/remove page). Embla caches its
-// snap list, so without reInit the new/removed slides desync swipe + dots. flush:'post'
-// runs after the v-for DOM patch so embla measures the updated slide set.
+// Pages count changes via broadcast (Dashboard add/remove page). flush:'post'
+// runs after the v-for DOM patch so the slide set is realigned to currentPageIndex.
 watch(
   () => layoutStore.layout.pages?.length ?? 0,
   () => {
-    if (!emblaApi.value) return;
-    emblaApi.value.reInit();
-    emblaApi.value.scrollTo(layoutStore.currentPageIndex, true);
+    scrollToIndex(layoutStore.currentPageIndex);
   },
   { flush: 'post' }
 );
@@ -105,15 +133,19 @@ watch(
         :style="{ borderColor: 'var(--theme-corner-a)' }"
       />
 
-      <!-- Embla Carousel viewport wrapper -->
-      <div ref="emblaRef" class="w-full h-full overflow-hidden relative z-10">
-        <!-- Embla sliding container -->
+      <!-- Native scroll-snap viewport (no JS carousel engine) -->
+      <div
+        ref="scrollerRef"
+        class="scroller w-full h-full overflow-x-auto overflow-y-hidden relative z-10"
+        @scroll.passive="onScroll"
+      >
+        <!-- Horizontal track -->
         <div class="flex h-full w-full">
-          <!-- Slide item per page -->
+          <!-- Snap page per layout page -->
           <div
             v-for="page in (layoutStore.layout.pages || [])"
             :key="page.id"
-            class="flex-none w-full h-full p-5 sm:p-6"
+            class="snap-page flex-none w-full h-full p-5 sm:p-6"
           >
             <div
               class="grid gap-3 sm:gap-4 w-full h-full max-w-full max-h-full items-stretch justify-items-stretch min-h-0 min-w-0"
@@ -148,7 +180,7 @@ watch(
             boxShadow: layoutStore.currentPageIndex === idx ? '0 0 8px var(--theme-accent, #06b6d4)' : 'none',
             opacity: layoutStore.currentPageIndex === idx ? '1' : '0.4'
           }"
-          @click="emblaApi?.scrollTo(idx)"
+          @click="layoutStore.setPage(idx)"
         />
       </div>
     </div>
@@ -177,6 +209,22 @@ watch(
     0% calc(100% - 6px),
     0% 6px
   );
+}
+
+.scroller {
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.scroller::-webkit-scrollbar {
+  display: none;
+}
+
+.snap-page {
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
 }
 
 .bg-grid-dot {

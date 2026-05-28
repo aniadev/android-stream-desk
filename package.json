@@ -25,7 +25,6 @@
     "@tauri-apps/plugin-updater": "^2.10.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "embla-carousel-vue": "^8.6.0",
     "fuse.js": "^7.1.0",
     "lucide-vue-next": "^1.0.0",
     "pinia": "^2.3.0",
