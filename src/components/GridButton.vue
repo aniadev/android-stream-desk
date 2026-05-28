@@ -54,7 +54,10 @@ const monitorIcon = computed(() =>
 const metricValue = computed(() => {
   if (!props.button.monitorConfig) return '--';
   const mt = props.button.monitorConfig.metricType;
-  const val = mt === 'ram_percent' ? layoutStore.currentMetrics.ram_percent : layoutStore.currentMetrics.cpu_percent;
+  const val =
+    mt === 'ram_percent'
+      ? layoutStore.currentMetrics.ram_percent
+      : layoutStore.currentMetrics.cpu_percent;
   return Math.round(val);
 });
 
@@ -101,7 +104,8 @@ function handleClick() {
           fontSize: compact ? '0.85rem' : '1.1rem',
           textShadow: `0 0 8px ${neonGlow}`,
         }"
-      >{{ metricValue }}%</span>
+        >{{ metricValue }}%</span
+      >
       <span
         class="text-center leading-tight px-0.5 select-none uppercase tracking-wider"
         :style="{
@@ -109,7 +113,8 @@ function handleClick() {
           fontSize: compact ? '0.45rem' : '0.5rem',
           opacity: 0.7,
         }"
-      >{{ button.label || 'Monitor' }}</span>
+        >{{ button.label || 'Monitor' }}</span
+      >
     </template>
 
     <!-- Action button content -->
@@ -134,10 +139,26 @@ function handleClick() {
       />
 
       <!-- Corner accents -->
-      <span class="absolute top-1.5 left-1.5 w-2 h-2 border-t-2 border-l-2 pointer-events-none" :class="compact ? 'w-1.5 h-1.5' : 'w-2 h-2'" :style="{ borderColor: neonColor }" />
-      <span class="absolute top-1.5 right-1.5 border-t-2 border-r-2 pointer-events-none" :class="compact ? 'w-1.5 h-1.5' : 'w-2 h-2'" :style="{ borderColor: neonColor }" />
-      <span class="absolute bottom-1.5 left-1.5 border-b-2 border-l-2 pointer-events-none" :class="compact ? 'w-1.5 h-1.5' : 'w-2 h-2'" :style="{ borderColor: neonColor }" />
-      <span class="absolute bottom-1.5 right-1.5 border-b-2 border-r-2 pointer-events-none" :class="compact ? 'w-1.5 h-1.5' : 'w-2 h-2'" :style="{ borderColor: neonColor }" />
+      <span
+        class="absolute top-1.5 left-1.5 w-2 h-2 border-t-2 border-l-2 pointer-events-none"
+        :class="compact ? 'w-1.5 h-1.5' : 'w-2 h-2'"
+        :style="{ borderColor: neonColor }"
+      />
+      <span
+        class="absolute top-1.5 right-1.5 border-t-2 border-r-2 pointer-events-none"
+        :class="compact ? 'w-1.5 h-1.5' : 'w-2 h-2'"
+        :style="{ borderColor: neonColor }"
+      />
+      <span
+        class="absolute bottom-1.5 left-1.5 border-b-2 border-l-2 pointer-events-none"
+        :class="compact ? 'w-1.5 h-1.5' : 'w-2 h-2'"
+        :style="{ borderColor: neonColor }"
+      />
+      <span
+        class="absolute bottom-1.5 right-1.5 border-b-2 border-r-2 pointer-events-none"
+        :class="compact ? 'w-1.5 h-1.5' : 'w-2 h-2'"
+        :style="{ borderColor: neonColor }"
+      />
 
       <!-- Icon -->
       <img
@@ -148,23 +169,35 @@ function handleClick() {
           'relative z-0 pointer-events-none select-none': true,
           'w-full h-full absolute inset-0': button.iconSizing && button.iconSizing !== 'normal',
           'object-cover': button.iconSizing === 'cover',
-          'object-contain': button.iconSizing === 'contain' || !button.iconSizing || button.iconSizing === 'normal',
-          'object-fill': button.iconSizing === 'fill'
+          'object-contain':
+            button.iconSizing === 'contain' || !button.iconSizing || button.iconSizing === 'normal',
+          'object-fill': button.iconSizing === 'fill',
         }"
         :style="{
-          width: (!button.iconSizing || button.iconSizing === 'normal')
-            ? (isLongLabel
-                ? (compact ? 'clamp(1.1rem, 4vw, 1.4rem)' : 'clamp(1.4rem, 5vw, 1.8rem)')
-                : (compact ? 'clamp(1.3rem, 5vw, 1.6rem)' : 'clamp(1.6rem, 6vw, 2.2rem)'))
-            : '100%',
-          height: (!button.iconSizing || button.iconSizing === 'normal')
-            ? (isLongLabel
-                ? (compact ? 'clamp(1.1rem, 4vw, 1.4rem)' : 'clamp(1.4rem, 5vw, 1.8rem)')
-                : (compact ? 'clamp(1.3rem, 5vw, 1.6rem)' : 'clamp(1.6rem, 6vw, 2.2rem)'))
-            : '100%',
-          filter: (!button.iconSizing || button.iconSizing === 'normal')
-            ? `drop-shadow(0 0 6px ${neonGlow})`
-            : undefined,
+          width:
+            !button.iconSizing || button.iconSizing === 'normal'
+              ? isLongLabel
+                ? compact
+                  ? 'clamp(1.1rem, 4vw, 1.4rem)'
+                  : 'clamp(1.4rem, 5vw, 1.8rem)'
+                : compact
+                  ? 'clamp(1.3rem, 5vw, 1.6rem)'
+                  : 'clamp(1.6rem, 6vw, 2.2rem)'
+              : '100%',
+          height:
+            !button.iconSizing || button.iconSizing === 'normal'
+              ? isLongLabel
+                ? compact
+                  ? 'clamp(1.1rem, 4vw, 1.4rem)'
+                  : 'clamp(1.4rem, 5vw, 1.8rem)'
+                : compact
+                  ? 'clamp(1.3rem, 5vw, 1.6rem)'
+                  : 'clamp(1.6rem, 6vw, 2.2rem)'
+              : '100%',
+          filter:
+            !button.iconSizing || button.iconSizing === 'normal'
+              ? `drop-shadow(0 0 6px ${neonGlow})`
+              : undefined,
         }"
       />
       <Icon
@@ -174,26 +207,38 @@ function handleClick() {
         :style="{
           color: neonColor,
           fontSize: isLongLabel
-            ? (compact ? 'clamp(1.1rem, 4vw, 1.4rem)' : 'clamp(1.4rem, 5vw, 1.8rem)')
-            : (compact ? 'clamp(1.3rem, 5vw, 1.6rem)' : 'clamp(1.6rem, 6vw, 2.2rem)'),
+            ? compact
+              ? 'clamp(1.1rem, 4vw, 1.4rem)'
+              : 'clamp(1.4rem, 5vw, 1.8rem)'
+            : compact
+              ? 'clamp(1.3rem, 5vw, 1.6rem)'
+              : 'clamp(1.6rem, 6vw, 2.2rem)',
           filter: `drop-shadow(0 0 6px ${neonGlow})`,
         }"
       />
 
       <!-- Label -->
       <span
+        v-if="button.label"
         :class="[
           'label-slot text-center font-bold leading-tight px-0.5 select-none transition-all duration-150 tracking-wider uppercase group-hover:scale-105 group-active:scale-90',
           isLongLabel
-            ? (compact ? 'text-[0.5rem] sm:text-[0.55rem]' : 'text-[0.55rem] sm:text-[0.6rem]')
-            : (compact ? 'text-[0.6rem] sm:text-[0.65rem]' : 'text-[0.65rem] sm:text-[0.7rem]'),
+            ? compact
+              ? 'text-[0.5rem] sm:text-[0.55rem]'
+              : 'text-[0.55rem] sm:text-[0.6rem]'
+            : compact
+              ? 'text-[0.6rem] sm:text-[0.65rem]'
+              : 'text-[0.65rem] sm:text-[0.7rem]',
+          button.iconSizing && button.iconSizing !== 'normal'
+            ? 'absolute inset-0 flex items-center justify-center pointer-events-none z-10'
+            : '',
         ]"
         :style="{
           color: neonColor,
           textShadow: `0 0 6px ${neonGlow}, 0 0 12px ${neonGlow}`,
         }"
       >
-        {{ button.label || 'Untitled' }}
+        {{ button.label }}
       </span>
 
       <!-- Selected checkmark -->
@@ -215,20 +260,26 @@ function handleClick() {
 .cyber-btn {
   border: 1.5px solid var(--neon);
   clip-path: polygon(
-    4px 0%, calc(100% - 4px) 0%,
-    100% 4px, 100% calc(100% - 4px),
-    calc(100% - 4px) 100%, 4px 100%,
-    0% calc(100% - 4px), 0% 4px
+    4px 0%,
+    calc(100% - 4px) 0%,
+    100% 4px,
+    100% calc(100% - 4px),
+    calc(100% - 4px) 100%,
+    4px 100%,
+    0% calc(100% - 4px),
+    0% 4px
   );
 }
 
-.cyber-btn:hover {
-  background-color: var(--theme-btn-hover) !important;
-  box-shadow:
-    inset 0 0 20px 2px var(--neon-glow),
-    0 0 10px 1px var(--neon-glow),
-    0 0 30px 4px var(--neon-glow);
-  animation: cyber-flicker 0.15s ease-in-out;
+@media (hover: hover) {
+  .cyber-btn:hover {
+    background-color: var(--theme-btn-hover) !important;
+    box-shadow:
+      inset 0 0 20px 2px var(--neon-glow),
+      0 0 10px 1px var(--neon-glow),
+      0 0 30px 4px var(--neon-glow);
+    animation: cyber-flicker 0.15s ease-in-out;
+  }
 }
 
 .cyber-btn:active {
@@ -247,15 +298,30 @@ function handleClick() {
 }
 
 @keyframes cyber-flicker {
-  0%, 100% { opacity: 1; }
-  30% { opacity: 0.85; }
-  60% { opacity: 0.95; }
-  80% { opacity: 0.7; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  30% {
+    opacity: 0.85;
+  }
+  60% {
+    opacity: 0.95;
+  }
+  80% {
+    opacity: 0.7;
+  }
 }
 
 @keyframes scaleIn {
-  0% { transform: scale(0.6); opacity: 0; }
-  100% { transform: scale(1); opacity: 1; }
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 .animate-scaleIn {
   animation: scaleIn 0.15s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
