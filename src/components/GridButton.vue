@@ -143,15 +143,28 @@ function handleClick() {
       <img
         v-if="button.icon?.startsWith('data:')"
         :src="button.icon"
-        class="icon-slot max-w-full object-contain transition-all duration-150 group-hover:scale-110 group-active:scale-90"
+        class="icon-slot max-w-full transition-all duration-150 group-hover:scale-110 group-active:scale-90"
+        :class="{
+          'relative z-0 pointer-events-none select-none': true,
+          'w-full h-full absolute inset-0': button.iconSizing && button.iconSizing !== 'normal',
+          'object-cover': button.iconSizing === 'cover',
+          'object-contain': button.iconSizing === 'contain' || !button.iconSizing || button.iconSizing === 'normal',
+          'object-fill': button.iconSizing === 'fill'
+        }"
         :style="{
-          width: isLongLabel
-            ? (compact ? 'clamp(1.1rem, 4vw, 1.4rem)' : 'clamp(1.4rem, 5vw, 1.8rem)')
-            : (compact ? 'clamp(1.3rem, 5vw, 1.6rem)' : 'clamp(1.6rem, 6vw, 2.2rem)'),
-          height: isLongLabel
-            ? (compact ? 'clamp(1.1rem, 4vw, 1.4rem)' : 'clamp(1.4rem, 5vw, 1.8rem)')
-            : (compact ? 'clamp(1.3rem, 5vw, 1.6rem)' : 'clamp(1.6rem, 6vw, 2.2rem)'),
-          filter: `drop-shadow(0 0 6px ${neonGlow})`,
+          width: (!button.iconSizing || button.iconSizing === 'normal')
+            ? (isLongLabel
+                ? (compact ? 'clamp(1.1rem, 4vw, 1.4rem)' : 'clamp(1.4rem, 5vw, 1.8rem)')
+                : (compact ? 'clamp(1.3rem, 5vw, 1.6rem)' : 'clamp(1.6rem, 6vw, 2.2rem)'))
+            : '100%',
+          height: (!button.iconSizing || button.iconSizing === 'normal')
+            ? (isLongLabel
+                ? (compact ? 'clamp(1.1rem, 4vw, 1.4rem)' : 'clamp(1.4rem, 5vw, 1.8rem)')
+                : (compact ? 'clamp(1.3rem, 5vw, 1.6rem)' : 'clamp(1.6rem, 6vw, 2.2rem)'))
+            : '100%',
+          filter: (!button.iconSizing || button.iconSizing === 'normal')
+            ? `drop-shadow(0 0 6px ${neonGlow})`
+            : undefined,
         }"
       />
       <Icon

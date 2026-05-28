@@ -421,6 +421,7 @@ export const useLayoutStore = defineStore('layout', () => {
       mediaAction: typeof b?.mediaAction === 'string' ? b.mediaAction : undefined,
       appPath: typeof b?.appPath === 'string' ? b.appPath : undefined,
       commandValue: typeof b?.commandValue === 'string' ? b.commandValue : undefined,
+      iconSizing: ['normal', 'cover', 'contain', 'fill'].includes(b?.iconSizing) ? b.iconSizing : undefined,
     }));
 
     updateLayout(migrateLayout({

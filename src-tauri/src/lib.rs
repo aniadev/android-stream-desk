@@ -43,6 +43,8 @@ pub struct ButtonConfig {
     button_kind: Option<String>,
     #[serde(rename = "monitorConfig")]
     monitor_config: Option<serde_json::Value>,
+    #[serde(rename = "iconSizing")]
+    icon_sizing: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

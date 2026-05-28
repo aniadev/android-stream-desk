@@ -1128,7 +1128,7 @@ const updateStatusText = computed(() => {
                       </div>
                       
                       <!-- Upload Custom Icon Button (S-IMG1) -->
-                      <div class="shrink-0">
+                      <div class="shrink-0 flex items-center gap-1.5">
                         <input
                           type="file"
                           ref="iconFileInput"
@@ -1145,6 +1145,20 @@ const updateStatusText = computed(() => {
                           <Icon icon="lucide:upload" class="text-[8px]" />
                           Tải ảnh
                         </button>
+
+                        <!-- Icon Scale Option Dropdown (S-IMG1 Extension) -->
+                        <select
+                          v-if="selectedButton.icon?.startsWith('data:')"
+                          v-model="selectedButton.iconSizing"
+                          @change="saveButtonSettings"
+                          class="text-[8px] font-bold uppercase tracking-wider bg-slate-900 border border-slate-700 text-cyan-400 rounded px-1 py-0.5 cursor-pointer max-w-[80px] shrink-0"
+                          title="Tỉ lệ phủ ảnh trên nút (Sizing Mode)"
+                        >
+                          <option value="normal">Gốc</option>
+                          <option value="cover">Cover (Phủ)</option>
+                          <option value="contain">Contain (Thừa)</option>
+                          <option value="fill">Fill (Kéo)</option>
+                        </select>
                       </div>
                     </div>
                     <Input

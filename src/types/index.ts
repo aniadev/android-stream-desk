@@ -23,6 +23,8 @@ export interface ButtonConfig {
   appPath?: string;
   // Cho 'command': chuỗi shell thô (sh -c hoặc cmd /C), chạy với quyền user
   commandValue?: string;
+  // Cho custom icon rendering configuration (cover, contain, fill, normal)
+  iconSizing?: 'normal' | 'cover' | 'contain' | 'fill';
 }
 
 export interface Page {
