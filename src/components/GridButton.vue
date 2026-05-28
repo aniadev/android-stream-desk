@@ -140,7 +140,22 @@ function handleClick() {
       <span class="absolute bottom-1.5 right-1.5 border-b-2 border-r-2 pointer-events-none" :class="compact ? 'w-1.5 h-1.5' : 'w-2 h-2'" :style="{ borderColor: neonColor }" />
 
       <!-- Icon -->
+      <img
+        v-if="button.icon?.startsWith('data:')"
+        :src="button.icon"
+        class="icon-slot max-w-full object-contain transition-all duration-150 group-hover:scale-110 group-active:scale-90"
+        :style="{
+          width: isLongLabel
+            ? (compact ? 'clamp(1.1rem, 4vw, 1.4rem)' : 'clamp(1.4rem, 5vw, 1.8rem)')
+            : (compact ? 'clamp(1.3rem, 5vw, 1.6rem)' : 'clamp(1.6rem, 6vw, 2.2rem)'),
+          height: isLongLabel
+            ? (compact ? 'clamp(1.1rem, 4vw, 1.4rem)' : 'clamp(1.4rem, 5vw, 1.8rem)')
+            : (compact ? 'clamp(1.3rem, 5vw, 1.6rem)' : 'clamp(1.6rem, 6vw, 2.2rem)'),
+          filter: `drop-shadow(0 0 6px ${neonGlow})`,
+        }"
+      />
       <Icon
+        v-else
         :icon="button.icon || 'mdi:button-pointer'"
         class="icon-slot transition-all duration-150 group-hover:scale-110 group-active:scale-90"
         :style="{

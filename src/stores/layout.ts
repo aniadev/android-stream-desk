@@ -386,10 +386,26 @@ export const useLayoutStore = defineStore('layout', () => {
     if (!Array.isArray(parsed.buttons)) throw new Error('Thiếu mảng buttons');
 
     const validActions = new Set<ButtonConfig['actionType']>(['shortcut', 'media', 'app', 'command']);
+    const sanitizeIcon = (iconStr: any): string => {
+      if (typeof iconStr !== 'string') return 'mdi:button';
+      const trimmed = iconStr.trim();
+      if (trimmed.startsWith('data:')) {
+        // Chấp nhận data URIs đúng định dạng ảnh base64 (png, jpeg, webp)
+        const match = trimmed.match(/^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/=]+)$/);
+        if (match) return trimmed;
+        return 'mdi:button'; // Chặn scheme data lạ hoặc bị hỏng
+      }
+      // Chặn bất cứ chuỗi HTTP/HTTPS/Script để tránh XSS / SSRF
+      if (trimmed.includes('://') || trimmed.toLowerCase().startsWith('javascript:')) {
+        return 'mdi:button';
+      }
+      return trimmed;
+    };
+
     const sanitized: ButtonConfig[] = parsed.buttons.map((b: any, i: number) => ({
       id: typeof b?.id === 'string' && b.id ? b.id : `btn_${Date.now()}_${i}`,
       label: typeof b?.label === 'string' ? b.label : `Button ${i + 1}`,
-      icon: typeof b?.icon === 'string' ? b.icon : 'mdi:button',
+      icon: sanitizeIcon(b?.icon),
       backgroundColor: typeof b?.backgroundColor === 'string' ? b.backgroundColor : '#1e293b',
       actionType: validActions.has(b?.actionType) ? b.actionType : 'shortcut',
       buttonKind: b?.buttonKind === 'monitor' ? 'monitor' : 'action',

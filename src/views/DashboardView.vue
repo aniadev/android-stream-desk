@@ -180,7 +180,64 @@ const handleAppPathPaste = async (e: ClipboardEvent) => {
   }
 };
 
-// Iconify Picker Logic
+const handleCustomIconUpload = (e: Event) => {
+  const target = e.target as HTMLInputElement;
+  const file = target.files?.[0];
+  if (!file || !selectedButton.value) return;
+
+  if (!file.type.startsWith('image/')) {
+    layoutStore.lastToast = {
+      kind: 'error',
+      message: 'Vui lòng chọn tệp ảnh PNG hoặc JPG!',
+      at: Date.now()
+    };
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    const img = new Image();
+    img.onload = () => {
+      // Create canvas for downscaling
+      const canvas = document.createElement('canvas');
+      const size = 96;
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        // Draw image keeping ratio (cover / fill bounding box)
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, size, size);
+
+        const scale = Math.max(size / img.width, size / img.height);
+        const w = img.width * scale;
+        const h = img.height * scale;
+        const x = (size - w) / 2;
+        const y = (size - h) / 2;
+
+        ctx.drawImage(img, x, y, w, h);
+
+        // Export to highly compressed webp/png data URL
+        const dataURL = canvas.toDataURL('image/png'); // Standard format
+        
+        // Base64 size overhead check: ~1.37 times raw binary size.
+        // Cap is 20KB = 20480 bytes * 1.37 = ~28057 chars.
+        if (dataURL.length > 28057) {
+          layoutStore.lastToast = {
+            kind: 'warning',
+            message: 'Ảnh đã được nén nhưng vượt 20KB. Payload tải có thể phình to.',
+            at: Date.now()
+          };
+        }
+
+        selectedButton.value!.icon = dataURL;
+        saveButtonSettings();
+      }
+    };
+    img.src = event.target?.result as string;
+  };
+  reader.readAsDataURL(file);
+};
 const searchQuery = ref('');
 const activeIconGroup = ref<'mdi' | 'lucide' | 'material' | 'si'>('mdi');
 const visibleCount = ref(120);
@@ -988,8 +1045,14 @@ const updateStatusText = computed(() => {
               <label class="cyber-input-label">Biểu tượng & Màu sắc</label>
               <div class="flex flex-col gap-3">
                 <div class="flex gap-2">
-                  <div class="h-10 w-12 cyber-inset flex items-center justify-center">
+                  <div class="h-10 w-12 cyber-inset flex items-center justify-center overflow-hidden">
+                    <img
+                      v-if="selectedButton.icon?.startsWith('data:')"
+                      :src="selectedButton.icon"
+                      class="max-w-full max-h-full object-contain"
+                    />
                     <Icon
+                      v-else
                       :icon="selectedButton.icon || 'mdi:button'"
                       class="text-xl text-cyan-300"
                     />
@@ -1043,24 +1106,46 @@ const updateStatusText = computed(() => {
                   </div>
                 </div>
 
-                <!-- Icon Picker -->
+                 <!-- Icon Picker -->
                 <div class="cyber-inset p-2.5 flex flex-col gap-2">
                   <div class="flex flex-col gap-1.5 cyber-divider pb-2">
-                    <div class="flex items-center gap-1.5">
-                      <button
-                        v-for="group in ['mdi', 'lucide', 'material', 'si'] as const"
-                        :key="group"
-                        @click="activeIconGroup = group"
-                        type="button"
-                        class="text-[9px] uppercase tracking-wider font-extrabold px-2 py-0.5 cursor-pointer duration-100"
-                        :class="
-                          activeIconGroup === group
-                            ? 'cyber-tab-active'
-                            : 'text-slate-500 hover:text-slate-300'
-                        "
-                      >
-                        {{ group === 'si' ? 'brands' : group }}
-                      </button>
+                    <div class="flex items-center justify-between gap-1.5">
+                      <div class="flex items-center gap-1.5">
+                        <button
+                          v-for="group in ['mdi', 'lucide', 'material', 'si'] as const"
+                          :key="group"
+                          @click="activeIconGroup = group"
+                          type="button"
+                          class="text-[9px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 cursor-pointer duration-100"
+                          :class="
+                            activeIconGroup === group
+                              ? 'cyber-tab-active'
+                              : 'text-slate-500 hover:text-slate-300'
+                          "
+                        >
+                          {{ group === 'si' ? 'brands' : group }}
+                        </button>
+                      </div>
+                      
+                      <!-- Upload Custom Icon Button (S-IMG1) -->
+                      <div>
+                        <input
+                          type="file"
+                          ref="iconFileInput"
+                          accept="image/png,image/jpeg"
+                          class="hidden"
+                          @change="handleCustomIconUpload"
+                        />
+                        <button
+                          type="button"
+                          @click="($refs.iconFileInput as HTMLInputElement).click()"
+                          class="text-[8px] uppercase tracking-widest font-extrabold px-2 py-0.5 rounded border border-cyan-500/30 hover:border-cyan-400 bg-cyan-950/10 text-cyan-400 hover:bg-cyan-500/20 transition-all cursor-pointer flex items-center gap-1"
+                          title="Tải ảnh PNG/JPG từ máy tính làm biểu tượng nút"
+                        >
+                          <Icon icon="lucide:upload" class="text-[9px]" />
+                          Tải ảnh
+                        </button>
+                      </div>
                     </div>
                     <Input
                       v-model="searchQuery"
