@@ -4,6 +4,26 @@ All notable changes to the **Android Stream Desk** project will be documented in
 
 ---
 
+## [1.5.0] - 2026-06-03
+
+### Added
+- **Web Client cho trình duyệt LAN**: Tích hợp HTTP Server tĩnh phục vụ giao diện Client trên cổng `8090` (mặc định tắt, kích hoạt trong Settings). iPad/tablet có thể truy cập `http://<LAN-IP>:8090` để dùng làm macro pad không cần cài app APK.
+- **Tự động cấu hình Web Client**: endpoint `/api/server-info` trả cổng WebSocket động để trình duyệt tự kết nối, không bắt người dùng nhập lại thông số.
+- **Quét QR nhanh kết nối APK**: Dashboard hiển thị hai mã QR riêng biệt và rõ ràng: "Kết nối APK" (sử dụng URI scheme `android-stream-desk://connect?v=1`) và "Mở trên iPad / browser". APK di động có nút kích hoạt Camera quét QR cấu hình LAN tức thời.
+- **Setup Checklist & Diagnostics HUD**: Thêm checklist cấu hình lần đầu (Khởi động cùng hệ thống, cấu hình Firewall, Web Client, Quét QR) và thiết kế HUD Dynamic hiển thị số thiết bị đang kết nối realtime, trạng thái lỗi cổng mạng (Bind Error Badge) kèm liên kết hướng dẫn sửa cổng.
+- **Trung tâm trợ giúp (Guide Center)**: Modal trợ giúp ngữ cảnh tích hợp minh họa chi tiết: cấu hình lệnh mở browser Chrome theo OS, hướng dẫn kéo/dán shortcut `.lnk` (Copy as path) và cách mở khóa Firewall cổng mạng.
+
+### Changed
+- **Tách cấu hình cổng mạng**: Chuyển thông số cổng kết nối (`wsPort`, `webEnabled`, `webPort`) sang file riêng biệt `server.json` (nằm trong AppConfig) độc lập với layout phím bấm để tránh ghi đè cấu hình.
+- **Ý thức thiết bị di động (Client View)**: Giao diện kiểm tra nền tảng, ẩn các cài đặt không được trình duyệt web hỗ trợ đầy đủ.
+
+### Fixed
+- **Screen Wake Lock thông minh**: Chỉ kích hoạt tính năng chống tắt màn hình khi cấu hình `keepScreenOn` bật **AND** trạng thái WebSocket là `connected`. Tự động giải phóng Wake Lock ngay khi ngắt kết nối hoặc Companion tắt để tiết kiệm pin trên client.
+- **Tắt Zoom trên Web Server**: Khóa tỷ lệ khung hình (`maximum-scale=1.0, user-scalable=no`) và vô hiệu hóa zoom double-tap khi người dùng thao tác nhấp đúp nhanh trên phím bấm macro.
+- **Fix regression tự khởi động**: Sửa lỗi tự khởi động cùng Windows khi chạy dưới bộ cài Installer đóng gói thực tế. Bổ sung toast thông báo trạng thái hoặc hướng dẫn chạy với quyền Admin nếu bật lỗi.
+
+---
+
 ## [1.4.1] - 2026-05-29
 
 ### Changed

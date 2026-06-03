@@ -2380,25 +2380,56 @@ const updateStatusText = computed(() => {
               <span class="text-[9px] font-bold uppercase tracking-wider text-cyan-400/70"
                 >Thông tin ứng dụng</span
               >
-              <div class="cyber-inset grid grid-cols-2 gap-y-2 p-3">
-                <span class="text-slate-400 font-medium">Tên phần mềm:</span>
-                <span class="text-slate-200 font-bold justify-self-end">Android Stream Desk</span>
-                <span class="text-slate-400 font-medium">Phiên bản hiện tại:</span>
-                <span class="font-mono text-cyan-300 justify-self-end">v{{ appVersion }}</span>
-                <span class="text-slate-400 font-medium">Tác giả:</span>
-                <span class="text-slate-200 justify-self-end font-semibold">aniadev</span>
-                <span class="text-slate-400 font-medium">Giấy phép:</span>
-                <span class="font-mono text-slate-200 justify-self-end">MIT License</span>
-                <span class="text-slate-400 font-medium">Mã nguồn:</span>
-                <span class="justify-self-end">
-                  <a
-                    href="https://github.com/aniadev/android-stream-desk"
-                    target="_blank"
-                    class="text-cyan-400 hover:underline flex items-center gap-1"
-                  >
-                    GitHub Repo <Icon icon="lucide:external-link" class="text-[10px]" />
-                  </a>
-                </span>
+              <div class="cyber-inset p-3 flex flex-col gap-3">
+                <div class="grid grid-cols-2 gap-y-2">
+                  <span class="text-slate-400 font-medium">Tên phần mềm:</span>
+                  <span class="text-slate-200 font-bold justify-self-end">Android Stream Desk</span>
+                  <span class="text-slate-400 font-medium">Phiên bản hiện tại:</span>
+                  <span class="font-mono text-cyan-300 justify-self-end">v{{ appVersion }}</span>
+                  <span class="text-slate-400 font-medium">Tác giả:</span>
+                  <span class="text-slate-200 justify-self-end font-semibold">aniadev</span>
+                  <span class="text-slate-400 font-medium">Giấy phép:</span>
+                  <span class="font-mono text-slate-200 justify-self-end">MIT License</span>
+                  <span class="text-slate-400 font-medium">Mã nguồn:</span>
+                  <span class="justify-self-end">
+                    <a
+                      href="https://github.com/aniadev/android-stream-desk"
+                      target="_blank"
+                      class="text-cyan-400 hover:underline flex items-center gap-1"
+                    >
+                      GitHub Repo <Icon icon="lucide:external-link" class="text-[10px]" />
+                    </a>
+                  </span>
+                </div>
+
+                <!-- Donate Card -->
+                <div class="mt-2 p-3 bg-gradient-to-r from-fuchsia-950/20 via-violet-950/30 to-cyan-950/20 rounded-xl border border-violet-500/20 flex flex-col sm:flex-row gap-4 items-center justify-between shadow-[0_0_24px_rgba(139,92,246,0.05)]">
+                  <div class="flex-1 flex flex-col gap-1 items-center sm:items-start text-center sm:text-left">
+                    <div class="flex items-center gap-1.5 text-xs font-bold text-fuchsia-300">
+                      <Icon icon="mdi:coffee" class="text-sm shrink-0 animate-bounce" />
+                      <span>Ủng hộ nhà phát triển</span>
+                    </div>
+                    <p class="text-[9px] text-slate-400 max-w-[280px] leading-relaxed">
+                      Dự án hoàn toàn miễn phí & mã nguồn mở. Hãy mời tác giả một ly cà phê nếu bạn thấy ứng dụng này hữu ích!
+                    </p>
+                    <a
+                      href="https://ko-fi.com/ania9"
+                      target="_blank"
+                      class="mt-2 inline-flex items-center justify-center gap-1.5 rounded-lg border border-fuchsia-500/30 bg-fuchsia-950/30 hover:bg-fuchsia-900/40 hover:border-fuchsia-400 px-3 py-1.5 text-[9px] font-extrabold uppercase tracking-wider text-fuchsia-200 shadow shadow-fuchsia-950/20 transition duration-150 cursor-pointer"
+                    >
+                      <Icon icon="lucide:external-link" class="text-xs" />
+                      <span>Buy me a coffee (Ko-Fi)</span>
+                    </a>
+                  </div>
+                  <div class="w-[148px] shrink-0 bg-slate-900/60 p-2 rounded-lg border border-cyan-500/10 flex flex-col items-center gap-1">
+                    <img
+                      src="/donate/momo.png"
+                      alt="MoMo QR"
+                      class="w-full aspect-square object-cover rounded bg-white p-0.5"
+                    />
+                    <span class="text-[8px] font-extrabold tracking-wider uppercase text-cyan-300/80">Quét MoMo</span>
+                  </div>
+                </div>
               </div>
             </div>
 
