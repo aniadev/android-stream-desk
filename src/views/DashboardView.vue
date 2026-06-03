@@ -14,6 +14,18 @@ import Input from '../components/ui/Input.vue';
 import GridButton from '../components/GridButton.vue';
 import AppPickerModal from '../components/AppPickerModal.vue';
 
+interface ServerConfig {
+  wsPort: number;
+  webEnabled: boolean;
+  webPort: number;
+}
+
+interface ServerConfigDraft {
+  wsPort: string;
+  webEnabled: boolean;
+  webPort: string;
+}
+
 const layoutStore = useLayoutStore();
 const updaterStore = useUpdaterStore();
 
@@ -49,6 +61,136 @@ const setTheme = (name: ThemeName) => {
 const settingsOpen = ref(false);
 const appPickerOpen = ref(false);
 const autostartOn = ref(false);
+const serverConfigLoaded = ref(false);
+const serverConfigSaving = ref(false);
+const serverConfigError = ref<string>('');
+const restartDialogOpen = ref(false);
+const restartDialogMessage = ref('Đang lưu cấu hình và khởi động lại Companion...');
+const savedServerConfig = ref<ServerConfig | null>(null);
+const serverConfigDraft = ref<ServerConfigDraft>({
+  wsPort: '8089',
+  webEnabled: false,
+  webPort: '8090',
+});
+
+const toServerConfigDraft = (config: ServerConfig): ServerConfigDraft => ({
+  wsPort: String(config.wsPort),
+  webEnabled: config.webEnabled,
+  webPort: String(config.webPort),
+});
+
+const parsePortDraft = (raw: string, label: string) => {
+  const trimmed = raw.trim();
+  if (!/^\d+$/.test(trimmed)) return { error: `${label} phải là số nguyên.` };
+
+  const value = Number(trimmed);
+  if (value < 1024 || value > 65535) {
+    return { error: `${label} phải nằm trong khoảng 1024..65535.` };
+  }
+
+  return { value };
+};
+
+const serverConfigValidationError = computed(() => {
+  const ws = parsePortDraft(serverConfigDraft.value.wsPort, 'Cổng WebSocket');
+  if (ws.error) return ws.error;
+
+  const web = parsePortDraft(serverConfigDraft.value.webPort, 'Cổng HTTP Web Client');
+  if (web.error) return web.error;
+
+  if (serverConfigDraft.value.webEnabled && ws.value === web.value) {
+    return 'Cổng WebSocket và HTTP Web Client không được trùng khi Web Client bật.';
+  }
+
+  return '';
+});
+
+const hasPendingServerChanges = computed(() => {
+  const ws = parsePortDraft(serverConfigDraft.value.wsPort, 'Cổng WebSocket');
+  const wsChanged = ws.value !== undefined
+    ? ws.value !== serverPort.value
+    : serverConfigDraft.value.wsPort.trim() !== String(serverPort.value);
+
+  const persisted = savedServerConfig.value;
+  const webChanged = persisted
+    ? serverConfigDraft.value.webEnabled !== persisted.webEnabled ||
+      serverConfigDraft.value.webPort.trim() !== String(persisted.webPort)
+    : false;
+
+  return wsChanged || webChanged;
+});
+
+const networkSettingsBadgeText = computed(() =>
+  hasPendingServerChanges.value ? 'Có thay đổi chưa áp dụng' : 'Đang khớp cấu hình hiện thời',
+);
+
+const buildServerConfigPayload = (): ServerConfig | null => {
+  const ws = parsePortDraft(serverConfigDraft.value.wsPort, 'Cổng WebSocket');
+  const web = parsePortDraft(serverConfigDraft.value.webPort, 'Cổng HTTP Web Client');
+  if (ws.error || web.error || ws.value === undefined || web.value === undefined) return null;
+
+  return {
+    wsPort: ws.value,
+    webEnabled: serverConfigDraft.value.webEnabled,
+    webPort: web.value,
+  };
+};
+
+const loadServerConfig = async (invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>) => {
+  const config = await invoke<ServerConfig>('get_server_config');
+  savedServerConfig.value = config;
+  serverConfigDraft.value = toServerConfigDraft(config);
+  serverConfigLoaded.value = true;
+};
+
+const saveNetworkSettingsAndRelaunch = async () => {
+  serverConfigError.value = '';
+  const validationError = serverConfigValidationError.value;
+  if (validationError) {
+    serverConfigError.value = validationError;
+    return;
+  }
+
+  if (!window.__TAURI_INTERNALS__) {
+    serverConfigError.value = 'Chỉ có thể lưu và khởi động lại trong Companion desktop.';
+    return;
+  }
+
+  const payload = buildServerConfigPayload();
+  if (!payload) return;
+
+  serverConfigSaving.value = true;
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    await invoke('save_server_config', { config: payload });
+    savedServerConfig.value = payload;
+    restartDialogOpen.value = true;
+    restartDialogMessage.value = 'Đã lưu cấu hình. Companion đang khởi động lại để áp dụng cổng mới...';
+
+    window.setTimeout(async () => {
+      try {
+        const { relaunch } = await import('@tauri-apps/plugin-process');
+        await relaunch();
+      } catch (err: any) {
+        restartDialogMessage.value = `Đã lưu cấu hình nhưng chưa thể tự khởi động lại: ${err?.message || err}`;
+        layoutStore.lastToast = {
+          kind: 'error',
+          message: restartDialogMessage.value,
+          at: Date.now(),
+        };
+      }
+    }, 450);
+  } catch (err: any) {
+    serverConfigError.value = `Không lưu được cấu hình mạng: ${err?.message || err}`;
+    layoutStore.lastToast = {
+      kind: 'error',
+      message: serverConfigError.value,
+      at: Date.now(),
+    };
+  } finally {
+    serverConfigSaving.value = false;
+  }
+};
 
 const toggleAutostart = async () => {
   try {
@@ -573,6 +715,7 @@ onMounted(async () => {
       const info = await invoke<{ ip: string; port: number }>('get_server_info');
       serverIp.value = info.ip;
       serverPort.value = info.port;
+      await loadServerConfig(invoke);
 
       await probePermission();
       // Poll until granted — user may toggle Accessibility while app runs.
@@ -580,9 +723,20 @@ onMounted(async () => {
         permissionPollTimer = setInterval(probePermission, 3000);
       }
       window.addEventListener('focus', probePermission);
+    } else {
+      const fallback = { wsPort: serverPort.value, webEnabled: false, webPort: 8090 };
+      savedServerConfig.value = fallback;
+      serverConfigDraft.value = toServerConfigDraft(fallback);
+      serverConfigLoaded.value = true;
     }
   } catch (e) {
     console.error('Failed initialization:', e);
+    if (!serverConfigLoaded.value) {
+      const fallback = { wsPort: serverPort.value, webEnabled: false, webPort: 8090 };
+      savedServerConfig.value = fallback;
+      serverConfigDraft.value = toServerConfigDraft(fallback);
+      serverConfigLoaded.value = true;
+    }
   }
 });
 
@@ -1670,7 +1824,9 @@ const updateStatusText = computed(() => {
         v-if="settingsOpen"
         class="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4"
       >
-        <div class="cyber-modal w-[500px] max-w-full flex flex-col p-6 gap-6 relative">
+        <div
+          class="cyber-modal w-[620px] max-w-full max-h-[calc(100vh-2rem)] flex flex-col p-6 gap-6 relative overflow-hidden"
+        >
           <!-- Close -->
           <button
             class="absolute top-4 right-4 text-slate-400 hover:text-cyan-400 transition-colors cursor-pointer"
@@ -1694,7 +1850,7 @@ const updateStatusText = computed(() => {
           </div>
 
           <!-- Modal Body -->
-          <div class="flex flex-col gap-5 text-xs text-slate-300">
+          <div class="flex flex-col gap-5 text-xs text-slate-300 overflow-y-auto pr-1">
             <!-- Theme Selector -->
             <div class="flex flex-col gap-2.5">
               <span class="text-[9px] font-bold uppercase tracking-wider text-cyan-400/70"
@@ -1720,6 +1876,114 @@ const updateStatusText = computed(() => {
                     meta.label
                   }}</span>
                 </button>
+              </div>
+            </div>
+
+            <!-- Network Settings -->
+            <div class="flex flex-col gap-2.5">
+              <div class="flex items-center justify-between gap-3">
+                <span class="text-[9px] font-bold uppercase tracking-wider text-cyan-400/70"
+                  >Mạng LAN & Ports</span
+                >
+                <span
+                  class="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[8.5px] font-bold uppercase tracking-wider"
+                  :class="
+                    hasPendingServerChanges
+                      ? 'border-amber-300/40 bg-amber-400/10 text-amber-200 shadow-[0_0_16px_rgba(251,191,36,0.08)]'
+                      : 'border-emerald-300/25 bg-emerald-400/5 text-emerald-300/80'
+                  "
+                >
+                  <Icon
+                    :icon="hasPendingServerChanges ? 'lucide:triangle-alert' : 'lucide:check'"
+                    class="text-[11px]"
+                  />
+                  {{ networkSettingsBadgeText }}
+                </span>
+              </div>
+
+              <div class="cyber-inset flex flex-col gap-3 p-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label class="flex flex-col gap-1.5">
+                    <span class="cyber-input-label">Cổng đang chạy</span>
+                    <div
+                      class="h-[38px] rounded-lg border border-slate-800 bg-slate-950/80 px-3 py-2.5 font-mono text-xs text-slate-400 shadow-inner"
+                    >
+                      {{ serverPort }}
+                    </div>
+                  </label>
+
+                  <label class="flex flex-col gap-1.5">
+                    <span class="cyber-input-label">Cổng sau khi khởi động lại</span>
+                    <Input
+                      v-model="serverConfigDraft.wsPort"
+                      inputmode="numeric"
+                      autocomplete="off"
+                      class="font-mono"
+                      :class="
+                        serverConfigValidationError
+                          ? 'border-rose-500/40 focus:ring-rose-500/40'
+                          : hasPendingServerChanges
+                            ? 'border-amber-300/35 focus:ring-amber-300/30'
+                            : ''
+                      "
+                    />
+                  </label>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end">
+                  <label class="flex flex-col gap-1.5">
+                    <span class="cyber-input-label">Port HTTP Web Client</span>
+                    <Input
+                      v-model="serverConfigDraft.webPort"
+                      inputmode="numeric"
+                      autocomplete="off"
+                      class="font-mono"
+                    />
+                  </label>
+
+                  <button
+                    type="button"
+                    class="cyber-action-btn h-[38px] min-w-[116px] font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5 flex items-center justify-center gap-1.5"
+                    :class="
+                      serverConfigDraft.webEnabled
+                        ? 'border-cyan-400/70 text-cyan-300 bg-slate-900/80 shadow shadow-cyan-900/20'
+                        : 'border-slate-750 text-slate-400 hover:border-slate-600'
+                    "
+                    @click="serverConfigDraft.webEnabled = !serverConfigDraft.webEnabled"
+                  >
+                    <Icon
+                      :icon="serverConfigDraft.webEnabled ? 'lucide:toggle-right' : 'lucide:toggle-left'"
+                      class="text-sm"
+                    />
+                    {{ serverConfigDraft.webEnabled ? 'Web bật' : 'Web tắt' }}
+                  </button>
+                </div>
+
+                <div class="flex flex-col gap-2 pt-2 cyber-divider">
+                  <p
+                    v-if="serverConfigValidationError || serverConfigError"
+                    class="text-[10px] leading-relaxed text-rose-300"
+                  >
+                    {{ serverConfigError || serverConfigValidationError }}
+                  </p>
+                  <p v-else class="text-[10px] leading-relaxed text-slate-500">
+                    Cấu hình port được ghi vào server.json; socket listener chỉ dùng cổng mới sau khi Companion khởi động lại.
+                  </p>
+
+                  <button
+                    type="button"
+                    class="cyber-action-btn w-full font-bold cursor-pointer disabled:cursor-not-allowed disabled:opacity-45 text-[10px] uppercase tracking-wider px-3 py-2 flex items-center justify-center gap-1.5"
+                    :disabled="serverConfigSaving || !!serverConfigValidationError"
+                    @click="saveNetworkSettingsAndRelaunch"
+                  >
+                    <Icon
+                      :icon="serverConfigSaving ? 'lucide:loader-circle' : 'lucide:refresh-cw'"
+                      class="text-xs"
+                      :class="serverConfigSaving ? 'animate-spin' : ''"
+                    />
+                    {{ serverConfigSaving ? 'Đang lưu...' : 'Lưu và khởi động lại' }}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -1836,6 +2100,35 @@ const updateStatusText = computed(() => {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+    </transition>
+
+    <!-- Relaunch Dialog -->
+    <transition name="fade">
+      <div
+        v-if="restartDialogOpen"
+        class="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
+      >
+        <div class="cyber-modal w-[420px] max-w-full flex flex-col gap-4 p-5">
+          <div class="flex items-center gap-3">
+            <div
+              class="h-9 w-9 rounded-lg border border-cyan-300/20 bg-cyan-400/10 flex items-center justify-center"
+            >
+              <Icon icon="lucide:refresh-cw" class="text-base text-cyan-300 animate-spin" />
+            </div>
+            <div class="flex flex-col">
+              <h3 class="text-xs font-bold text-slate-50 uppercase tracking-wider">
+                Đang áp dụng cấu hình mạng
+              </h3>
+              <p class="text-[9px] text-slate-500 mt-0.5">
+                Companion sẽ mở lại với listener mới.
+              </p>
+            </div>
+          </div>
+          <p class="text-[11px] leading-relaxed text-slate-300">
+            {{ restartDialogMessage }}
+          </p>
         </div>
       </div>
     </transition>

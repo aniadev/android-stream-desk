@@ -3,6 +3,7 @@ use enigo::{Direction, Enigo, Key, Keyboard, Settings};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::net::{IpAddr, UdpSocket};
+use std::path::Path;
 #[cfg(desktop)]
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Listener, Manager};
@@ -12,6 +13,102 @@ pub mod websocket;
 pub mod metrics;
 
 pub const WS_PORT: u16 = 8089;
+pub const WEB_PORT: u16 = 8090;
+const SERVER_CONFIG_FILE: &str = "server.json";
+const MIN_USER_PORT: u16 = 1024;
+const MAX_USER_PORT: u16 = 65535;
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ServerConfig {
+    pub ws_port: u16,
+    pub web_enabled: bool,
+    pub web_port: u16,
+}
+
+impl Default for ServerConfig {
+    fn default() -> Self {
+        Self {
+            ws_port: WS_PORT,
+            web_enabled: false,
+            web_port: WEB_PORT,
+        }
+    }
+}
+
+fn validate_port(name: &str, port: u16) -> Result<(), String> {
+    if (MIN_USER_PORT..=MAX_USER_PORT).contains(&port) {
+        Ok(())
+    } else {
+        Err(format!(
+            "{} must be in range {}..={}",
+            name, MIN_USER_PORT, MAX_USER_PORT
+        ))
+    }
+}
+
+fn validate_server_config(config: &ServerConfig) -> Result<(), String> {
+    validate_port("wsPort", config.ws_port)?;
+    validate_port("webPort", config.web_port)?;
+
+    if config.web_enabled && config.ws_port == config.web_port {
+        return Err("wsPort and webPort must be different when webEnabled is true".to_string());
+    }
+
+    Ok(())
+}
+
+async fn load_server_config_from_dir(app_dir: &Path) -> ServerConfig {
+    let config_path = app_dir.join(SERVER_CONFIG_FILE);
+    let content = match tokio::fs::read_to_string(config_path).await {
+        Ok(content) => content,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            let default_config = ServerConfig::default();
+            let _ = save_server_config_to_dir(app_dir, &default_config).await;
+            return default_config;
+        }
+        Err(_) => return ServerConfig::default(),
+    };
+    let Ok(config) = serde_json::from_str::<ServerConfig>(&content) else {
+        return ServerConfig::default();
+    };
+
+    if validate_server_config(&config).is_ok() {
+        config
+    } else {
+        ServerConfig::default()
+    }
+}
+
+async fn save_server_config_to_dir(app_dir: &Path, config: &ServerConfig) -> Result<(), String> {
+    validate_server_config(config)?;
+
+    tokio::fs::create_dir_all(app_dir)
+        .await
+        .map_err(|e| format!("Failed creating directory: {}", e))?;
+
+    let serialized = serde_json::to_string_pretty(config).map_err(|e| e.to_string())?;
+    let final_path = app_dir.join(SERVER_CONFIG_FILE);
+    let tmp_path = app_dir.join(format!("{}.tmp", SERVER_CONFIG_FILE));
+
+    tokio::fs::write(&tmp_path, serialized)
+        .await
+        .map_err(|e| format!("Failed staging server config: {}", e))?;
+    tokio::fs::rename(&tmp_path, &final_path)
+        .await
+        .map_err(|e| format!("Failed committing server config: {}", e))?;
+
+    Ok(())
+}
+
+async fn load_server_config_for_app(app_handle: &AppHandle) -> Result<ServerConfig, String> {
+    let app_dir = app_handle
+        .path()
+        .app_config_dir()
+        .map_err(|e| format!("Failed to resolve AppConfig: {}", e))?;
+
+    Ok(load_server_config_from_dir(&app_dir).await)
+}
 
 // Serialises all key/media calls so concurrent presses cannot interleave
 // modifier state across tasks. Enigo is not Send on macOS, so we hold a
@@ -100,6 +197,21 @@ async fn save_layout_config(app_handle: AppHandle, layout: Value) -> Result<(), 
 }
 
 #[tauri::command]
+async fn get_server_config(app_handle: AppHandle) -> Result<ServerConfig, String> {
+    load_server_config_for_app(&app_handle).await
+}
+
+#[tauri::command]
+async fn save_server_config(app_handle: AppHandle, config: ServerConfig) -> Result<(), String> {
+    let app_dir = app_handle
+        .path()
+        .app_config_dir()
+        .map_err(|e| format!("Failed to resolve AppConfig: {}", e))?;
+
+    save_server_config_to_dir(&app_dir, &config).await
+}
+
+#[tauri::command]
 async fn export_layout_to_path(path: String, layout: serde_json::Value) -> Result<(), String> {
     let serialized = serde_json::to_string_pretty(&layout).map_err(|e| e.to_string())?;
     let final_path = std::path::PathBuf::from(&path);
@@ -128,10 +240,14 @@ pub struct ServerInfo {
 }
 
 #[tauri::command]
-fn get_server_info() -> ServerInfo {
+async fn get_server_info(app_handle: AppHandle) -> ServerInfo {
+    let config = load_server_config_for_app(&app_handle)
+        .await
+        .unwrap_or_else(|_| ServerConfig::default());
+
     ServerInfo {
         ip: detect_local_ipv4().unwrap_or_else(|| "127.0.0.1".to_string()),
-        port: WS_PORT,
+        port: config.ws_port,
     }
 }
 
@@ -866,10 +982,13 @@ pub fn run() {
     }
 
     builder = builder.plugin(tauri_plugin_dialog::init());
+    builder = builder.plugin(tauri_plugin_process::init());
 
     builder
         .invoke_handler(tauri::generate_handler![
             save_layout_config,
+            get_server_config,
+            save_server_config,
             export_layout_to_path,
             execute_button_action,
             get_server_info,
@@ -896,7 +1015,13 @@ pub fn run() {
 
             // Spawn localized tokio WS thread pool on start
             tauri::async_runtime::spawn(async move {
-                websocket::start_ws_server(WS_PORT, app_handle_ws).await;
+                let server_config = load_server_config_for_app(&app_handle_ws)
+                    .await
+                    .unwrap_or_else(|e| {
+                        eprintln!("Failed to load server config, using defaults: {}", e);
+                        ServerConfig::default()
+                    });
+                websocket::start_ws_server(server_config.ws_port, app_handle_ws).await;
             });
 
             // Spawn metrics broadcast loop (desktop only)
@@ -971,6 +1096,108 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
 
     builder.build(app)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn unique_temp_dir(test_name: &str) -> std::path::PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!("android-stream-desk-{}-{}", test_name, nonce))
+    }
+
+    #[test]
+    fn server_config_default_matches_story_fallback() {
+        assert_eq!(
+            ServerConfig::default(),
+            ServerConfig {
+                ws_port: 8089,
+                web_enabled: false,
+                web_port: 8090,
+            }
+        );
+    }
+
+    #[test]
+    fn validate_server_config_rejects_ports_below_user_range() {
+        let config = ServerConfig {
+            ws_port: 1023,
+            web_enabled: false,
+            web_port: 8090,
+        };
+
+        assert!(validate_server_config(&config).is_err());
+    }
+
+    #[test]
+    fn validate_server_config_rejects_duplicate_ports_when_web_enabled() {
+        let config = ServerConfig {
+            ws_port: 8089,
+            web_enabled: true,
+            web_port: 8089,
+        };
+
+        assert!(validate_server_config(&config).is_err());
+    }
+
+    #[tokio::test]
+    async fn load_server_config_returns_default_when_file_missing_or_invalid() {
+        let dir = unique_temp_dir("missing-invalid");
+        let missing = load_server_config_from_dir(&dir).await;
+        assert_eq!(missing, ServerConfig::default());
+        assert!(dir.join("server.json").exists());
+
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("server.json"), "{ not json").unwrap();
+
+        let invalid = load_server_config_from_dir(&dir).await;
+        assert_eq!(invalid, ServerConfig::default());
+
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[tokio::test]
+    async fn save_server_config_writes_atomically_and_rejects_invalid_overwrite() {
+        let dir = unique_temp_dir("atomic");
+        let valid = ServerConfig {
+            ws_port: 18089,
+            web_enabled: true,
+            web_port: 18090,
+        };
+
+        save_server_config_to_dir(&dir, &valid).await.unwrap();
+        let written = std::fs::read_to_string(dir.join("server.json")).unwrap();
+        assert!(written.contains("\"wsPort\": 18089"));
+
+        let invalid = ServerConfig {
+            ws_port: 18089,
+            web_enabled: true,
+            web_port: 18089,
+        };
+        assert!(save_server_config_to_dir(&dir, &invalid).await.is_err());
+
+        let after_rejected_save = load_server_config_from_dir(&dir).await;
+        assert_eq!(after_rejected_save, valid);
+
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn default_capability_allows_process_relaunch() {
+        let capability: serde_json::Value =
+            serde_json::from_str(include_str!("../capabilities/default.json")).unwrap();
+        let permissions = capability
+            .get("permissions")
+            .and_then(|value| value.as_array())
+            .unwrap();
+
+        assert!(permissions.iter().any(|permission| permission == "process:default"));
+    }
 }
 
 #[cfg(desktop)]
