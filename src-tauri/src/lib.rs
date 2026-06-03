@@ -8,9 +8,10 @@ use std::path::Path;
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Listener, Manager};
 
-pub mod websocket;
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub mod metrics;
+pub mod webserver;
+pub mod websocket;
 
 pub const WS_PORT: u16 = 8089;
 pub const WEB_PORT: u16 = 8090;
@@ -1021,6 +1022,16 @@ pub fn run() {
                         eprintln!("Failed to load server config, using defaults: {}", e);
                         ServerConfig::default()
                     });
+                if server_config.web_enabled {
+                    let app_handle_web = app_handle_ws.clone();
+                    let web_config = webserver::WebServerConfig {
+                        web_port: server_config.web_port,
+                        ws_port: server_config.ws_port,
+                    };
+                    tauri::async_runtime::spawn_blocking(move || {
+                        webserver::start_web_server(web_config, app_handle_web);
+                    });
+                }
                 websocket::start_ws_server(server_config.ws_port, app_handle_ws).await;
             });
 

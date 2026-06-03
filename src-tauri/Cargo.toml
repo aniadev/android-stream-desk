@@ -26,6 +26,8 @@ tokio = { version = "1.40", features = ["full"] }
 tokio-tungstenite = "0.24"
 futures-util = "0.3"
 lazy_static = "1.4"
+include_dir = "0.7"
+tiny_http = "0.12"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 enigo = "0.3.0"
