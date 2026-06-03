@@ -3,15 +3,115 @@ use enigo::{Direction, Enigo, Key, Keyboard, Settings};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::net::{IpAddr, UdpSocket};
+use std::path::Path;
 #[cfg(desktop)]
 use std::sync::Mutex;
-use tauri::{AppHandle, Emitter, Listener, Manager};
+#[cfg(desktop)]
+use tauri::Emitter;
+use tauri::{AppHandle, Listener, Manager};
 
-pub mod websocket;
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub mod metrics;
+pub mod webserver;
+pub mod websocket;
 
 pub const WS_PORT: u16 = 8089;
+pub const WEB_PORT: u16 = 8090;
+const SERVER_CONFIG_FILE: &str = "server.json";
+const MIN_USER_PORT: u16 = 1024;
+const MAX_USER_PORT: u16 = 65535;
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ServerConfig {
+    pub ws_port: u16,
+    pub web_enabled: bool,
+    pub web_port: u16,
+}
+
+impl Default for ServerConfig {
+    fn default() -> Self {
+        Self {
+            ws_port: WS_PORT,
+            web_enabled: false,
+            web_port: WEB_PORT,
+        }
+    }
+}
+
+fn validate_port(name: &str, port: u16) -> Result<(), String> {
+    if (MIN_USER_PORT..=MAX_USER_PORT).contains(&port) {
+        Ok(())
+    } else {
+        Err(format!(
+            "{} must be in range {}..={}",
+            name, MIN_USER_PORT, MAX_USER_PORT
+        ))
+    }
+}
+
+fn validate_server_config(config: &ServerConfig) -> Result<(), String> {
+    validate_port("wsPort", config.ws_port)?;
+    validate_port("webPort", config.web_port)?;
+
+    if config.web_enabled && config.ws_port == config.web_port {
+        return Err("wsPort and webPort must be different when webEnabled is true".to_string());
+    }
+
+    Ok(())
+}
+
+async fn load_server_config_from_dir(app_dir: &Path) -> ServerConfig {
+    let config_path = app_dir.join(SERVER_CONFIG_FILE);
+    let content = match tokio::fs::read_to_string(config_path).await {
+        Ok(content) => content,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            let default_config = ServerConfig::default();
+            let _ = save_server_config_to_dir(app_dir, &default_config).await;
+            return default_config;
+        }
+        Err(_) => return ServerConfig::default(),
+    };
+    let Ok(config) = serde_json::from_str::<ServerConfig>(&content) else {
+        return ServerConfig::default();
+    };
+
+    if validate_server_config(&config).is_ok() {
+        config
+    } else {
+        ServerConfig::default()
+    }
+}
+
+async fn save_server_config_to_dir(app_dir: &Path, config: &ServerConfig) -> Result<(), String> {
+    validate_server_config(config)?;
+
+    tokio::fs::create_dir_all(app_dir)
+        .await
+        .map_err(|e| format!("Failed creating directory: {}", e))?;
+
+    let serialized = serde_json::to_string_pretty(config).map_err(|e| e.to_string())?;
+    let final_path = app_dir.join(SERVER_CONFIG_FILE);
+    let tmp_path = app_dir.join(format!("{}.tmp", SERVER_CONFIG_FILE));
+
+    tokio::fs::write(&tmp_path, serialized)
+        .await
+        .map_err(|e| format!("Failed staging server config: {}", e))?;
+    tokio::fs::rename(&tmp_path, &final_path)
+        .await
+        .map_err(|e| format!("Failed committing server config: {}", e))?;
+
+    Ok(())
+}
+
+async fn load_server_config_for_app(app_handle: &AppHandle) -> Result<ServerConfig, String> {
+    let app_dir = app_handle
+        .path()
+        .app_config_dir()
+        .map_err(|e| format!("Failed to resolve AppConfig: {}", e))?;
+
+    Ok(load_server_config_from_dir(&app_dir).await)
+}
 
 // Serialises all key/media calls so concurrent presses cannot interleave
 // modifier state across tasks. Enigo is not Send on macOS, so we hold a
@@ -100,6 +200,21 @@ async fn save_layout_config(app_handle: AppHandle, layout: Value) -> Result<(), 
 }
 
 #[tauri::command]
+async fn get_server_config(app_handle: AppHandle) -> Result<ServerConfig, String> {
+    load_server_config_for_app(&app_handle).await
+}
+
+#[tauri::command]
+async fn save_server_config(app_handle: AppHandle, config: ServerConfig) -> Result<(), String> {
+    let app_dir = app_handle
+        .path()
+        .app_config_dir()
+        .map_err(|e| format!("Failed to resolve AppConfig: {}", e))?;
+
+    save_server_config_to_dir(&app_dir, &config).await
+}
+
+#[tauri::command]
 async fn export_layout_to_path(path: String, layout: serde_json::Value) -> Result<(), String> {
     let serialized = serde_json::to_string_pretty(&layout).map_err(|e| e.to_string())?;
     let final_path = std::path::PathBuf::from(&path);
@@ -114,10 +229,7 @@ async fn export_layout_to_path(path: String, layout: serde_json::Value) -> Resul
 }
 
 #[tauri::command]
-async fn execute_button_action(
-    app_handle: AppHandle,
-    button: ButtonConfig,
-) -> Result<(), String> {
+async fn execute_button_action(app_handle: AppHandle, button: ButtonConfig) -> Result<(), String> {
     execute_logic(app_handle, button).await
 }
 
@@ -128,10 +240,14 @@ pub struct ServerInfo {
 }
 
 #[tauri::command]
-fn get_server_info() -> ServerInfo {
+async fn get_server_info(app_handle: AppHandle) -> ServerInfo {
+    let config = load_server_config_for_app(&app_handle)
+        .await
+        .unwrap_or_else(|_| ServerConfig::default());
+
     ServerInfo {
         ip: detect_local_ipv4().unwrap_or_else(|| "127.0.0.1".to_string()),
-        port: WS_PORT,
+        port: config.ws_port,
     }
 }
 
@@ -239,9 +355,18 @@ foreach($d in $dirs){
 
         // Isolate the bare target exe (strip quotes/args) for the icon heuristic.
         let clean_exe_target = if resolved.starts_with('"') {
-            resolved.split('"').nth(1).unwrap_or(&resolved).trim().to_string()
+            resolved
+                .split('"')
+                .nth(1)
+                .unwrap_or(&resolved)
+                .trim()
+                .to_string()
         } else {
-            resolved.split_whitespace().next().unwrap_or(&resolved).to_string()
+            resolved
+                .split_whitespace()
+                .next()
+                .unwrap_or(&resolved)
+                .to_string()
         };
 
         let name = if name.is_empty() {
@@ -268,9 +393,18 @@ fn list_installed_apps_windows() -> Vec<InstalledApp> {
     use winreg::RegKey;
 
     let hives: &[(RegKey, &str)] = &[
-        (RegKey::predef(HKEY_LOCAL_MACHINE), r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
-        (RegKey::predef(HKEY_LOCAL_MACHINE), r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"),
-        (RegKey::predef(HKEY_CURRENT_USER), r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
+        (
+            RegKey::predef(HKEY_LOCAL_MACHINE),
+            r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+        ),
+        (
+            RegKey::predef(HKEY_LOCAL_MACHINE),
+            r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall",
+        ),
+        (
+            RegKey::predef(HKEY_CURRENT_USER),
+            r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+        ),
     ];
 
     let mut apps: Vec<InstalledApp> = Vec::new();
@@ -310,7 +444,8 @@ fn list_installed_apps_windows() -> Vec<InstalledApp> {
                 || dn_lower.contains("hotfix")
                 || dn_lower.contains("security update")
                 || dn_lower.contains("redistributable")
-                || (dn_lower.starts_with("kb") && dn[2..].chars().next().is_some_and(|c| c.is_ascii_digit()));
+                || (dn_lower.starts_with("kb")
+                    && dn[2..].chars().next().is_some_and(|c| c.is_ascii_digit()));
             if is_junk {
                 continue;
             }
@@ -347,9 +482,18 @@ fn list_installed_apps_windows() -> Vec<InstalledApp> {
     for app in apps {
         // Trích xuất tên exe trần làm khóa so khớp trùng
         let clean_exe_key = if app.path.starts_with('"') {
-            app.path.split('"').nth(1).unwrap_or(&app.path).trim().to_lowercase()
+            app.path
+                .split('"')
+                .nth(1)
+                .unwrap_or(&app.path)
+                .trim()
+                .to_lowercase()
         } else {
-            app.path.split_whitespace().next().unwrap_or(&app.path).to_lowercase()
+            app.path
+                .split_whitespace()
+                .next()
+                .unwrap_or(&app.path)
+                .to_lowercase()
         };
 
         seen.entry(clean_exe_key)
@@ -357,7 +501,7 @@ fn list_installed_apps_windows() -> Vec<InstalledApp> {
                 // Nếu entry mới có Arguments (độ dài chuỗi path dài hơn / chứa tham số) thì ưu tiên lưu đè
                 let new_has_args = app.path.trim().contains(' ');
                 let ext_has_args = existing.path.trim().contains(' ');
-                
+
                 if new_has_args && !ext_has_args {
                     *existing = app.clone();
                 } else if !new_has_args && !ext_has_args {
@@ -429,10 +573,11 @@ fn list_installed_apps() -> Vec<InstalledApp> {
 fn read_clipboard_files() -> Result<Vec<String>, String> {
     #[cfg(target_os = "windows")]
     {
-        use std::process::Command;
         use std::os::windows::process::CommandExt;
+        use std::process::Command;
         const CREATE_NO_WINDOW: u32 = 0x08000000;
-        let script = "[void][System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms'); \
+        let script =
+            "[void][System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms'); \
                       $clip = [System.Windows.Forms.Clipboard]::GetFileDropList(); \
                       if ($clip) { $clip } else { @() }";
         let out = Command::new("powershell")
@@ -462,8 +607,8 @@ fn read_clipboard_files() -> Result<Vec<String>, String> {
 fn resolve_shortcut(lnk_path: String) -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
-        use std::process::Command;
         use std::os::windows::process::CommandExt;
+        use std::process::Command;
         const CREATE_NO_WINDOW: u32 = 0x08000000;
         // Use PowerShell WScript.Shell COM to read .lnk target + arguments
         let script = format!(
@@ -625,7 +770,10 @@ fn parse_shortcut(shortcut: &str) -> Result<(Vec<Key>, Vec<Key>), String> {
         }
     }
     if bases.is_empty() {
-        return Err(format!("Shortcut '{}' has only modifiers and no base key", shortcut));
+        return Err(format!(
+            "Shortcut '{}' has only modifiers and no base key",
+            shortcut
+        ));
     }
     Ok((modifiers, bases))
 }
@@ -850,6 +998,11 @@ pub fn run() {
     #[allow(unused_mut)]
     let mut builder = tauri::Builder::default();
 
+    #[cfg(mobile)]
+    {
+        builder = builder.plugin(tauri_plugin_barcode_scanner::init());
+    }
+
     #[cfg(desktop)]
     {
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -866,10 +1019,13 @@ pub fn run() {
     }
 
     builder = builder.plugin(tauri_plugin_dialog::init());
+    builder = builder.plugin(tauri_plugin_process::init());
 
     builder
         .invoke_handler(tauri::generate_handler![
             save_layout_config,
+            get_server_config,
+            save_server_config,
             export_layout_to_path,
             execute_button_action,
             get_server_info,
@@ -891,12 +1047,32 @@ pub fn run() {
                     if let Some(window) = app.get_webview_window("main") {
                         let _ = window.hide();
                     }
+                } else {
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.show();
+                    }
                 }
             }
 
             // Spawn localized tokio WS thread pool on start
             tauri::async_runtime::spawn(async move {
-                websocket::start_ws_server(WS_PORT, app_handle_ws).await;
+                let server_config = load_server_config_for_app(&app_handle_ws)
+                    .await
+                    .unwrap_or_else(|e| {
+                        eprintln!("Failed to load server config, using defaults: {}", e);
+                        ServerConfig::default()
+                    });
+                if server_config.web_enabled {
+                    let app_handle_web = app_handle_ws.clone();
+                    let web_config = webserver::WebServerConfig {
+                        web_port: server_config.web_port,
+                        ws_port: server_config.ws_port,
+                    };
+                    tauri::async_runtime::spawn_blocking(move || {
+                        webserver::start_web_server(web_config, app_handle_web);
+                    });
+                }
+                websocket::start_ws_server(server_config.ws_port, app_handle_ws).await;
             });
 
             // Spawn metrics broadcast loop (desktop only)
@@ -971,6 +1147,110 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
 
     builder.build(app)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn unique_temp_dir(test_name: &str) -> std::path::PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!("android-stream-desk-{}-{}", test_name, nonce))
+    }
+
+    #[test]
+    fn server_config_default_matches_story_fallback() {
+        assert_eq!(
+            ServerConfig::default(),
+            ServerConfig {
+                ws_port: 8089,
+                web_enabled: false,
+                web_port: 8090,
+            }
+        );
+    }
+
+    #[test]
+    fn validate_server_config_rejects_ports_below_user_range() {
+        let config = ServerConfig {
+            ws_port: 1023,
+            web_enabled: false,
+            web_port: 8090,
+        };
+
+        assert!(validate_server_config(&config).is_err());
+    }
+
+    #[test]
+    fn validate_server_config_rejects_duplicate_ports_when_web_enabled() {
+        let config = ServerConfig {
+            ws_port: 8089,
+            web_enabled: true,
+            web_port: 8089,
+        };
+
+        assert!(validate_server_config(&config).is_err());
+    }
+
+    #[tokio::test]
+    async fn load_server_config_returns_default_when_file_missing_or_invalid() {
+        let dir = unique_temp_dir("missing-invalid");
+        let missing = load_server_config_from_dir(&dir).await;
+        assert_eq!(missing, ServerConfig::default());
+        assert!(dir.join("server.json").exists());
+
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("server.json"), "{ not json").unwrap();
+
+        let invalid = load_server_config_from_dir(&dir).await;
+        assert_eq!(invalid, ServerConfig::default());
+
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[tokio::test]
+    async fn save_server_config_writes_atomically_and_rejects_invalid_overwrite() {
+        let dir = unique_temp_dir("atomic");
+        let valid = ServerConfig {
+            ws_port: 18089,
+            web_enabled: true,
+            web_port: 18090,
+        };
+
+        save_server_config_to_dir(&dir, &valid).await.unwrap();
+        let written = std::fs::read_to_string(dir.join("server.json")).unwrap();
+        assert!(written.contains("\"wsPort\": 18089"));
+
+        let invalid = ServerConfig {
+            ws_port: 18089,
+            web_enabled: true,
+            web_port: 18089,
+        };
+        assert!(save_server_config_to_dir(&dir, &invalid).await.is_err());
+
+        let after_rejected_save = load_server_config_from_dir(&dir).await;
+        assert_eq!(after_rejected_save, valid);
+
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn default_capability_allows_process_relaunch() {
+        let capability: serde_json::Value =
+            serde_json::from_str(include_str!("../capabilities/default.json")).unwrap();
+        let permissions = capability
+            .get("permissions")
+            .and_then(|value| value.as_array())
+            .unwrap();
+
+        assert!(permissions
+            .iter()
+            .any(|permission| permission == "process:default"));
+    }
 }
 
 #[cfg(desktop)]

@@ -1,506 +1,359 @@
 ---
-stepsCompleted: [1, 2, 3]
+stepsCompleted: [1, 2, 3, 4]
 inputDocuments:
-  - _bmad-output/planning-artifacts/breakdown-v1.4.0.md
+  - _bmad-output/planning-artifacts/breakdown-v1.5.0.md
+  - _bmad-output/planning-artifacts/prds/prd-android-stream-desk-2026-05-23/prd.md
   - _bmad-output/planning-artifacts/architecture.md
 project_name: 'android-stream-desk'
-version: '1.4.0'
+version: '1.5.0'
 ---
 
-# android-stream-desk v1.4.0 - Epic Breakdown
+# android-stream-desk v1.5.0 - Epic Breakdown
 
 ## Overview
 
-This document provides the complete epic and story breakdown for **android-stream-desk v1.4.0**, decomposing requirements from `breakdown-v1.4.0.md` (8 features + 3 bug fixes, 19 stories) and technical context from `architecture.md` into implementable stories. Nguồn yêu cầu chính là breakdown-v1.4.0.md — project không có PRD riêng cho release này.
+Tài liệu này định nghĩa danh sách Epic và Story chi tiết cho **android-stream-desk v1.5.0**, phân rã từ các tài liệu `breakdown-v1.5.0.md` (bao gồm bổ sung tối ưu chống tắt màn hình Wake Lock) và bối cảnh kỹ thuật từ `architecture.md`.
 
 ## Requirements Inventory
 
 ### Functional Requirements
 
-FR1: Multi-page — cấu hình nhiều trang button; mỗi trang có mảng button riêng, dùng chung `rows`/`cols`. Layout cũ (single-page) tự migrate sang `pages`. (S-PAGE1, S-PAGE2)
-FR2: Điều hướng trang — Client chuyển trang bằng carousel (swipe) + dot pagination; Dashboard editor chuyển trang bằng page tabs/dot CLICK. Trạng thái trang cục bộ từng client, không broadcast. (S-PAGE3, S-PAGE4)
-FR3: Record chord 3 phím nhấn ĐỒNG THỜI (vd Alt+P+W) — giữ cùng lúc rồi nhả; backend press-giữ-release thay vì click tuần tự. (S-REC1, S-REC2)
-FR4: Hỗ trợ PrintScreen + combo bị OS chặn (Win+Shift+S, Win+S) — qua bắt keyup, parse key mới, và manual entry/preset cho combo không record được. (S-REC1, S-REC2, S-REC3)
-FR5: Upload icon tùy biến (png/jpg) từ máy — downscale + lưu data URI trong `icon`, render `<img>`. (S-IMG1)
-FR6: Tự động khởi động cùng Windows (Companion) — bật/tắt trong settings Dashboard; khởi động vào tray. (S-AUTO1)
-FR7: Sound + vibration khi nhấn button trên Android Client — bật/tắt độc lập trong settings. (S-FB1, S-FB2)
-FR8: Reconnect ngầm — modal connect chỉ hiện lần đầu HOẶC khi chủ động ngắt; rớt giữa session → giữ grid, đổi status icon, auto-reconnect 30s không giới hạn. (S-CONN1)
-FR9: Export cấu hình có chọn đường dẫn — native save dialog + ghi file atomic; sửa luôn lỗi drag-drop chết sau export. (S-EXP1, fix bug 6a+6b)
-FR10: Dán shortcut app đã copy trên Windows (vd Chrome) vào ô App path → đọc clipboard file-drop → resolve `.lnk` đúng. (S-PASTE1, fix bug 6c)
-FR11: App Picker hỗ trợ app cần launcher/args (vd League of Legends) — quét shortcut Start Menu mang `TargetPath + Arguments`. (S-APP1)
-FR12: Build macOS (.dmg, unsigned) + Linux (.deb/.AppImage) + hướng dẫn cài (Gatekeeper macOS, deps/Wayland Linux). (S-BUILD1, S-BUILD2, S-BUILD3)
-FR13: Nghiên cứu khả thi kết nối qua cáp USB (ADB reverse / USB tethering) — spike research, không implement production. (S-USB1)
+FR1: Cấu hình cổng Companion nâng cao — Cho phép xem cổng hiện tại và thiết lập cấu hình cổng WebSocket (`wsPort`), cổng HTTP (`webPort`) cùng trạng thái kích hoạt Web Client (`webEnabled`) qua tệp `server.json` lưu tại `app_config_dir()`. (S-NET1)
+FR2: Dashboard chỉnh sửa tham số mạng — Form cài đặt LAN hiển thị trạng thái cổng đang chạy (read-only) và cổng mới sẽ áp dụng sau khi khởi động lại, nút lưu và kích hoạt khởi động lại Companion kèm cảnh báo. (S-NET2)
+FR3: Máy chủ HTTP tĩnh nội bộ — Tự động khởi chạy máy chủ web nhẹ phục vụ giao diện Client (không phục vụ `/dashboard`), cung cấp API `/api/server-info` để Browser Client tự nhận diện cấu hình mạng LAN. (S-WEB1)
+FR4: Web Client Bootstrap — Trình duyệt web tự động nhận diện hostname, gọi API lấy info và tự thiết lập kết nối WebSocket mà không bắt người dùng nhập lại thông số. (S-WEB2)
+FR5: Thẻ truy cập Web Client — Dashboard hiển thị địa chỉ URL Web Client kèm mã QR riêng biệt và nút copy nhanh để Scan bằng camera thường của điện thoại/iPad. (S-WEB3)
+FR6: QR kết nối APK — Dashboard tạo mã QR chứa chuỗi payload định dạng `android-stream-desk://connect?v=1&host=192.168.x.x&wsPort=8089` giúp APK kết nối nhanh. (S-QR1)
+FR7: Quét mã QR trong APK di động — Tích hợp plugin native quét mã QR (`@tauri-apps/plugin-barcode-scanner`) đầu cuối trên Android Client, giải mã payload và tự động kết nối. (S-QR2)
+FR8: Checklist thiết lập nhanh (Companion) — Hướng dẫn First-run từng bước dễ hiểu (Bật tự khởi động, Cho phép Firewall, Bật Web Client, Quét QR, Báo cáo số thiết bị đã kết nối). (S-SETUP1)
+FR9: Trung tâm hướng dẫn tích hợp (Guide Center) — Popup/Modal hướng dẫn mẫu cấu hình theo hệ điều hành (mở Chrome/Safari, dán shortcut .lnk Windows, kết nối Client). (S-GUIDE1)
+FR10: Điểm truy cập trợ giúp theo ngữ cảnh — Icon `?` tại từng trường nhập cấu hình hoặc link trực tiếp từ lỗi mạng tới bài viết tương ứng ở Guide Center. (S-GUIDE2)
+FR11: Sửa triệt để Autostart Windows — Đảm bảo tự khởi động chạy ẩn (`--hidden` đi vào System Tray) hoạt động ổn định trên bản đóng gói installer thật. (S-AUTO1)
+FR12: Chẩn đoán & Phản hồi Autostart — Cập nhật trạng thái toggle theo `isEnabled()` thực tế mỗi lần mở settings, hiển thị Toast phản hồi và đưa vào first-run checklist. (S-AUTO2)
+FR13: Tối ưu Screen Wake Lock tránh hao pin — Chỉ kích hoạt chống tắt màn hình khi cài đặt `keepScreenOn` bật VÀ trạng thái kết nối WebSocket là `connected`. Tự động ngắt (release) Wake Lock ngay khi Companion offline hoặc thiết bị mất kết nối mạng.
 
 ### NonFunctional Requirements
 
-NFR1: Backward compatibility — layout cũ (thiếu `pages`/`buttonKind`/`theme`) tự migrate, không mất button, không crash.
-NFR2: Payload size — data URI icon bắt buộc downscale ~96px + cap ~20KB/icon để không phình WS `sync_layout` broadcast.
-NFR3: Atomic file write — export ghi staging `.tmp` → rename (mirror `save_layout_config`); không để file export dở dang.
-NFR4: Cross-platform Companion — chạy Windows/macOS/Linux; ghi rõ caveat Wayland (enigo hỗ trợ hạn chế, khuyến nghị X11).
-NFR5: Gesture isolation — embla carousel (chỉ Client) và vue-draggable-plus (chỉ Dashboard) không bao giờ cùng vùng → không tranh chấp pointer/touch.
-NFR6: Graceful fallback — vibration/audio/wakeLock/clipboard guard khi nền tảng không hỗ trợ, không crash; reconnect ngầm không spam modal/lỗi.
-NFR7: Giữ ràng buộc Rust hiện có — `Enigo` không `Send` trên macOS (tạo trong hàm, không store); release modifier + base key đối xứng kể cả khi fail. Preserve khi sửa `simulate_shortcut`.
-NFR8: Local-first/LAN-only giữ nguyên — không thêm dependency cloud; data URI icon đi kèm layout qua WS (không cần transport mới).
+NFR1: An toàn mạng LAN — Webserver mặc định `OFF`. Hiển thị cảnh báo rõ cho người dùng không nên kích hoạt Web Client trên các mạng Wi-Fi công cộng.
+NFR2: Phạm vi cổng kết nối hợp lệ — Toàn bộ cổng cấu hình phải được validate chéo nằm trong dải `1024..=65535` và đảm bảo cổng WS không trùng cổng HTTP Web.
+NFR3: Xử lý conflict cổng an toàn — Khi bind cổng lỗi, backend trả về `server-error` (không crash app ngầm), frontend hiển thị cảnh báo lỗi cụ thể kèm gợi ý đổi cổng.
+NFR4: Tách biệt quyền hạn Web Client — Web Client chỉ được tiếp cận view `/` (ClientView), chặn truy cập `/dashboard` để bảo mật.
+NFR5: Hỗ trợ fallback Wake Lock trên Browser — Kiểm tra `'wakeLock' in navigator` trước khi sử dụng để tránh gây crash giao diện điều khiển trên các browser không hỗ trợ API này (ví dụ iOS WKWebView).
 
 ### Additional Requirements
 
-- `tauri-plugin-dialog` (path picker export) + Rust command `export_layout_to_path` (atomic write) — KHÔNG dùng `tauri-plugin-fs` (tránh fs scope).
-- `tauri-plugin-autostart` (Win/macOS/Linux) — khởi động `--hidden` vào tray.
-- Clipboard file-drop reader (Windows `CF_HDROP` qua `clipboard-win` hoặc PowerShell `Get-Clipboard -Format FileDropList`) cho paste app shortcut.
-- shadcn-vue Carousel (`npx shadcn-vue add carousel` → dep `embla-carousel-vue`) cho Client.
-- App Picker mở rộng: enumerate `.lnk` Start Menu (`%ProgramData%` + `%AppData%`), resolve qua `resolve_shortcut`, merge/dedupe với registry (ưu tiên entry có args).
-- `release.yml`: thêm job `build-macos` + `build-linux`, tag flags `-mac`/`-linux`, Linux apt deps (`libwebkit2gtk-4.1-dev libgtk-3-dev libxdo-dev libappindicator3-dev librsvg2-dev`).
-- `capabilities/default.json`: thêm `dialog:default`, `autostart:default`, clipboard permissions.
-- Metrics loop (v1.3.0 S-MON3) phải quét monitor button trên TẤT CẢ các trang sau khi có multi-page.
-- `src/lib/clicksound.ts` (mới): AudioContext lazy init + unlock ở user-gesture đầu.
+- Cấu hình file `server.json` tách riêng khỏi cấu hình bố cục phím `layout.json` để tránh đồng bộ hóa nhầm thiết lập cổng sang Client.
+- Tích hợp `@tauri-apps/plugin-barcode-scanner` cho APK Android (yêu cầu thêm `android.permission.CAMERA` vào Android Manifest và capabilities default.json).
+- Static assets web server: Đóng gói folder static build của client vào binary Tauri để phục vụ serve nội bộ không cần kết nối internet.
+- Đảm bảo argument `--hidden` khi khởi động cùng hệ thống hoạt động chính xác thông qua CLI arg parsing trong `lib.rs`.
 
 ### UX Design Requirements
 
-UX-DR1: Client carousel + dot pagination indicator — active dot = trang hiện tại, tap dot nhảy trang, swipe đổi trang; ẩn chrome khi chỉ 1 trang.
-UX-DR2: Dashboard page tabs/dot CLICK — thêm (`+`) / xóa (`×`) / đổi tên trang; chuyển trang không dùng swipe (giữ Sortable drag-reorder).
-UX-DR3: Client status icon 3 trạng thái — connected / reconnecting / disconnected (mở rộng HUD pill top-right), màu khác nhau; khi reconnect ngầm giữ grid + đổi icon, không modal.
-UX-DR4: Client settings toggles — "Rung khi nhấn" + "Âm thanh khi nhấn" (cạnh "Luôn bật màn hình" sẵn có).
-UX-DR5: Dashboard settings toggle — "Khởi động cùng Windows" trong settings modal.
-UX-DR6: Icon picker — tab/nút "Tải ảnh lên" (`accept="image/png,image/jpeg"`); preview + render `<img>` cho data URI icon; cảnh báo khi vượt ~20KB.
-UX-DR7: Record UI — preview chuỗi chord đang giữ realtime (vd "Alt + P + …"); preset nhóm "phím hệ thống" (Win+Shift+S, PrintScreen…) cho combo bị OS chặn.
-UX-DR8: Export UX — native save dialog (default name `stream-desk-layout-<ts>.json`, filter JSON); KHÔNG toast success khi user hủy dialog.
+UX-DR1: Thiết kế Form Network Settings — Hiển thị huy hiệu "Có thay đổi chưa áp dụng" nếu cổng cấu hình khác cổng đang chạy; nút "Khởi động lại Companion" đổi màu nổi bật.
+UX-DR2: Phân rõ 2 mã QR trên Dashboard — "Mã APK" và "Mã Web Client dạng link URL" phải có nhãn rõ ràng, tách biệt để tránh người dùng quét sai mục đích.
+UX-DR3: Responsive Guide Center Modal — Giao diện cuộn mượt mà trên màn hình nhỏ, có nút sao chép nhanh (copy) các câu lệnh mẫu.
+UX-DR4: HUD chẩn đoán mạng — Hiển thị số thiết bị đang kết nối realtime và trạng thái Service (Listening/Error).
 
 ### FR Coverage Map
 
-FR1: Epic 1 — Multi-page data model + migration
-FR2: Epic 1 — Điều hướng trang (Client carousel / Dashboard tabs)
-FR3: Epic 2 — Record chord 3 phím đồng thời
-FR4: Epic 2 — PrintScreen + combo bị OS chặn
-FR5: Epic 4 — Upload icon tùy biến (data URI)
-FR6: Epic 6 — Autostart cùng Windows
-FR7: Epic 5 — Sound + vibration khi nhấn
-FR8: Epic 5 — Reconnect ngầm + status icon
-FR9: Epic 6 — Export chọn đường dẫn (+fix drag-drop)
-FR10: Epic 3 — Dán shortcut app đã copy
-FR11: Epic 3 — App Picker quét Start Menu (launcher/args)
-FR12: Epic 7 — Build macOS/Linux + hướng dẫn
-FR13: Epic 7 — Spike nghiên cứu kết nối USB
+FR1: Epic 1 — Cấu hình cổng Companion nâng cao (FR1, FR2)
+FR2: Epic 1 — Cấu hình cổng Companion nâng cao (FR1, FR2)
+FR3: Epic 2 — Web Client phục vụ trong mạng LAN (FR3, FR4, FR5)
+FR4: Epic 2 — Web Client phục vụ trong mạng LAN (FR3, FR4, FR5)
+FR5: Epic 2 — Web Client phục vụ trong mạng LAN (FR3, FR4, FR5)
+FR6: Epic 3 — Kết nối APK siêu tốc bằng mã QR (FR6, FR7)
+FR7: Epic 3 — Kết nối APK siêu tốc bằng mã QR (FR6, FR7)
+FR8: Epic 4 — Trải nghiệm Setup ban đầu & Chẩn đoán hệ thống (FR8)
+FR9: Epic 5 — Trung tâm Trợ giúp tích hợp & Ngữ cảnh báo lỗi (FR9, FR10)
+FR10: Epic 5 — Trung tâm Trợ giúp tích hợp & Ngữ cảnh báo lỗi (FR9, FR10)
+FR11: Epic 6 — Hoàn thiện tính năng tự khởi động cùng Windows (FR11, FR12)
+FR12: Epic 6 — Hoàn thiện tính năng tự khởi động cùng Windows (FR11, FR12)
+FR13: Epic 7 — Quản lý năng lượng & Trạng thái hoạt động Client (FR13)
 
 ## Epic List
 
-### Epic 1: Multi-page Macro Pad
-Người dùng tổ chức macro thành nhiều trang, chuyển trang trên Client (carousel + swipe + dot) và Dashboard (page tabs click). Layout single-page cũ tự migrate, không mất button.
-**FRs covered:** FR1, FR2
-**Stories:** S-PAGE1, S-PAGE2, S-PAGE3, S-PAGE4
-
-### Epic 2: Ghi Shortcut nâng cao
-Người dùng gán được mọi tổ hợp phím cần: chord 3 phím nhấn đồng thời (Alt+P+W), PrintScreen, và combo bị OS chặn (Win+Shift+S) qua manual entry/preset.
-**FRs covered:** FR3, FR4
-**Stories:** S-REC1, S-REC2, S-REC3
-
-### Epic 3: Khởi chạy App đáng tin cậy
-Người dùng mở đúng app kể cả app cần launcher (League of Legends qua Riot Client) và dán shortcut Windows đã copy vào ô App path. Chung core files: `lib.rs` (app/clipboard/resolve_shortcut), `AppPickerModal.vue`, `DashboardView` paste handler.
-**FRs covered:** FR10, FR11
-**Stories:** S-PASTE1, S-APP1
-
-### Epic 4: Icon button tùy biến
-Người dùng upload ảnh png/jpg riêng làm icon button (downscale + data URI, hiển thị trên cả Companion và Client).
-**FRs covered:** FR5
-**Stories:** S-IMG1
-
-### Epic 5: Trải nghiệm chạm Client
-Client mượt và phản hồi hơn: mất kết nối giữa session reconnect ngầm (không modal/lỗi phiền, chỉ đổi status icon) + sound/vibration feedback khi nhấn. Chung core files: `ClientView.vue`, settings store, `GridArea.vue`.
-**FRs covered:** FR7, FR8
-**Stories:** S-CONN1, S-FB1, S-FB2
-
-### Epic 6: Tiện ích Companion
-Companion tiện dùng hơn: tự khởi động cùng Windows (vào tray) + export cấu hình có chọn đường dẫn (sửa luôn lỗi drag-drop chết sau export). Chung core files: `DashboardView` settings, `lib.rs` plugin register.
-**FRs covered:** FR6, FR9
-**Stories:** S-AUTO1, S-EXP1
-
-### Epic 7: Phân phối đa nền tảng
-Người dùng macOS và Linux cài & chạy được Companion (build + hướng dẫn); đánh giá khả thi kết nối qua cáp USB cho version sau.
-**FRs covered:** FR12, FR13
-**Stories:** S-BUILD1, S-BUILD2, S-BUILD3, S-USB1
+1. **Epic 1: Cấu hình cổng Companion nâng cao (FR1, FR2)**
+2. **Epic 2: Web Client phục vụ trong mạng LAN (FR3, FR4, FR5)**
+3. **Epic 3: Kết nối APK siêu tốc bằng mã QR (FR6, FR7)**
+4. **Epic 4: Trải nghiệm Setup ban đầu & Chẩn đoán hệ thống (FR8)**
+5. **Epic 5: Trung tâm Trợ giúp tích hợp & Ngữ cảnh báo lỗi (FR9, FR10)**
+6. **Epic 6: Hoàn thiện tính năng tự khởi động cùng Windows (FR11, FR12)**
+7. **Epic 7: Quản lý năng lượng & Trạng thái hoạt động Client (FR13)**
 
 ---
 
-## Epic 1: Multi-page Macro Pad
+## Epic 1: Cấu hình cổng Companion nâng cao (FR1, FR2)
 
-Người dùng tổ chức macro thành nhiều trang và chuyển trang trên cả Client lẫn Dashboard, vượt giới hạn một lưới duy nhất. Layout single-page cũ tự migrate.
+Thiết lập cấu hình mạng động và cơ chế lưu trữ để lưu/tải các thiết lập cổng kết nối thay vì ghi cứng ở compile-time, đồng thời kiểm soát việc nạp lại dịch vụ Companion sau khi cấu hình thay đổi.
 
-### Story 1.1 (S-PAGE1): Mô hình dữ liệu multi-page + migration
+### Story 1.1 (S-NET1): Đọc/ghi cấu hình mạng từ tệp server.json
 
-As a người dùng đang có layout cũ,
-I want layout của tôi được nâng cấp sang cấu trúc nhiều trang mà không mất button,
-So that tôi dùng được tính năng multi-page mà không phải dựng lại layout.
-
-**Acceptance Criteria:**
-
-**Given** một `layout.json` cũ chỉ có mảng `buttons` (không `pages`),
-**When** app nạp layout,
-**Then** layout tự migrate thành `pages: [{ id, buttons }]`, không mất button, không crash,
-**And** mỗi button thiếu `buttonKind` được backfill `'action'`.
-
-**Given** layout có monitor button nằm ở nhiều trang khác nhau,
-**When** metrics loop tính interval,
-**Then** loop quét monitor button trên TẤT CẢ các trang (không chỉ trang đầu).
-
-**Given** TS + Rust struct,
-**When** build,
-**Then** `Page` type + `pages` field tồn tại ở cả `src/types/index.ts` và Rust `Layout`, `save_layout_config` ghi `pages`.
-
-### Story 1.2 (S-PAGE2): Quản lý trạng thái trang trong store
-
-As a người dùng,
-I want store theo dõi trang hiện tại và cho thêm/xóa/đổi tên/điều hướng trang,
-So that mọi view đọc đúng trang đang xem mà không vỡ drag-reorder.
+As a developer,
+I want hệ thống nạp và ghi cấu hình cổng từ file `server.json` thay vì bind cứng compile-time,
+So that người dùng có thể tùy chỉnh môi trường mạng phù hợp với thiết bị của họ.
 
 **Acceptance Criteria:**
 
-**Given** layout nhiều trang,
-**When** gọi `goNextPage()`/`goPrevPage()`,
-**Then** `currentPageIndex` đổi đúng, `currentButtons` trả về button của trang hiện tại.
+**Given** Companion khởi chạy chưa có file `server.json`,
+**When** thực hiện nạp cài đặt tại `app_config_dir()`,
+**Then** tự khởi tạo cấu hình mặc định: `wsPort: 8089`, `webEnabled: false`, `webPort: 8090`,
+**And** trả về các giá trị này làm fallback an toàn.
 
-**Given** chỉ còn một trang,
-**When** gọi `removePage`,
-**Then** thao tác bị chặn (không xóa trang cuối).
+**Given** một cổng được thiết lập ngoài dải `1024..=65535` hoặc bị trùng nhau giữa HTTP và WS khi `webEnabled` được bật,
+**When** gọi command `save_server_config`,
+**Then** trả về lỗi validation và không ghi đè cấu hình hiện tại.
 
-**Given** đổi trang,
-**When** Sortable đang bind,
-**Then** không reassign mảng phá tham chiếu Sortable (remount qua `:key` hoặc splice in-place).
+**Given** cấu hình mạng thay đổi hợp lệ,
+**When** gọi command `save_server_config` và ghi thành công file `server.json`,
+**Then** trả về kết quả thành công mà không hot-rebind socket lập tức.
 
-### Story 1.3 (S-PAGE3): Client carousel + dot pagination
+### Story 1.2 (S-NET2): Giao diện thiết lập mạng Dashboard Network Settings
 
-As a người dùng Client Android,
-I want vuốt ngang để chuyển trang và thấy dot chỉ trang hiện tại,
-So that tôi chuyển nhanh giữa các trang macro bằng cảm ứng.
-
-**Acceptance Criteria:**
-
-**Given** layout có >1 trang,
-**When** mở Client,
-**Then** các trang hiển thị trong shadcn Carousel; vuốt ngang đổi trang; dot pagination active = trang hiện tại; tap dot nhảy trang.
-
-**Given** Client là controller,
-**When** chạm-giữ button,
-**Then** không drag-reorder (`v-draggable` bị disable trên `GridArea`) → vuốt carousel không tranh chấp gesture.
-
-**Given** chỉ có một trang,
-**When** mở Client,
-**Then** chrome điều hướng (carousel arrows/dots) ẩn.
-
-### Story 1.4 (S-PAGE4): Dashboard page tabs + quản lý trang
-
-As a người dùng Dashboard,
-I want thêm/xóa/đổi tên trang và chuyển trang bằng tab click khi chỉnh sửa,
-So that tôi cấu hình từng trang mà vẫn kéo-thả sắp xếp button được.
+As a Companion user,
+I want giao diện cài đặt Dashboard cung cấp biểu mẫu quản trị cổng mạng và trạng thái thay đổi rõ ràng,
+So that tôi lưu được cổng mới và dễ dàng khởi động lại ứng dụng để áp dụng.
 
 **Acceptance Criteria:**
 
-**Given** Dashboard editor,
-**When** click page tab/dot,
-**Then** chuyển trang KHÔNG dùng swipe (Sortable drag-reorder vẫn hoạt động).
+**Given** giao diện Settings hiển thị,
+**When** xem phần "Kết nối LAN",
+**Then** hiển thị hai trạng thái: "Cổng đang chạy" (Read-only, đọc từ cổng active thực tế của socket listener) và "Cổng sau khi khởi động lại" (Input có thể tự do nhập sửa).
 
-**Given** bấm thêm trang,
-**When** trang mới tạo,
-**Then** trang khởi tạo đủ `rows×cols` ô mặc định.
+**Given** giá trị thay đổi trong Input khác với cổng đang chạy thực tế,
+**When** nhập phím,
+**Then** hiển thị thẻ Badge "Có thay đổi chưa áp dụng" màu vàng nổi bật tại vùng cài đặt.
 
-**Given** đổi `rows`/`cols`,
-**When** resize,
-**Then** áp cho mọi trang; xóa trang đang chọn → `currentPageIndex` chuyển về trang hợp lệ gần nhất.
+**Given** người dùng nhấn nút "Lưu và khởi động lại",
+**When** bấm,
+**Then** hệ thống gọi command lưu, hiển thị Dialog chờ khởi động lại, kích hoạt restart app qua Tauri API `relaunch()` để khởi tạo socket listener mới.
 
 ---
 
-## Epic 2: Ghi Shortcut nâng cao
+## Epic 2: Web Client phục vụ trong mạng LAN (FR3, FR4, FR5)
 
-Người dùng gán được mọi tổ hợp phím cần thiết, gồm chord 3 phím đồng thời, PrintScreen, và combo bị OS chặn.
+Companion tích hợp máy chủ HTTP phục vụ giao diện Client tĩnh (Web Client) trong mạng LAN giúp iPad, tablet hoặc thiết bị dùng browser truy cập nhanh không cần APK, bổ sung API tự nhận diện cổng điều khiển.
 
-### Story 2.1 (S-REC1): Backend chord đa phím + PrintScreen
+### Story 2.1 (S-WEB1): Phục vụ Web Client tĩnh & API Server Info
 
-As a người dùng,
-I want Companion thực thi được tổ hợp nhiều phím giữ đồng thời và phím PrintScreen,
-So that macro chord (Alt+P+W) và chụp màn hình chạy đúng.
+As a Companion user,
+I want Companion tự chạy một Web Server nội bộ phục vụ static client view và API nhận diện cấu hình mạng trong LAN,
+So that tôi dễ dàng truy cập macro pad bằng trình duyệt web.
 
 **Acceptance Criteria:**
 
-**Given** shortcut `Alt+P+W`,
-**When** thực thi,
-**Then** Companion giữ Alt+P+W đồng thời rồi nhả ngược (W,P,Alt); không click tuần tự.
+**Given** `webEnabled` là `true` trong `server.json`,
+**When** ứng dụng Companion khởi động,
+**Then** tiến trình Rust spawn một máy chủ HTTP tĩnh bind cổng `webPort` trong LAN, phục vụ tệp HTML/JS của Client (`ClientView.vue` shell) tại route `/`,
+**And** chặn toàn bộ truy cập vào Dashboard `/dashboard` (trả về 403 Forbidden hoặc redirect về `/`).
 
-**Given** shortcut `PrintScreen`,
-**When** thực thi,
-**Then** parse thành `Key::Print` và click; không còn lỗi "Unrecognized key token".
+**Given** trình duyệt gửi request tới đầu cuối `/api/server-info`,
+**When** truy cập,
+**Then** trả về cấu hình JSON chứa `wsPort: number` của WebSocket server thực tế đang phục vụ.
 
-**Given** một phím trong chord press fail,
+**Given** cổng `webPort` bị conflict hoặc chiếm dụng bởi tiến trình của ứng dụng khác,
+**When** bind,
+**Then** hệ thống emit event `server-error` lên frontend xử lý thay vì crash silent hoặc crash hệ thống.
+
+### Story 2.2 (S-WEB2): Trình duyệt Web Client tự nhận diện cấu hình LAN
+
+As a Web Client user,
+I want Web Client tự phân tách hostname và fetch API thông tin Companion để tự kết nối,
+So that tôi không cần gõ thủ công IP và cổng trên trình duyệt thiết bị.
+
+**Acceptance Criteria:**
+
+**Given** Web Client chạy trong môi trường trình duyệt thường (không có Tauri internals),
+**When** nạp trang,
+**Then** tự động gọi API `/api/server-info` từ server Companion phục vụ, lấy thông tin cổng WebSocket,
+**And** khởi tạo WebSocket tới `ws://<local_hostname>:<wsPort>` để tự động kết nối và đồng bộ layout.
+
+**Given** API fetch hoặc WebSocket kết nối thất bại,
 **When** lỗi xảy ra,
-**Then** các phím đã giữ được release ngược trước khi bail (không kẹt phím hệ thống).
+**Then** hiển thị màn hình kết nối thủ công làm fallback để sửa lại IP và Port.
 
-### Story 2.2 (S-REC2): Record chord đồng thời + bắt PrintScreen keyup
+### Story 2.3 (S-WEB3): Hiển thị URL truy cập & Mã QR mở Web Client
 
-As a người dùng Dashboard,
-I want ghi tổ hợp phím bằng cách bấm đồng thời và thấy preview,
-So that tôi gán chord (Alt+P+W) và PrintScreen trực tiếp từ bàn phím.
-
-**Acceptance Criteria:**
-
-**Given** đang record,
-**When** giữ Alt+P+W đồng thời rồi nhả,
-**Then** chuỗi `Alt+P+W` được ghi (snapshot tổ hợp lớn nhất khi phím đầu nhả); preview hiển thị realtime.
-
-**Given** đang record,
-**When** nhấn PrintScreen,
-**Then** bắt qua `keyup` (vì keydown không phát trên Windows) và ghi nhận.
-
-### Story 2.3 (S-REC3): Preset cho combo bị OS chặn
-
-As a người dùng,
-I want chọn nhanh combo bị Windows chặn từ danh sách preset,
-So that tôi gán Win+Shift+S / PrintScreen mà không cần record.
+As a Companion user,
+I want Dashboard hiển thị liên kết truy cập Web Client kèm mã QR tương ứng khi bật máy chủ HTTP,
+So that tôi copy link nhanh hoặc quét bằng máy ảnh iPad để sử dụng ngay.
 
 **Acceptance Criteria:**
 
-**Given** combo bị OS chặn (Win+Shift+S, Win+S),
-**When** mở dropdown preset "phím hệ thống",
-**Then** chọn được và gán vào button mà không cần live-record.
+**Given** cấu hình `webEnabled` được bật và Web Server đang lắng nghe bình thường,
+**When** Dashboard hiển thị,
+**Then** hiển thị dòng URL dạng `http://<LAN-IP>:<webPort>`, nút copy, kèm biểu tượng cảnh báo "Chỉ bật trên Wi-Fi tin cậy",
+**And** kết xuất mã QR có nhãn rõ ràng "Mở trên iPad / browser" chứa liên kết HTTP.
 
-**Given** khối manual entry,
+---
+
+## Epic 3: Kết nối APK di động siêu tốc bằng mã QR (FR6, FR7)
+
+Nâng cấp trải nghiệm onboard cho APK di động bằng mã QR mang payload sâu để thiết bị Android quét bằng camera gốc, tự nhận cấu hình kết nối Companion nhanh hơn.
+
+### Story 3.1 (S-QR1): Tạo và hiển thị mã QR kết nối chuyên dụng cho APK
+
+As a Companion user,
+I want Companion hiển thị mã QR kết nối APK mang payload định nghĩa cấu trúc mạng LAN,
+So that tôi dùng App trên thiết bị Android quét để thiết lập cấu hình tức thời.
+
+**Acceptance Criteria:**
+
+**Given** Companion Dashboard hiển thị,
+**When** tải thông tin server,
+**Then** kết xuất một mã QR mang nhãn "Kết nối APK" chứa payload định dạng:
+`android-stream-desk://connect?v=1&host=<LAN-IP>&wsPort=<wsPort>`
+**And** mã QR được tự động vẽ lại (regenerate) mỗi khi cài đặt mạng áp dụng thực tế chuyển đổi.
+
+### Story 3.2 (S-QR2): Quét mã QR native camera scanner hỗ trợ trên APK Android
+
+As an APK client user,
+I want có nút quét mã QR sử dụng camera thiết bị trong màn hình kết nối di động,
+So that tôi kết nối tới Companion tức thì mà không cần tự nhập địa chỉ IPv4.
+
+**Acceptance Criteria:**
+
+**Given** ứng dụng chạy trên APK Android di động,
+**When** màn hình "Chưa kết nối Companion" hiển thị,
+**Then** xuất hiện nút "Quét QR từ Companion".
+
+**Given** nút Quét QR được nhấn lần đầu,
+**When** bấm,
+**Then** hệ thống yêu cầu quyền camera native (`android.permission.CAMERA`), mở màn hình quét camera sau qua plugin `@tauri-apps/plugin-barcode-scanner`.
+
+**Given** mã QR được quét thành công mang format payload hợp lệ `android-stream-desk://connect?v=1&...`,
+**When** parse thành công,
+**Then** tự động trích xuất `host` lưu vào `localStorage.server_ip`, `wsPort` lưu vào `localStorage.server_port`, đóng scanner và gọi kết nối socket lập tức,
+**And** cảnh báo lỗi nếu payload sai format và giữ nguyên cấu hình cũ.
+
+---
+
+## Epic 4: Trải nghiệm Setup ban đầu & Chẩn đoán hệ thống (FR8)
+
+Giảm thiểu ma sát cài đặt ban đầu cho người dùng thông qua bảng chào mừng thiết lập từng bước kèm theo hệ thống chỉ dẫn lỗi/Firewall trực quan.
+
+### Story 4.1 (S-SETUP1): Dashboard First-Run checklist & HUD chẩn đoán mạng
+
+As a new user,
+I want bảng chỉ dẫn kiểm tra cài đặt ban đầu và hiển thị trạng thái thiết bị chẩn đoán trực quan,
+So that tôi nắm bắt được những bước cần làm để Companion hoạt động an toàn.
+
+**Acceptance Criteria:**
+
+**Given** người dùng mở Dashboard lần đầu,
+**When** nạp,
+**Then** hiển thị Card "Checklist cài đặt Companion" (có nút Dismiss để ẩn vĩnh viễn):
+1. Bật toggle tự động khởi động cùng hệ thống.
+2. Thiết lập quy tắc Windows Defender Firewall chặn/cho phép cổng.
+3. Bật Web Client (nếu sử dụng browser iPad).
+4. Thiết lập quét QR tải APK hoặc Web URL.
+
+**Given** Dashboard đang hoạt động,
+**When** thiết bị Client kết nối/ngắt kết nối,
+**Then** HUD Counter ở góc màn hình Dashboard cập nhật realtime: "Đang có N thiết bị kết nối vào Companion",
+**And** hiển thị huy hiệu báo lỗi Firewall/Port conflict nếu trạng thái socket server bị bind thất bại.
+
+---
+
+## Epic 5: Trung tâm Trợ giúp tích hợp & Ngữ cảnh báo lỗi (FR9, FR10)
+
+Xây dựng hệ thống tài liệu hướng dẫn nhanh (Guide Center Modal) trực quan ngay trong giao diện Dashboard, cung cấp mẫu lệnh cấu hình theo OS (Windows/Mac/Linux) và các điểm liên kết ngữ cảnh khi sự cố xảy ra.
+
+### Story 5.1 (S-GUIDE1): Modal Trung tâm trợ giúp (Guide Center) tích hợp
+
+As a Dashboard user,
+I want một trung tâm hướng dẫn tích hợp chứa các mẫu lệnh gán phím tắt/mở app định dạng sẵn theo OS,
+So that tôi sao chép hoặc áp dụng trực tiếp nhanh mà không cần lục tìm tài liệu PDF/README.
+
+**Acceptance Criteria:**
+
+**Given** Modal Guide Center được kích hoạt,
+**When** người dùng chọn phần "Tự động mở trình duyệt Web",
+**Then** hiển thị mã lệnh gán mẫu chia rõ theo hệ điều hành hiện tại:
+- Windows: `start "" chrome "https://facebook.com"`
+- macOS: `open -a "Google Chrome" "https://facebook.com"`
+**And** cung cấp nút "Dùng mẫu này" để điền trực tiếp giá trị vào form cấu hình của nút macro hiện tại đang sửa.
+
+**Given** người dùng chọn phần "Hướng dẫn dán (.lnk) Shortcut & Copy as path",
 **When** xem,
-**Then** có chú thích hướng dẫn bật modifier + chọn phím + Áp dụng cho combo không record được.
+**Then** mô tả chi tiết 4 bước thao tác kéo/thả/dán tệp liên kết tắt trên Windows để Companion tự động xử lý.
+
+### Story 5.2 (S-GUIDE2): Cung cấp điểm liên kết trợ giúp ngữ cảnh
+
+As a Dashboard user,
+I want các biểu tượng hỗ trợ cứu cánh xuất hiện cạnh cài đặt nhập liệu và màn hình báo lỗi,
+So that tôi biết chính xác cách khắc phục sự cố tại vị trí lỗi phát sinh.
+
+**Acceptance Criteria:**
+
+**Given** tab App hoặc tab Command đang mở trên Dashboard,
+**When** chỉnh sửa nút bấm,
+**Then** xuất hiện icon Trợ giúp `?` nhỏ bên cạnh đầu vào, click vào tự động mở Guide Center Modal trỏ đúng mục hướng dẫn cấu hình của tab đó.
+
+**Given** Socket Companion xảy ra lỗi bind cổng hoặc lỗi tường lửa,
+**When** banner lỗi Dashboard hiển thị,
+**Then** xuất hiện liên kết "Hướng dẫn mở khóa Tường lửa & Sửa dải cổng mạng" để đưa trực tiếp tới chuyên mục xử lý lỗi LAN trên Guide Center Modal.
 
 ---
 
-## Epic 3: Khởi chạy App đáng tin cậy
+## Epic 6: Hoàn thiện tính năng tự khởi động cùng Windows (FR11, FR12)
 
-Người dùng mở đúng app kể cả app cần launcher, và dán shortcut Windows đã copy.
+Kiểm tra và sửa dứt điểm lỗi tự khởi động (Autostart regression) trên môi trường cài đặt thực tế của hệ điều hành Windows, cải thiện logic chẩn đoán và thông báo cho người dùng.
 
-### Story 3.1 (S-PASTE1): Dán shortcut app đã copy vào ô App path
+### Story 6.1 (S-AUTO1): Chạy ẩn Companion đi vào System Tray khi khởi động hệ thống
 
-As a người dùng Dashboard,
-I want dán shortcut Chrome (đã copy ở Windows) vào ô App path và nó tự resolve,
-So that tôi gán app nhanh mà không phải tự tìm đường dẫn .exe.
-
-**Acceptance Criteria:**
-
-**Given** đã copy shortcut app ở Windows (clipboard chứa file-drop, không phải text),
-**When** dán vào ô App path,
-**Then** đọc clipboard file-drop native → lấy `.lnk` → `resolve_shortcut` → set `appPath` đúng target.
-
-**Given** không lấy được path khả dụng,
-**When** dán thất bại,
-**Then** hint UX gợi ý dùng App Picker; không crash.
-
-### Story 3.2 (S-APP1): App Picker quét Start Menu (launcher/args)
-
-As a người dùng muốn gán game cần launcher,
-I want chọn League of Legends trong App Picker và nó chạy qua Riot Client với args đúng,
-So that button mở game vào đúng client thay vì lỗi.
+As a Windows user,
+I want ứng dụng Companion tự động kích hoạt chạy ẩn dưới System Tray sau khi khởi động máy tính,
+So that ứng dụng sẵn sàng nhận kết nối macro mà không làm gián đoạn màn hình làm việc của tôi.
 
 **Acceptance Criteria:**
 
-**Given** App Picker mở,
-**When** liệt kê app,
-**Then** quét thêm `.lnk` Start Menu (ProgramData + AppData), resolve mang `target + args`, merge/dedupe với registry (ưu tiên entry có args).
+**Given** tùy chọn "Khởi động cùng Windows" được bật trong settings,
+**When** máy tính khởi động lại và người dùng đăng nhập,
+**Then** ứng dụng Companion được kích hoạt ngầm với tham số `--hidden` (parse trong `lib.rs`),
+**And** thu nhỏ hoàn toàn vào System Tray, không bật giao diện Dashboard cửa sổ chính lên màn hình.
 
-**Given** chọn League of Legends,
-**When** lưu button,
-**Then** `appPath` = `RiotClientServices.exe --launch-product=league_of_legends --launch-patchline=live`; bấm button mở game đúng.
+**Given** user bật/tắt toggle Autostart trên Dashboard,
+**When** thay đổi sự kiện,
+**Then** gọi API native tương ứng của `tauri-plugin-autostart` để đồng bộ Registry startup entry trên Windows cho ứng dụng đóng gói (.msi/.exe).
+
+### Story 6.2 (S-AUTO2): Cải thiện chẩn đoán và phản hồi thiết lập Autostart
+
+As a Companion user,
+I want giao diện Dashboard phản ánh chính xác trạng thái hoạt động thực của Autostart mỗi khi mở trang chỉnh sửa,
+So that tôi tránh bật nhầm hoặc không biết tính năng có xung đột quyền hệ thống hay không.
+
+**Acceptance Criteria:**
+
+**Given** Dashboard settings modal được mở lên,
+**When** hiển thị toggle,
+**Then** gọi hàm kiểm thử `isEnabled()` của plugin autostart để cập nhật trạng thái toggle chính xác theo hệ thống thực, thay vì chỉ đọc từ cache frontend.
+
+**Given** người dùng chuyển đổi toggle,
+**When** thao tác hoàn tất,
+**Then** hiển thị thông báo Toast "Đã áp dụng tự khởi động cùng hệ thống" hoặc hiển thị Banner cảnh báo lỗi chi tiết nếu bị hệ thống chặn quyền ghi Registry.
 
 ---
 
-## Epic 4: Icon button tùy biến
+## Epic 7: Quản lý năng lượng & Trạng thái hoạt động Client (FR13)
 
-Người dùng dùng ảnh riêng làm icon button.
+Tối ưu hóa quản lý tiêu thụ điện năng cho các thiết bị dùng macro client bằng cách đồng bộ trạng thái Screen Wake Lock (chống tắt màn hình) trực tiếp với kết nối WebSocket của máy tính Companion.
 
-### Story 4.1 (S-IMG1): Upload icon png/jpg + downscale + render
+### Story 7.1 (S-WAKE1): Tự động bật/tắt Screen Wake Lock theo trạng thái hoạt động của socket kết nối
 
-As a người dùng Dashboard,
-I want upload ảnh png/jpg từ máy làm icon button,
-So that tôi dùng logo/ảnh riêng mà icon pack không có.
-
-**Acceptance Criteria:**
-
-**Given** chọn file ảnh png/jpg trong icon picker,
-**When** upload,
-**Then** ảnh được downscale ~96px, nén, lưu data URI vào `icon`; cảnh báo nếu > ~20KB.
-
-**Given** button có `icon` dạng `data:image/...`,
-**When** render trên Companion và Client,
-**Then** hiển thị `<img>` (thay vì `<Icon>` iconify).
-
-**Given** import/sanitize layout,
-**When** gặp `icon` data URI,
-**Then** chấp nhận `data:image/(png|jpeg|webp)`; chặn scheme khác (an toàn XSS).
-
----
-
-## Epic 5: Trải nghiệm chạm Client
-
-Client mượt và phản hồi hơn khi mất kết nối và khi nhấn button.
-
-### Story 5.1 (S-CONN1): Reconnect ngầm + gate modal
-
-As a người dùng Client,
-I want mất kết nối giữa session không bật modal/lỗi phiền mà tự kết nối lại ngầm,
-So that một lần rớt mạng tạm thời không phá trải nghiệm đang dùng.
+As a macro client user,
+I want tính năng chống tắt màn hình (Wake Lock) tự hủy khi tắt Companion hoặc mất kết nối,
+So that thiết bị di động của tôi tự động ngủ tiết kiệm pin khi tôi không ngồi máy tính.
 
 **Acceptance Criteria:**
 
-**Given** đã connect thành công rồi Companion tắt,
-**When** mất kết nối,
-**Then** grid vẫn hiển thị, chỉ đổi status icon sang "reconnecting", KHÔNG modal/lỗi, auto-reconnect mỗi 30s không giới hạn.
+**Given** cài đặt "Luôn bật màn hình" (`keepScreenOn: true`) được kích hoạt trong store,
+**When** trạng thái WebSocket `connectionStore.status` chuyển thành `'connected'`,
+**Then** hệ thống gọi API trình duyệt `navigator.wakeLock.request('screen')` để bắt đầu chặn tự động ngủ màn hình.
 
-**Given** chưa từng connect HOẶC chủ động ngắt,
-**When** không connected,
-**Then** hiện modal connect (hành vi cũ).
+**Given** trạng thái WebSocket ngắt kết nối (`disconnected`, `error`, hoặc khi Companion Windows tắt),
+**When** socket đổi trạng thái,
+**Then** tự động giải phóng (release) sentinel của Wake Lock hiện tại, đưa thiết bị về chế độ tiết kiệm năng lượng ngủ tự động bình thường theo cài đặt OS.
 
-**Given** đang reconnect ngầm,
-**When** Companion bật lại,
-**Then** tự kết nối lại trong vòng 30s, status icon về "connected".
-
-### Story 5.2 (S-FB1): Settings toggle + vibration khi nhấn
-
-As a người dùng Client,
-I want button rung nhẹ khi nhấn và bật/tắt được,
-So that tôi có phản hồi xúc giác khi không nhìn màn hình.
-
-**Acceptance Criteria:**
-
-**Given** `vibrateOnClick` bật và thiết bị hỗ trợ `navigator.vibrate`,
-**When** tap button,
-**Then** rung nhẹ (~20ms) trước khi gửi press.
-
-**Given** thiết bị không hỗ trợ vibration,
-**When** tap,
-**Then** bỏ qua an toàn (guard `'vibrate' in navigator`), không crash.
-
-**Given** settings overlay Client,
-**When** xem,
-**Then** có toggle "Rung khi nhấn" + "Âm thanh khi nhấn", persist qua localStorage.
-
-### Story 5.3 (S-FB2): Click sound khi nhấn
-
-As a người dùng Client,
-I want nghe click sound ngắn khi nhấn button và bật/tắt được,
-So that tôi có phản hồi âm thanh khi thao tác.
-
-**Acceptance Criteria:**
-
-**Given** `soundOnClick` bật,
-**When** tap button,
-**Then** phát click sound ngắn qua Web Audio (`AudioContext`).
-
-**Given** lần tương tác đầu,
-**When** chạm màn hình,
-**Then** AudioContext được `resume()` (unlock autoplay) → tiếng phát được từ tap sau.
-
-**Given** trình duyệt không hỗ trợ Web Audio,
-**When** tap,
-**Then** no-op, không crash.
-
----
-
-## Epic 6: Tiện ích Companion
-
-Companion tiện dùng hơn: tự khởi động và export cấu hình dễ.
-
-### Story 6.1 (S-AUTO1): Tự khởi động cùng Windows
-
-As a người dùng Companion,
-I want app tự chạy (vào tray) khi đăng nhập Windows và bật/tắt được,
-So that Client kết nối được ngay mà tôi không phải mở app thủ công.
-
-**Acceptance Criteria:**
-
-**Given** bật toggle "Khởi động cùng Windows" trong settings Dashboard,
-**When** đăng nhập Windows,
-**Then** app tự chạy vào tray (arg `--hidden`), không bật cửa sổ.
-
-**Given** mở settings,
-**When** xem toggle,
-**Then** trạng thái phản ánh `isEnabled()` thực tế; tắt toggle → `disable()` gỡ autostart.
-
-### Story 6.2 (S-EXP1): Export cấu hình có chọn đường dẫn
-
-As a người dùng Companion,
-I want chọn nơi lưu file export và export không làm hỏng drag-drop,
-So that tôi backup cấu hình vào đúng thư mục mong muốn mà editor vẫn dùng được.
-
-**Acceptance Criteria:**
-
-**Given** Companion desktop,
-**When** bấm Export,
-**Then** native save dialog mở (default `stream-desk-layout-<ts>.json`, filter JSON); chọn path → ghi file atomic + toast success.
-
-**Given** user bấm Cancel trong dialog,
-**When** hủy,
-**Then** không ghi file, không toast success, không lỗi.
-
-**Given** vừa export xong,
-**When** kéo-thả button trong editor,
-**Then** drag-drop hoạt động bình thường (fix bug 6b — không còn `<a>` injection).
-
----
-
-## Epic 7: Phân phối đa nền tảng
-
-Người dùng macOS/Linux cài & chạy được; đánh giá khả thi kết nối USB.
-
-### Story 7.1 (S-BUILD1): Build macOS (.dmg, unsigned)
-
-As a người dùng macOS,
-I want tải bản .dmg và cài chạy được,
-So that tôi dùng Companion trên Mac.
-
-**Acceptance Criteria:**
-
-**Given** tag release,
-**When** CI chạy,
-**Then** job `build-macos` sinh artifact .dmg/.app (unsigned, targets apple-darwin), upload lên release.
-
-**Given** tag có suffix `-mac`,
-**When** build flags,
-**Then** chỉ build macOS.
-
-### Story 7.2 (S-BUILD2): Build Linux (.deb/.AppImage)
-
-As a người dùng Linux,
-I want tải bản .deb/.AppImage và cài chạy được,
-So that tôi dùng Companion trên Linux.
-
-**Acceptance Criteria:**
-
-**Given** tag release,
-**When** CI chạy,
-**Then** job `build-linux` cài apt deps (webkit2gtk, gtk, xdo, appindicator, rsvg), build .deb + .AppImage, upload lên release.
-
-**Given** Linux X11,
-**When** chạy macro,
-**Then** enigo thực thi được (Wayland ghi rõ là caveat hạn chế).
-
-### Story 7.3 (S-BUILD3): Tài liệu cài đặt + tag conventions
-
-As a người dùng macOS/Linux mới,
-I want hướng dẫn cài rõ ràng,
-So that tôi vượt qua Gatekeeper (macOS) và deps (Linux) để chạy được.
-
-**Acceptance Criteria:**
-
-**Given** README,
-**When** đọc,
-**Then** có mục cài macOS (bỏ qua Gatekeeper: `xattr -dr com.apple.quarantine` hoặc "Open Anyway") + Linux (deps, caveat Wayland).
-
-**Given** đầu `release.yml`,
-**When** xem,
-**Then** comment tag conventions cập nhật gồm `-mac`/`-linux`.
-
-### Story 7.4 (S-USB1): Spike feasibility kết nối USB
-
-As a maintainer,
-I want báo cáo khả thi kết nối USB,
-So that tôi quyết go/no-go cho version sau mà không tốn implement sớm.
-
-**Acceptance Criteria:**
-
-**Given** thiết bị thật,
-**When** thử `adb reverse tcp:8089 tcp:8089`,
-**Then** Client connect `127.0.0.1:8089` thành công (PoC).
-
-**Given** spike hoàn tất,
-**When** kết thúc,
-**Then** ghi `research-usb-connection.md` (các hướng, rào cản, khuyến nghị); KHÔNG sửa code production.
+**Given** thiết bị Client chạy trong nền tảng không hỗ trợ API Wake Lock (ví dụ một số WKWebView trên iOS),
+**When** gọi,
+**Then** bỏ qua việc gọi API an toàn (`'wakeLock' in navigator` check) mà không gây treo hay crash giao diện client.

@@ -8,6 +8,12 @@ import GridArea from '../components/GridArea.vue';
 import { Icon } from '@iconify/vue';
 import { acquireWakeLock, releaseWakeLock, isWakeLockActive } from '../lib/wakelock';
 import { unlockAudio } from '../lib/clicksound';
+import { parseApkConnectPayload } from '../lib/apkConnectQr';
+import {
+  fetchBrowserServerInfo,
+  isBrowserMode,
+  toBrowserBootstrapTarget,
+} from '../lib/browserBootstrap';
 
 const connectionStore = useConnectionStore();
 const layoutStore = useLayoutStore();
@@ -21,6 +27,7 @@ const showConnectModal = computed(() => {
 const toastMessage = ref<string | null>(null);
 const isSubmitted = ref(false);
 const settingsOpen = ref(false);
+const isScanningQr = ref(false);
 let toastTimer: number | null = null;
 
 const showToast = (msg: string, ms = 3500) => {
@@ -30,6 +37,24 @@ const showToast = (msg: string, ms = 3500) => {
     toastMessage.value = null;
     toastTimer = null;
   }, ms);
+};
+
+const isBrowserModeActive = isBrowserMode(window);
+const isAndroidTauriApp = computed(() => {
+  return !!window.__TAURI_INTERNALS__ && /Android/i.test(navigator.userAgent);
+});
+
+const bootstrapBrowserConnection = async () => {
+  try {
+    const info = await fetchBrowserServerInfo(window.location);
+    const target = toBrowserBootstrapTarget(info, window.location);
+    connectionStore.ipAddress = target.ipAddress;
+    connectionStore.port = target.port;
+    connectionStore.connect();
+  } catch (e) {
+    console.warn('Browser server-info bootstrap failed:', e);
+    isSubmitted.value = false;
+  }
 };
 
 type OrientationMode = 'auto' | 'landscape' | 'portrait' | 'landscape-reverse';
@@ -106,6 +131,39 @@ const handleDisconnect = () => {
   settingsOpen.value = false;
 };
 
+const scanCompanionQr = async () => {
+  if (!isAndroidTauriApp.value || isScanningQr.value) return;
+
+  isScanningQr.value = true;
+  try {
+    const { Format, requestPermissions, scan } = await import('@tauri-apps/plugin-barcode-scanner');
+    const permission = await requestPermissions();
+    if (permission !== 'granted') {
+      showToast('Chưa có quyền camera để quét QR.');
+      return;
+    }
+
+    const result = await scan({ cameraDirection: 'back', formats: [Format.QRCode] });
+    const target = parseApkConnectPayload(result.content);
+    if (!target) {
+      showToast('QR không đúng định dạng kết nối Android Stream Desk.');
+      return;
+    }
+
+    connectionStore.ipAddress = target.host;
+    connectionStore.port = target.wsPort;
+    localStorage.setItem('server_ip', target.host);
+    localStorage.setItem('server_port', target.wsPort);
+    isSubmitted.value = false;
+    showToast('Đã đọc QR Companion. Đang kết nối...');
+    connectionStore.connect();
+  } catch (e: any) {
+    showToast(`Quét QR thất bại: ${e?.message || e}`);
+  } finally {
+    isScanningQr.value = false;
+  }
+};
+
 watch(
   () => layoutStore.lastToast,
   next => {
@@ -121,18 +179,28 @@ watch(
 );
 
 const handleVisibilityChange = async () => {
-  if (document.visibilityState === 'visible' && keepScreenOn.value && !isWakeLockActive()) {
+  if (
+    document.visibilityState === 'visible' &&
+    keepScreenOn.value &&
+    connectionStore.status === 'connected' &&
+    !isWakeLockActive()
+  ) {
     await acquireWakeLock();
   }
 };
 
-watch(keepScreenOn, async val => {
-  if (val) {
-    await acquireWakeLock();
-  } else {
-    await releaseWakeLock();
+watch(
+  [keepScreenOn, () => connectionStore.status],
+  async ([keepOn, status]) => {
+    if (keepOn && status === 'connected') {
+      if (document.visibilityState === 'visible') {
+        await acquireWakeLock();
+      }
+    } else {
+      await releaseWakeLock();
+    }
   }
-});
+);
 
 onMounted(async () => {
   applyOrientation(orientationMode.value);
@@ -148,13 +216,16 @@ onMounted(async () => {
   }
   document.addEventListener('visibilitychange', handleVisibilityChange);
 
+  if (isBrowserModeActive) {
+    await bootstrapBrowserConnection();
+    return;
+  }
+
   if (connectionStore.ipAddress) {
     // connectionStore.connect();
     return;
   }
   try {
-    // @ts-ignore
-    if (!window.__TAURI_INTERNALS__) return;
     const { invoke } = await import('@tauri-apps/api/core');
     const info = await invoke<{ ip: string; port: number }>('get_server_info');
     const parts = info.ip.split('.');
@@ -312,6 +383,23 @@ onUnmounted(() => {
               />
             </div>
           </div>
+          <button
+            v-if="isAndroidTauriApp"
+            type="button"
+            class="w-full flex items-center justify-center gap-2 rounded-xl border border-violet-500/30 bg-violet-950/50 px-3 py-2.5 text-[10px] font-extrabold uppercase tracking-wider text-violet-100 shadow shadow-violet-950/20 transition duration-150 hover:border-violet-400 hover:bg-violet-900/60 disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="
+              isScanningQr ||
+              (connectionStore.status === 'connecting' && !connectionStore.isReconnecting)
+            "
+            @click="scanCompanionQr"
+          >
+            <Icon
+              :icon="isScanningQr ? 'mdi:loading' : 'mdi:camera-iris'"
+              class="text-base"
+              :class="{ 'animate-spin': isScanningQr }"
+            />
+            {{ isScanningQr ? 'Đang quét...' : 'Quét QR từ Companion' }}
+          </button>
         </div>
 
         <div class="w-full flex flex-col gap-2 mt-2">
@@ -534,6 +622,7 @@ onUnmounted(() => {
 
             <!-- Battery optimization notice for MIUI/Android devices -->
             <div
+              v-if="!isBrowserModeActive"
               class="flex items-start gap-2 rounded-xl bg-amber-950/40 px-3 py-2.5 border border-amber-900/30"
             >
               <Icon icon="mdi:battery-alert" class="text-amber-400 text-base mt-0.5 shrink-0" />

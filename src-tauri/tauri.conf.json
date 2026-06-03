@@ -1,6 +1,6 @@
 {
   "productName": "Android Stream Desk",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "identifier": "com.ania.android.stream.desk",
   "bundle": {
     "active": true,
@@ -24,7 +24,8 @@
         "height": 768,
         "resizable": true,
         "fullscreen": false,
-        "label": "main"
+        "label": "main",
+        "visible": false
       }
     ]
   },
@@ -41,7 +42,7 @@
       "endpoints": [
         "https://raw.githubusercontent.com/aniadev/android-stream-desk/main/download/latest.json"
       ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDg3RDUxRTRCOUI4MDIzNTEKUldSUkk0Q2JTeDdWaDE5ZTZIN2R0azM3alBJc0tlUU5sck9RS0VCMEpScWd4Sk90N2V6YnZRdW8K"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDE2RjkzRUI3NUY4NUY4RTYKUldUbStJVmZ0ejc1RmpydUtRa2FCTjIyeFdjeHA5R2dPMFFQNjhkNjdHNHZRN2svZVhiNjFJTjYK"
     }
   }
 }

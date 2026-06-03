@@ -15,11 +15,13 @@ Hệ thống được phát triển cùng trên **một codebase** bằng công 
 ```mermaid
 flowchart LR
     subgraph Android Client
-        A[Android Device] -- WebSockets JSON --> B[WebSocket Client]
+        A[Android Device / Web Browser] -- WebSockets JSON --> B[WebSocket Client]
     end
     
     subgraph Windows Companion
         B -- Port 8089 (Wi-Fi) --> C[WebSocket Server Tokio]
+        B -- Port 8090 (Web Client) --> C1[HTTP Tiny-HTTP Server]
+        C1 -- Serve Web Shell --> A
         C --> D[Tauri Command Event Proxy]
         D --> E[Dynamic Enigo Input Virtualization]
         D --> F[OS Program Launcher]
@@ -27,11 +29,6 @@ flowchart LR
         H[Vue 3 Settings Dashboard] -- Tauri IPC Command --> H1[AppData layout.json]
         H1 -- Broadcast Live Sync --> B
     end
-
-    style A fill:#3b82f6,stroke:#1d4ed8,stroke-width:2px,color:#fff
-    style H fill:#10b981,stroke:#047857,stroke-width:2px,color:#fff
-    style C fill:#f59e0b,stroke:#d97706,stroke-width:2px,color:#fff
-    style E fill:#ec4899,stroke:#be185d,stroke-width:2px,color:#fff
 ```
 
 1. **Windows Companion (Server)**:

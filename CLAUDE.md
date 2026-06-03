@@ -91,3 +91,5 @@ These are from `AGENTS.md` — please re-read that file when changing `enigo`, `
 - Vietnamese in user-facing strings, comments, and tray menu labels is intentional — keep it when editing those strings, don't translate to English.
 - `serde` field renames use `#[serde(rename = "camelCase")]` to keep the wire format camelCase while Rust stays snake_case. Match this when adding fields to `ButtonConfig` / `WSMessage`.
 - The WS port (`8089`) is exposed as `pub const WS_PORT` in `lib.rs` — reference the constant, don't hardcode.
+- Khi edit markdown file, không tự ý ngắt dòng nếu chưa kết thúc câu.
+- LUÔN LUÔN MỞ ĐẦU CÂU TRẢ LỜI BẰNG "Hey Ania", TRẢ LỜI TRONG CHAT BẰNG TIẾNG VIỆT, EDIT FILE MARKDOWN BẰNG TIẾNG VIỆT TRỪ KHI CÓ YÊU CẦU VIẾT BẰNG TIẾNG ANH

@@ -8,14 +8,42 @@ import { Icon, listIcons } from '@iconify/vue';
 import { vDraggable } from 'vue-draggable-plus';
 import { normalizeHex } from '../lib/color';
 import { applyTheme, isValidTheme, THEMES, type ThemeName } from '../lib/themes';
+import { safeCreateQrSvg } from '../lib/qrSvg';
+import { buildApkConnectPayload } from '../lib/apkConnectQr';
 
 // Import Shadcn UI Components
 import Input from '../components/ui/Input.vue';
 import GridButton from '../components/GridButton.vue';
 import AppPickerModal from '../components/AppPickerModal.vue';
+import GuideCenterModal from '../components/GuideCenterModal.vue';
+
+interface ServerConfig {
+  wsPort: number;
+  webEnabled: boolean;
+  webPort: number;
+}
+
+interface ServerConfigDraft {
+  wsPort: string;
+  webEnabled: boolean;
+  webPort: string;
+}
 
 const layoutStore = useLayoutStore();
 const updaterStore = useUpdaterStore();
+
+// --- First-Run Checklist ---
+const FIRST_RUN_KEY = 'dashboard:first-run-dismissed';
+const firstRunDismissed = ref(localStorage.getItem(FIRST_RUN_KEY) === 'true');
+const dismissFirstRun = () => {
+  firstRunDismissed.value = true;
+  localStorage.setItem(FIRST_RUN_KEY, 'true');
+};
+
+// --- Realtime HUD ---
+const activeConnectionsCount = ref(0);
+const serverBindError = ref(false);
+let tauriUnlisteners: (() => void)[] = [];
 
 const selectedButtonId = ref<string | null>(null);
 const activeTab = ref<'shortcut' | 'media' | 'app' | 'command'>('shortcut');
@@ -23,6 +51,8 @@ const activeTab = ref<'shortcut' | 'media' | 'app' | 'command'>('shortcut');
 const serverIp = ref<string>('—');
 const serverPort = ref<number>(8089);
 const copyHint = ref<string>('');
+const webCopyHint = ref<string>('');
+const apkCopyHint = ref<string>('');
 const colorCopyHint = ref<string>('');
 const syncHint = ref<string>('');
 let syncTimer: ReturnType<typeof setTimeout> | null = null;
@@ -48,9 +78,213 @@ const setTheme = (name: ThemeName) => {
 // Modal Control
 const settingsOpen = ref(false);
 const appPickerOpen = ref(false);
+const guideCenterOpen = ref(false);
+const guideTopic = ref<'browser' | 'shortcut' | 'firewall'>('browser');
+
+const openGuide = (topic?: 'browser' | 'shortcut' | 'firewall') => {
+  if (topic) {
+    guideTopic.value = topic;
+  }
+  guideCenterOpen.value = true;
+};
 const autostartOn = ref(false);
+const autostartLoading = ref(false);
+
+watch(settingsOpen, async (open) => {
+  if (open) {
+    autostartLoading.value = true;
+    try {
+      // @ts-ignore
+      if (window.__TAURI_INTERNALS__) {
+        const { isEnabled } = await import('@tauri-apps/plugin-autostart');
+        autostartOn.value = await isEnabled();
+      }
+    } catch (err) {
+      console.warn('Failed to load autostart status:', err);
+    } finally {
+      autostartLoading.value = false;
+    }
+  }
+});
+const serverConfigLoaded = ref(false);
+const serverConfigSaving = ref(false);
+const serverConfigError = ref<string>('');
+const restartDialogOpen = ref(false);
+const restartDialogMessage = ref('Đang lưu cấu hình và khởi động lại Companion...');
+const restartDialogFailed = ref(false);
+const isDevBuild = import.meta.env.DEV;
+const savedServerConfig = ref<ServerConfig | null>(null);
+const serverConfigDraft = ref<ServerConfigDraft>({
+  wsPort: '8089',
+  webEnabled: false,
+  webPort: '8090',
+});
+
+const toServerConfigDraft = (config: ServerConfig): ServerConfigDraft => ({
+  wsPort: String(config.wsPort),
+  webEnabled: config.webEnabled,
+  webPort: String(config.webPort),
+});
+
+const parsePortDraft = (raw: string, label: string) => {
+  const trimmed = raw.trim();
+  if (!/^\d+$/.test(trimmed)) return { error: `${label} phải là số nguyên.` };
+
+  const value = Number(trimmed);
+  if (value < 1024 || value > 65535) {
+    return { error: `${label} phải nằm trong khoảng 1024..65535.` };
+  }
+
+  return { value };
+};
+
+const serverConfigValidationError = computed(() => {
+  const ws = parsePortDraft(serverConfigDraft.value.wsPort, 'Cổng WebSocket');
+  if (ws.error) return ws.error;
+
+  const web = parsePortDraft(serverConfigDraft.value.webPort, 'Cổng HTTP Web Client');
+  if (web.error) return web.error;
+
+  if (serverConfigDraft.value.webEnabled && ws.value === web.value) {
+    return 'Cổng WebSocket và HTTP Web Client không được trùng khi Web Client bật.';
+  }
+
+  return '';
+});
+
+const hasPendingServerChanges = computed(() => {
+  const ws = parsePortDraft(serverConfigDraft.value.wsPort, 'Cổng WebSocket');
+  const wsChanged = ws.value !== undefined
+    ? ws.value !== serverPort.value
+    : serverConfigDraft.value.wsPort.trim() !== String(serverPort.value);
+
+  const persisted = savedServerConfig.value;
+  const webChanged = persisted
+    ? serverConfigDraft.value.webEnabled !== persisted.webEnabled ||
+      serverConfigDraft.value.webPort.trim() !== String(persisted.webPort)
+    : false;
+
+  return wsChanged || webChanged;
+});
+
+const networkSettingsBadgeText = computed(() =>
+  hasPendingServerChanges.value ? 'Có thay đổi chưa áp dụng' : 'Đang khớp cấu hình hiện thời',
+);
+
+const webClientUrl = computed(() => {
+  const config = savedServerConfig.value;
+  if (!config?.webEnabled || serverIp.value === '—') return '';
+  return `http://${serverIp.value}:${config.webPort}`;
+});
+
+const webClientQrSvg = computed(() => (webClientUrl.value ? safeCreateQrSvg(webClientUrl.value) : ''));
+
+const apkConnectPayload = computed(() => {
+  if (serverIp.value === '—') return '';
+  return buildApkConnectPayload(serverIp.value, serverPort.value);
+});
+
+const apkConnectQrSvg = computed(() =>
+  apkConnectPayload.value ? safeCreateQrSvg(apkConnectPayload.value) : '',
+);
+
+const runRelaunchWithTimeout = async () => {
+  const { relaunch } = await import('@tauri-apps/plugin-process');
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  try {
+    await Promise.race([
+      relaunch(),
+      new Promise<never>((_, reject) => {
+        timeoutId = window.setTimeout(
+          () => reject(new Error('Restart IPC timed out after 5 seconds')),
+          5000,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeoutId !== null) clearTimeout(timeoutId);
+  }
+};
+
+const buildServerConfigPayload = (): ServerConfig | null => {
+  const ws = parsePortDraft(serverConfigDraft.value.wsPort, 'Cổng WebSocket');
+  const web = parsePortDraft(serverConfigDraft.value.webPort, 'Cổng HTTP Web Client');
+  if (ws.error || web.error || ws.value === undefined || web.value === undefined) return null;
+
+  return {
+    wsPort: ws.value,
+    webEnabled: serverConfigDraft.value.webEnabled,
+    webPort: web.value,
+  };
+};
+
+const loadServerConfig = async (invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>) => {
+  const config = await invoke<ServerConfig>('get_server_config');
+  savedServerConfig.value = config;
+  serverConfigDraft.value = toServerConfigDraft(config);
+  serverConfigLoaded.value = true;
+};
+
+const saveNetworkSettingsAndRelaunch = async () => {
+  serverConfigError.value = '';
+  const validationError = serverConfigValidationError.value;
+  if (validationError) {
+    serverConfigError.value = validationError;
+    return;
+  }
+
+  if (!window.__TAURI_INTERNALS__) {
+    serverConfigError.value = 'Chỉ có thể lưu và khởi động lại trong Companion desktop.';
+    return;
+  }
+
+  const payload = buildServerConfigPayload();
+  if (!payload) return;
+
+  serverConfigSaving.value = true;
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    await invoke('save_server_config', { config: payload });
+    savedServerConfig.value = payload;
+    restartDialogOpen.value = true;
+    restartDialogFailed.value = false;
+    restartDialogMessage.value = 'Đã lưu cấu hình. Companion đang khởi động lại để áp dụng cổng mới...';
+
+    if (isDevBuild) {
+      restartDialogFailed.value = true;
+      restartDialogMessage.value =
+        'Đã lưu cấu hình. Đang chạy ở chế độ dev nên Companion không tự relaunch để tránh webview trắng do mất Vite dev server. Hãy dừng và chạy lại `pnpm tauri dev` để áp dụng cổng mới.';
+      return;
+    }
+
+    window.setTimeout(async () => {
+      try {
+        await runRelaunchWithTimeout();
+      } catch (err: any) {
+        restartDialogFailed.value = true;
+        restartDialogMessage.value = `Đã lưu cấu hình nhưng chưa thể tự khởi động lại: ${err?.message || err}`;
+        layoutStore.lastToast = {
+          kind: 'error',
+          message: restartDialogMessage.value,
+          at: Date.now(),
+        };
+      }
+    }, 450);
+  } catch (err: any) {
+    serverConfigError.value = `Không lưu được cấu hình mạng: ${err?.message || err}`;
+    layoutStore.lastToast = {
+      kind: 'error',
+      message: serverConfigError.value,
+      at: Date.now(),
+    };
+  } finally {
+    serverConfigSaving.value = false;
+  }
+};
 
 const toggleAutostart = async () => {
+  if (autostartLoading.value) return;
+  autostartLoading.value = true;
   try {
     const { enable, disable, isEnabled } = await import('@tauri-apps/plugin-autostart');
     if (autostartOn.value) {
@@ -59,13 +293,22 @@ const toggleAutostart = async () => {
       await enable();
     }
     autostartOn.value = await isEnabled();
+    layoutStore.lastToast = {
+      kind: 'info',
+      message: autostartOn.value
+        ? 'Đã bật tự khởi động cùng hệ thống thành công'
+        : 'Đã tắt tự khởi động cùng hệ thống thành công',
+      at: Date.now(),
+    };
   } catch (err: any) {
     console.error('Failed to toggle autostart:', err);
     layoutStore.lastToast = {
       kind: 'error',
-      message: `Lỗi autostart: ${err?.message || err}`,
+      message: `Lỗi thiết lập khởi động: ${err?.message || err}. Hãy chạy ứng dụng với quyền Administrator hoặc kiểm tra danh sách Startup.`,
       at: Date.now()
     };
+  } finally {
+    autostartLoading.value = false;
   }
 };
 
@@ -524,6 +767,8 @@ onUnmounted(() => {
     permissionPollTimer = null;
   }
   iconObserver?.disconnect();
+  tauriUnlisteners.forEach(fn => fn());
+  tauriUnlisteners = [];
 });
 
 // Accessibility / input permission state
@@ -573,6 +818,7 @@ onMounted(async () => {
       const info = await invoke<{ ip: string; port: number }>('get_server_info');
       serverIp.value = info.ip;
       serverPort.value = info.port;
+      await loadServerConfig(invoke);
 
       await probePermission();
       // Poll until granted — user may toggle Accessibility while app runs.
@@ -580,9 +826,33 @@ onMounted(async () => {
         permissionPollTimer = setInterval(probePermission, 3000);
       }
       window.addEventListener('focus', probePermission);
+
+      // Listen Tauri events for HUD realtime
+      const { listen } = await import('@tauri-apps/api/event');
+      const unlistenCount = await listen<{ count: number }>('client-count-changed', (e) => {
+        activeConnectionsCount.value = e.payload.count;
+      });
+      const unlistenError = await listen<{ port: number; error: string }>('server-error', () => {
+        serverBindError.value = true;
+      });
+      const unlistenReady = await listen<{ port: number }>('server-ready', () => {
+        serverBindError.value = false;
+      });
+      tauriUnlisteners.push(unlistenCount, unlistenError, unlistenReady);
+    } else {
+      const fallback = { wsPort: serverPort.value, webEnabled: false, webPort: 8090 };
+      savedServerConfig.value = fallback;
+      serverConfigDraft.value = toServerConfigDraft(fallback);
+      serverConfigLoaded.value = true;
     }
   } catch (e) {
     console.error('Failed initialization:', e);
+    if (!serverConfigLoaded.value) {
+      const fallback = { wsPort: serverPort.value, webEnabled: false, webPort: 8090 };
+      savedServerConfig.value = fallback;
+      serverConfigDraft.value = toServerConfigDraft(fallback);
+      serverConfigLoaded.value = true;
+    }
   }
 });
 
@@ -595,6 +865,28 @@ const copyAddress = async () => {
     setTimeout(() => (copyHint.value = ''), 1500);
   } catch (_) {
     copyHint.value = 'Failed';
+  }
+};
+
+const copyWebClientUrl = async () => {
+  if (!webClientUrl.value) return;
+  try {
+    await navigator.clipboard.writeText(webClientUrl.value);
+    webCopyHint.value = 'Copied!';
+    setTimeout(() => (webCopyHint.value = ''), 1500);
+  } catch (_) {
+    webCopyHint.value = 'Failed';
+  }
+};
+
+const copyApkConnectPayload = async () => {
+  if (!apkConnectPayload.value) return;
+  try {
+    await navigator.clipboard.writeText(apkConnectPayload.value);
+    apkCopyHint.value = 'Copied!';
+    setTimeout(() => (apkCopyHint.value = ''), 1500);
+  } catch (_) {
+    apkCopyHint.value = 'Failed';
   }
 };
 
@@ -885,12 +1177,12 @@ const updateStatusText = computed(() => {
     </transition>
 
     <!-- Top Nav HUD Header -->
-    <div class="cyber-panel flex items-center justify-between px-4 py-2.5 shadow-xl">
+    <div class="cyber-panel flex flex-col md:flex-row gap-3 md:items-center md:justify-between px-4 py-2.5 shadow-xl">
       <div class="flex items-center gap-2">
         <!-- <div
           class="h-8 w-8 cyber-hex flex items-center justify-center"
         >
-          <span class="text-base">🕹️</span>
+          ...
         </div> -->
         <img src="/logo.png" alt="Logo" class="h-8 w-8" />
         <div class="flex flex-col leading-none">
@@ -902,7 +1194,7 @@ const updateStatusText = computed(() => {
       </div>
 
       <!-- Right Header: IP + Settings -->
-      <div class="flex items-center gap-4">
+      <div class="flex flex-wrap items-center gap-2.5 md:gap-3 justify-end">
         <div class="cyber-hud flex items-center gap-3 px-4 py-2">
           <span
             class="inline-flex h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_6px_#22d3ee] animate-pulse"
@@ -924,6 +1216,61 @@ const updateStatusText = computed(() => {
           </button>
         </div>
 
+        <!-- HUD: Active Connections Counter (AC: 2) -->
+        <div class="cyber-hud flex items-center gap-3 px-4 py-2">
+          <Icon
+            icon="lucide:users"
+            class="text-sm shrink-0"
+            :class="activeConnectionsCount > 0 ? 'text-emerald-400' : 'text-slate-500'"
+          />
+          <div class="flex flex-col">
+            <label class="text-[8px] uppercase tracking-widest font-bold text-slate-500">Đang kết nối</label>
+            <span class="font-mono text-xs font-bold" :class="activeConnectionsCount > 0 ? 'text-emerald-300' : 'text-slate-500'">
+              {{ activeConnectionsCount }} thiết bị
+            </span>
+          </div>
+        </div>
+
+        <!-- HUD: Bind Error Badge (AC: 2) -->
+        <div
+          v-if="serverBindError"
+          class="cyber-hud flex items-center gap-2.5 px-3.5 py-2 border-rose-500/50 max-w-[320px]"
+          title="Socket server không thể bind cổng — kiểm tra Firewall / Port conflict"
+        >
+          <Icon icon="lucide:wifi-off" class="text-base text-rose-400 shrink-0 animate-pulse" />
+          <div class="flex flex-col leading-tight min-w-0">
+            <span class="text-[9px] font-bold text-rose-400 uppercase tracking-wider">Firewall / Port Blocked</span>
+            <button
+              type="button"
+              class="text-[8px] text-slate-400 hover:text-cyan-400 transition-colors text-left underline decoration-dotted cursor-pointer font-medium mt-0.5 truncate"
+              @click="openGuide('firewall')"
+            >
+              Hướng dẫn mở khóa Tường lửa & Sửa dải cổng mạng
+            </button>
+          </div>
+        </div>
+
+        <div
+          v-if="webClientUrl"
+          class="cyber-hud hidden xl:flex items-center gap-3 px-4 py-2 max-w-[420px]"
+        >
+          <Icon icon="lucide:triangle-alert" class="text-amber-400 text-sm shrink-0" />
+          <div class="flex flex-col min-w-0">
+            <label class="text-[8px] uppercase tracking-widest font-bold text-amber-300/80"
+              >Chỉ bật trên Wi-Fi tin cậy</label
+            >
+            <span class="font-mono text-xs font-bold text-slate-300 truncate">
+              {{ webClientUrl }}
+            </span>
+          </div>
+          <button
+            class="cyber-action-btn ml-1 font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1 shrink-0"
+            @click="copyWebClientUrl"
+          >
+            {{ webCopyHint || 'Copy' }}
+          </button>
+        </div>
+
         <!-- Sync button -->
         <button
           class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5 flex items-center gap-1.5"
@@ -934,25 +1281,6 @@ const updateStatusText = computed(() => {
           <span>{{ syncHint || 'Sync' }}</span>
         </button>
 
-        <!-- Export button -->
-        <button
-          class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5 flex items-center gap-1.5"
-          @click="handleExport"
-          title="Xuất cấu hình hiện tại ra file JSON"
-        >
-          <Icon icon="lucide:download" class="text-xs" />
-          <span>Export</span>
-        </button>
-
-        <!-- Import button -->
-        <button
-          class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5 flex items-center gap-1.5"
-          @click="triggerImport"
-          title="Nạp cấu hình từ file JSON"
-        >
-          <Icon icon="lucide:upload" class="text-xs" />
-          <span>Import</span>
-        </button>
         <input
           ref="importInput"
           type="file"
@@ -962,7 +1290,7 @@ const updateStatusText = computed(() => {
         />
 
         <button
-          class="cyber-icon-btn cursor-pointer flex items-center justify-center"
+          class="cyber-icon-btn cursor-pointer flex items-center justify-center animate-pulse"
           @click="settingsOpen = true"
           title="Thiết lập hệ thống & Cập nhật"
         >
@@ -1005,6 +1333,60 @@ const updateStatusText = computed(() => {
         <span>Kiểm tra</span>
       </button>
     </div>
+
+    <!-- First-Run Checklist Card (AC: 1) -->
+    <transition name="fade">
+      <div
+        v-if="!firstRunDismissed"
+        class="cyber-panel flex flex-col gap-3 px-4 py-3 border-cyan-400/30"
+      >
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <Icon icon="lucide:clipboard-list" class="text-base text-cyan-400 shrink-0" />
+            <span class="text-[11px] font-bold text-cyan-300 uppercase tracking-wider">Checklist cài đặt Companion</span>
+          </div>
+          <button
+            type="button"
+            class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1 flex items-center gap-1.5"
+            @click="dismissFirstRun"
+            title="Ẩn vĩnh viễn"
+          >
+            <Icon icon="lucide:x" class="text-xs" />
+            <span>Dismiss</span>
+          </button>
+        </div>
+        <div class="grid grid-cols-2 gap-2 xl:grid-cols-4">
+          <div class="cyber-inset flex items-start gap-2 p-3">
+            <Icon icon="lucide:power" class="text-sm text-cyan-400 shrink-0 mt-0.5" />
+            <div class="flex flex-col gap-0.5">
+              <span class="text-[10px] font-bold text-slate-200">Khởi động cùng hệ thống</span>
+              <span class="text-[9px] text-slate-500 leading-relaxed">Bật toggle tự động khởi động trong Settings → General</span>
+            </div>
+          </div>
+          <div class="cyber-inset flex items-start gap-2 p-3">
+            <Icon icon="lucide:shield" class="text-sm text-amber-400 shrink-0 mt-0.5" />
+            <div class="flex flex-col gap-0.5">
+              <span class="text-[10px] font-bold text-slate-200">Firewall / Port Rule</span>
+              <span class="text-[9px] text-slate-500 leading-relaxed">Cho phép cổng WebSocket qua Windows Defender Firewall</span>
+            </div>
+          </div>
+          <div class="cyber-inset flex items-start gap-2 p-3">
+            <Icon icon="lucide:globe" class="text-sm text-fuchsia-400 shrink-0 mt-0.5" />
+            <div class="flex flex-col gap-0.5">
+              <span class="text-[10px] font-bold text-slate-200">Web Client (iPad)</span>
+              <span class="text-[9px] text-slate-500 leading-relaxed">Bật Web Client trong Settings nếu dùng trình duyệt trên iPad</span>
+            </div>
+          </div>
+          <div class="cyber-inset flex items-start gap-2 p-3">
+            <Icon icon="lucide:qr-code" class="text-sm text-emerald-400 shrink-0 mt-0.5" />
+            <div class="flex flex-col gap-0.5">
+              <span class="text-[10px] font-bold text-slate-200">Quét QR tải APK</span>
+              <span class="text-[9px] text-slate-500 leading-relaxed">Quét QR bên dưới để tải APK hoặc mở Web URL trên thiết bị Android</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </transition>
 
     <!-- Main Content -->
     <div class="flex flex-1 overflow-hidden gap-6">
@@ -1060,6 +1442,41 @@ const updateStatusText = computed(() => {
                   +
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- APK Connect QR -->
+        <div v-if="apkConnectQrSvg" class="cyber-divider pt-4 flex flex-col gap-3">
+          <div class="flex items-center justify-between gap-2">
+            <div>
+              <h2 class="cyber-section-title">Kết nối APK</h2>
+              <p class="cyber-section-desc">Deep link cấu hình LAN tức thời</p>
+            </div>
+            <button
+              type="button"
+              class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5 flex items-center gap-1.5"
+              @click="copyApkConnectPayload"
+              title="Sao chép payload kết nối APK"
+            >
+              <Icon :icon="apkCopyHint ? 'lucide:check' : 'lucide:copy'" class="text-xs" />
+              <span>{{ apkCopyHint || 'Copy' }}</span>
+            </button>
+          </div>
+          <div class="cyber-inset grid grid-cols-[104px_minmax(0,1fr)] gap-3 p-3 items-center">
+            <div
+              class="rounded-lg overflow-hidden bg-white p-1 shadow-[0_0_18px_rgba(34,211,238,0.08)]"
+              v-html="apkConnectQrSvg"
+            ></div>
+            <div class="flex flex-col gap-1 min-w-0">
+              <span class="text-[8px] font-bold uppercase tracking-wider text-cyan-300/80">
+                Payload
+              </span>
+              <span
+                class="font-mono text-[9px] leading-relaxed text-slate-400 break-all select-text"
+              >
+                {{ apkConnectPayload }}
+              </span>
             </div>
           </div>
         </div>
@@ -1456,16 +1873,27 @@ const updateStatusText = computed(() => {
                   </select>
                 </div>
 
-                <!-- App -->
+                 <!-- App -->
                 <div v-else-if="activeTab === 'app'" class="flex flex-col gap-3">
                   <div class="flex flex-col gap-1.5">
-                    <span class="text-[9px] font-bold uppercase text-slate-400">
-                      {{
-                        isMac
-                          ? 'Đường dẫn App macOS (.app):'
-                          : 'Đường dẫn .exe hoặc dán shortcut (.lnk):'
-                      }}
-                    </span>
+                    <div class="flex items-center justify-between">
+                      <span class="text-[9px] font-bold uppercase text-slate-400">
+                        {{
+                          isMac
+                            ? 'Đường dẫn App macOS (.app):'
+                            : 'Đường dẫn .exe hoặc dán shortcut (.lnk):'
+                        }}
+                      </span>
+                      <button
+                        type="button"
+                        class="text-slate-400 hover:text-cyan-400 transition-colors cursor-pointer p-0.5 flex items-center gap-1"
+                        title="Xem hướng dẫn dán Shortcut / Copy as path"
+                        @click="openGuide('shortcut')"
+                      >
+                        <Icon icon="lucide:help-circle" class="text-xs" />
+                        <span class="text-[8.5px] uppercase tracking-wider font-semibold">Trợ giúp</span>
+                      </button>
+                    </div>
                     <Input
                       v-model="selectedButton.appPath"
                       type="text"
@@ -1487,7 +1915,7 @@ const updateStatusText = computed(() => {
                   </div>
                   <button
                     type="button"
-                    class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-2 flex items-center gap-1.5"
+                    class="cyber-action-btn w-full font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-2 flex items-center justify-center gap-1.5"
                     @click="appPickerOpen = true"
                   >
                     <Icon icon="lucide:search" class="text-xs" />
@@ -1523,6 +1951,16 @@ const updateStatusText = computed(() => {
                     class="w-full text-[11px] font-mono cyber-input-group bg-transparent px-2.5 py-2 resize-y focus:outline-none"
                     @input="saveButtonSettings"
                   ></textarea>
+                  <div class="flex justify-end">
+                    <button
+                      type="button"
+                      class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-2 flex items-center gap-1.5"
+                      @click="openGuide('browser')"
+                    >
+                      <Icon icon="lucide:help-circle" class="text-xs" />
+                      <span>Xem mẫu lệnh trợ giúp...</span>
+                    </button>
+                  </div>
                   <p
                     class="text-[9px] font-bold leading-relaxed text-amber-400/90 cyber-warning px-2 py-1.5"
                   >
@@ -1670,7 +2108,9 @@ const updateStatusText = computed(() => {
         v-if="settingsOpen"
         class="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4"
       >
-        <div class="cyber-modal w-[500px] max-w-full flex flex-col p-6 gap-6 relative">
+        <div
+          class="cyber-modal w-[620px] max-w-full max-h-[calc(100vh-2rem)] flex flex-col p-6 gap-6 relative overflow-hidden"
+        >
           <!-- Close -->
           <button
             class="absolute top-4 right-4 text-slate-400 hover:text-cyan-400 transition-colors cursor-pointer"
@@ -1694,7 +2134,7 @@ const updateStatusText = computed(() => {
           </div>
 
           <!-- Modal Body -->
-          <div class="flex flex-col gap-5 text-xs text-slate-300">
+          <div class="flex flex-col gap-5 text-xs text-slate-300 overflow-y-auto pr-1">
             <!-- Theme Selector -->
             <div class="flex flex-col gap-2.5">
               <span class="text-[9px] font-bold uppercase tracking-wider text-cyan-400/70"
@@ -1723,6 +2163,155 @@ const updateStatusText = computed(() => {
               </div>
             </div>
 
+            <!-- Network Settings -->
+            <div class="flex flex-col gap-2.5">
+              <div class="flex items-center justify-between gap-3">
+                <span class="text-[9px] font-bold uppercase tracking-wider text-cyan-400/70"
+                  >Mạng LAN & Ports</span
+                >
+                <span
+                  class="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[8.5px] font-bold uppercase tracking-wider"
+                  :class="
+                    hasPendingServerChanges
+                      ? 'border-amber-300/40 bg-amber-400/10 text-amber-200 shadow-[0_0_16px_rgba(251,191,36,0.08)]'
+                      : 'border-emerald-300/25 bg-emerald-400/5 text-emerald-300/80'
+                  "
+                >
+                  <Icon
+                    :icon="hasPendingServerChanges ? 'lucide:triangle-alert' : 'lucide:check'"
+                    class="text-[11px]"
+                  />
+                  {{ networkSettingsBadgeText }}
+                </span>
+              </div>
+
+              <div class="cyber-inset flex flex-col gap-3 p-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label class="flex flex-col gap-1.5">
+                    <span class="cyber-input-label">Cổng đang chạy</span>
+                    <div
+                      class="h-[38px] rounded-lg border border-slate-800 bg-slate-950/80 px-3 py-2.5 font-mono text-xs text-slate-400 shadow-inner"
+                    >
+                      {{ serverPort }}
+                    </div>
+                  </label>
+
+                  <label class="flex flex-col gap-1.5">
+                    <span class="cyber-input-label">Cổng sau khi khởi động lại</span>
+                    <Input
+                      v-model="serverConfigDraft.wsPort"
+                      inputmode="numeric"
+                      autocomplete="off"
+                      class="font-mono"
+                      :class="
+                        serverConfigValidationError
+                          ? 'border-rose-500/40 focus:ring-rose-500/40'
+                          : hasPendingServerChanges
+                            ? 'border-amber-300/35 focus:ring-amber-300/30'
+                            : ''
+                      "
+                    />
+                  </label>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end">
+                  <label class="flex flex-col gap-1.5">
+                    <span class="cyber-input-label">Port HTTP Web Client</span>
+                    <Input
+                      v-model="serverConfigDraft.webPort"
+                      inputmode="numeric"
+                      autocomplete="off"
+                      class="font-mono"
+                    />
+                  </label>
+
+                  <button
+                    type="button"
+                    class="cyber-action-btn h-[38px] min-w-[116px] font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5 flex items-center justify-center gap-1.5"
+                    :class="
+                      serverConfigDraft.webEnabled
+                        ? 'border-cyan-400/70 text-cyan-300 bg-slate-900/80 shadow shadow-cyan-900/20'
+                        : 'border-slate-750 text-slate-400 hover:border-slate-600'
+                    "
+                    @click="serverConfigDraft.webEnabled = !serverConfigDraft.webEnabled"
+                  >
+                    <Icon
+                      :icon="serverConfigDraft.webEnabled ? 'lucide:toggle-right' : 'lucide:toggle-left'"
+                      class="text-sm"
+                    />
+                    {{ serverConfigDraft.webEnabled ? 'Web bật' : 'Web tắt' }}
+                  </button>
+                </div>
+
+                <div class="flex flex-col gap-2 pt-2 cyber-divider">
+                  <p
+                    v-if="serverConfigValidationError || serverConfigError"
+                    class="text-[10px] leading-relaxed text-rose-300"
+                  >
+                    {{ serverConfigError || serverConfigValidationError }}
+                  </p>
+                  <p v-else class="text-[10px] leading-relaxed text-slate-500">
+                    Cấu hình port được ghi vào server.json; socket listener chỉ dùng cổng mới sau khi Companion khởi động lại.
+                  </p>
+
+                  <button
+                    type="button"
+                    class="cyber-action-btn w-full font-bold cursor-pointer disabled:cursor-not-allowed disabled:opacity-45 text-[10px] uppercase tracking-wider px-3 py-2 flex items-center justify-center gap-1.5"
+                    :disabled="serverConfigSaving || !!serverConfigValidationError"
+                    @click="saveNetworkSettingsAndRelaunch"
+                  >
+                    <Icon
+                      :icon="serverConfigSaving ? 'lucide:loader-circle' : 'lucide:refresh-cw'"
+                      class="text-xs"
+                      :class="serverConfigSaving ? 'animate-spin' : ''"
+                    />
+                    {{ serverConfigSaving ? 'Đang lưu...' : 'Lưu và khởi động lại' }}
+                  </button>
+                </div>
+
+                <div
+                  v-if="webClientUrl"
+                  class="cyber-divider pt-3 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-start"
+                >
+                  <div class="flex flex-col gap-2 min-w-0">
+                    <div class="flex items-center gap-2">
+                      <Icon icon="lucide:triangle-alert" class="text-amber-400 text-sm shrink-0" />
+                      <span class="text-[9px] font-bold uppercase tracking-wider text-amber-300/90"
+                        >Chỉ bật trên Wi-Fi tin cậy</span
+                      >
+                    </div>
+                    <div
+                      class="rounded-lg border border-slate-800 bg-slate-950/80 px-3 py-2.5 font-mono text-[11px] text-slate-300 shadow-inner truncate"
+                    >
+                      {{ webClientUrl }}
+                    </div>
+                    <button
+                      type="button"
+                      class="cyber-action-btn w-full sm:w-fit font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-2 flex items-center justify-center gap-1.5"
+                      @click="copyWebClientUrl"
+                    >
+                      <Icon :icon="webCopyHint ? 'lucide:check' : 'lucide:copy'" class="text-xs" />
+                      {{ webCopyHint || 'Copy Web URL' }}
+                    </button>
+                  </div>
+
+                  <div
+                    class="w-[148px] rounded-xl border border-cyan-400/20 bg-slate-950/80 p-3 shadow-[0_0_24px_rgba(34,211,238,0.08)]"
+                  >
+                    <div
+                      class="rounded-lg overflow-hidden bg-white p-1"
+                      v-html="webClientQrSvg"
+                    ></div>
+                    <div
+                      class="mt-2 text-center text-[8.5px] font-bold uppercase tracking-wider text-cyan-300/80"
+                    >
+                      Mở trên iPad / Browser
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <!-- Autostart -->
             <div class="flex flex-col gap-2.5">
               <span class="text-[9px] font-bold uppercase tracking-wider text-cyan-400/70"
@@ -1735,15 +2324,54 @@ const updateStatusText = computed(() => {
                 </div>
                 <button
                   @click="toggleAutostart"
-                  class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5"
+                  :disabled="autostartLoading"
+                  class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5 flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                   :class="
                     autostartOn
                       ? 'border-cyan-400/70 text-cyan-300 bg-slate-900/80 shadow shadow-cyan-900/20'
                       : 'border-slate-750 text-slate-400 hover:border-slate-600'
                   "
                 >
-                  {{ autostartOn ? 'Bật' : 'Tắt' }}
+                  <Icon
+                    v-if="autostartLoading"
+                    icon="lucide:loader-2"
+                    class="animate-spin text-xs"
+                  />
+                  <span>{{ autostartOn ? 'Bật' : 'Tắt' }}</span>
                 </button>
+              </div>
+            </div>
+
+            <!-- Sao lưu & Cấu hình -->
+            <div class="flex flex-col gap-2.5">
+              <span class="text-[9px] font-bold uppercase tracking-wider text-cyan-400/70"
+                >Sao lưu & Cấu hình</span
+              >
+              <div class="cyber-inset flex items-center justify-between p-3">
+                <div class="flex flex-col gap-0.5">
+                  <span class="font-medium text-slate-300">Xuất/Nhập dữ liệu layout:</span>
+                  <span class="text-[9px] text-slate-500">Tải về hoặc tải lên file JSON cấu hình lưới phím</span>
+                </div>
+                <div class="flex gap-2">
+                  <button
+                    type="button"
+                    class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5 flex items-center gap-1.5"
+                    @click="handleExport"
+                    title="Xuất cấu hình hiện tại ra file JSON"
+                  >
+                    <Icon icon="lucide:download" class="text-xs" />
+                    <span>Export</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5 flex items-center gap-1.5"
+                    @click="triggerImport"
+                    title="Nạp cấu hình từ file JSON"
+                  >
+                    <Icon icon="lucide:upload" class="text-xs" />
+                    <span>Import</span>
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -1752,25 +2380,56 @@ const updateStatusText = computed(() => {
               <span class="text-[9px] font-bold uppercase tracking-wider text-cyan-400/70"
                 >Thông tin ứng dụng</span
               >
-              <div class="cyber-inset grid grid-cols-2 gap-y-2 p-3">
-                <span class="text-slate-400 font-medium">Tên phần mềm:</span>
-                <span class="text-slate-200 font-bold justify-self-end">Android Stream Desk</span>
-                <span class="text-slate-400 font-medium">Phiên bản hiện tại:</span>
-                <span class="font-mono text-cyan-300 justify-self-end">v{{ appVersion }}</span>
-                <span class="text-slate-400 font-medium">Tác giả:</span>
-                <span class="text-slate-200 justify-self-end font-semibold">aniadev</span>
-                <span class="text-slate-400 font-medium">Giấy phép:</span>
-                <span class="font-mono text-slate-200 justify-self-end">MIT License</span>
-                <span class="text-slate-400 font-medium">Mã nguồn:</span>
-                <span class="justify-self-end">
-                  <a
-                    href="https://github.com/aniadev/android-stream-desk"
-                    target="_blank"
-                    class="text-cyan-400 hover:underline flex items-center gap-1"
-                  >
-                    GitHub Repo <Icon icon="lucide:external-link" class="text-[10px]" />
-                  </a>
-                </span>
+              <div class="cyber-inset p-3 flex flex-col gap-3">
+                <div class="grid grid-cols-2 gap-y-2">
+                  <span class="text-slate-400 font-medium">Tên phần mềm:</span>
+                  <span class="text-slate-200 font-bold justify-self-end">Android Stream Desk</span>
+                  <span class="text-slate-400 font-medium">Phiên bản hiện tại:</span>
+                  <span class="font-mono text-cyan-300 justify-self-end">v{{ appVersion }}</span>
+                  <span class="text-slate-400 font-medium">Tác giả:</span>
+                  <span class="text-slate-200 justify-self-end font-semibold">aniadev</span>
+                  <span class="text-slate-400 font-medium">Giấy phép:</span>
+                  <span class="font-mono text-slate-200 justify-self-end">MIT License</span>
+                  <span class="text-slate-400 font-medium">Mã nguồn:</span>
+                  <span class="justify-self-end">
+                    <a
+                      href="https://github.com/aniadev/android-stream-desk"
+                      target="_blank"
+                      class="text-cyan-400 hover:underline flex items-center gap-1"
+                    >
+                      GitHub Repo <Icon icon="lucide:external-link" class="text-[10px]" />
+                    </a>
+                  </span>
+                </div>
+
+                <!-- Donate Card -->
+                <div class="mt-2 p-3 bg-gradient-to-r from-fuchsia-950/20 via-violet-950/30 to-cyan-950/20 rounded-xl border border-violet-500/20 flex flex-col sm:flex-row gap-4 items-center justify-between shadow-[0_0_24px_rgba(139,92,246,0.05)]">
+                  <div class="flex-1 flex flex-col gap-1 items-center sm:items-start text-center sm:text-left">
+                    <div class="flex items-center gap-1.5 text-xs font-bold text-fuchsia-300">
+                      <Icon icon="mdi:coffee" class="text-sm shrink-0 animate-bounce" />
+                      <span>Ủng hộ nhà phát triển</span>
+                    </div>
+                    <p class="text-[9px] text-slate-400 max-w-[280px] leading-relaxed">
+                      Dự án hoàn toàn miễn phí & mã nguồn mở. Hãy mời tác giả một ly cà phê nếu bạn thấy ứng dụng này hữu ích!
+                    </p>
+                    <a
+                      href="https://ko-fi.com/ania9"
+                      target="_blank"
+                      class="mt-2 inline-flex items-center justify-center gap-1.5 rounded-lg border border-fuchsia-500/30 bg-fuchsia-950/30 hover:bg-fuchsia-900/40 hover:border-fuchsia-400 px-3 py-1.5 text-[9px] font-extrabold uppercase tracking-wider text-fuchsia-200 shadow shadow-fuchsia-950/20 transition duration-150 cursor-pointer"
+                    >
+                      <Icon icon="lucide:external-link" class="text-xs" />
+                      <span>Buy me a coffee (Ko-Fi)</span>
+                    </a>
+                  </div>
+                  <div class="w-[148px] shrink-0 bg-slate-900/60 p-2 rounded-lg border border-cyan-500/10 flex flex-col items-center gap-1">
+                    <img
+                      src="/donate/momo.png"
+                      alt="MoMo QR"
+                      class="w-full aspect-square object-cover rounded bg-white p-0.5"
+                    />
+                    <span class="text-[8px] font-extrabold tracking-wider uppercase text-cyan-300/80">Quét MoMo</span>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -1840,6 +2499,53 @@ const updateStatusText = computed(() => {
       </div>
     </transition>
 
+    <!-- Relaunch Dialog -->
+    <transition name="fade">
+      <div
+        v-if="restartDialogOpen"
+        class="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
+      >
+        <div class="cyber-modal w-[420px] max-w-full flex flex-col gap-4 p-5">
+          <div class="flex items-center gap-3">
+            <div
+              class="h-9 w-9 rounded-lg border border-cyan-300/20 bg-cyan-400/10 flex items-center justify-center"
+              :class="restartDialogFailed ? 'border-rose-300/30 bg-rose-400/10' : ''"
+            >
+              <Icon
+                :icon="restartDialogFailed ? 'lucide:triangle-alert' : 'lucide:refresh-cw'"
+                class="text-base"
+                :class="restartDialogFailed ? 'text-rose-300' : 'text-cyan-300 animate-spin'"
+              />
+            </div>
+            <div class="flex flex-col">
+              <h3 class="text-xs font-bold text-slate-50 uppercase tracking-wider">
+                {{ restartDialogFailed ? 'Chưa tự khởi động lại được' : 'Đang áp dụng cấu hình mạng' }}
+              </h3>
+              <p class="text-[9px] text-slate-500 mt-0.5">
+                {{
+                  restartDialogFailed
+                    ? 'Cấu hình đã lưu; hãy mở lại Companion thủ công nếu cần.'
+                    : 'Companion sẽ mở lại với listener mới.'
+                }}
+              </p>
+            </div>
+          </div>
+          <p class="text-[11px] leading-relaxed text-slate-300">
+            {{ restartDialogMessage }}
+          </p>
+          <button
+            v-if="restartDialogFailed"
+            type="button"
+            class="cyber-action-btn w-full font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-2 flex items-center justify-center gap-1.5"
+            @click="restartDialogOpen = false"
+          >
+            <Icon icon="lucide:x" class="text-xs" />
+            Đóng
+          </button>
+        </div>
+      </div>
+    </transition>
+
     <!-- App Picker Modal -->
     <AppPickerModal
       v-model="appPickerOpen"
@@ -1847,6 +2553,20 @@ const updateStatusText = computed(() => {
         (path: string) => {
           if (selectedButton) {
             selectedButton.appPath = path;
+            saveButtonSettings();
+          }
+        }
+      "
+    />
+
+    <!-- Guide Center Modal -->
+    <GuideCenterModal
+      v-model="guideCenterOpen"
+      :active-topic="guideTopic"
+      @apply-template="
+        (cmdVal: string) => {
+          if (selectedButton) {
+            selectedButton.commandValue = cmdVal;
             saveButtonSettings();
           }
         }

@@ -2,6 +2,7 @@ use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::net::SocketAddr;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use tauri::Emitter;
 use tauri::Manager;
@@ -20,6 +21,7 @@ pub struct WSMessage {
 
 lazy_static::lazy_static! {
     static ref WS_MUTEX: Arc<Mutex<Option<broadcast::Sender<String>>>> = Arc::new(Mutex::new(None));
+    static ref CLIENT_COUNT: Arc<AtomicUsize> = Arc::new(AtomicUsize::new(0));
 }
 
 const BROADCAST_CAPACITY: usize = 256;
@@ -39,10 +41,7 @@ pub async fn start_ws_server(port: u16, app_handle: tauri::AppHandle) {
         }
     };
     println!("WebSocket server listening on ws://{}", addr);
-    let _ = app_handle.emit(
-        "server-ready",
-        serde_json::json!({ "port": port }),
-    );
+    let _ = app_handle.emit("server-ready", serde_json::json!({ "port": port }));
 
     let (tx, _) = broadcast::channel::<String>(BROADCAST_CAPACITY);
     {
@@ -107,12 +106,32 @@ async fn send_current_layout(
     Ok(())
 }
 
+struct ConnectionGuard {
+    app_handle: tauri::AppHandle,
+}
+
+impl ConnectionGuard {
+    fn new(app_handle: tauri::AppHandle) -> Self {
+        let count = CLIENT_COUNT.fetch_add(1, Ordering::SeqCst) + 1;
+        let _ = app_handle.emit("client-count-changed", serde_json::json!({ "count": count }));
+        Self { app_handle }
+    }
+}
+
+impl Drop for ConnectionGuard {
+    fn drop(&mut self) {
+        let count = CLIENT_COUNT.fetch_sub(1, Ordering::SeqCst) - 1;
+        let _ = self.app_handle.emit("client-count-changed", serde_json::json!({ "count": count }));
+    }
+}
+
 async fn handle_connection(
     stream: TcpStream,
     addr: SocketAddr,
     tx: broadcast::Sender<String>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let _guard = ConnectionGuard::new(app_handle.clone());
     let ws_stream = accept_async(stream).await?;
     println!("New WebSocket connection established from: {}", addr);
 
@@ -179,7 +198,9 @@ async fn handle_connection(
     Ok(())
 }
 
-fn get_cached_layout(app_handle: &tauri::AppHandle) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
+fn get_cached_layout(
+    app_handle: &tauri::AppHandle,
+) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
     let app_dir = app_handle.path().app_config_dir()?;
     let config_path = app_dir.join("layout.json");
     if config_path.exists() {
