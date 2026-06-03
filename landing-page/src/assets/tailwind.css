@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-brand-bg text-slate-100 selection:bg-brand-accent selection:text-brand-bg;
+  }
+}
+
+.glow-subtle {
+  box-shadow: 0 0 40px -10px rgba(16, 185, 129, 0.15);
+}
+
+.glow-card {
+  box-shadow: 0 0 50px -12px rgba(139, 92, 246, 0.1);
+}
