@@ -98,6 +98,8 @@ Use codegraph for **structural** questions — what calls what, what would break
 - **Don't chain `codegraph_search` + `codegraph_node`** when you just want context — `codegraph_context` is one call.
 - **Don't loop `codegraph_node` over many symbols** — one `codegraph_explore` call returns several symbols' source grouped in a single capped call, while each separate node/Read call re-reads the whole context and costs far more.
 - **Index lag**: the file watcher debounces ~500ms behind writes; don't re-query immediately after editing a file in the same turn.
+- Khi edit markdown file, không tự ý ngắt dòng nếu chưa kết thúc câu.
+- LUÔN LUÔN MỞ ĐẦU CÂU TRẢ LỜI BẰNG "Hey Ania", TRẢ LỜI TRONG CHAT BẰNG TIẾNG VIỆT, EDIT FILE MARKDOWN BẰNG TIẾNG VIỆT TRỪ KHI CÓ YÊU CẦU VIẾT BẰNG TIẾNG ANH
 
 ### If `.codegraph/` doesn't exist
 

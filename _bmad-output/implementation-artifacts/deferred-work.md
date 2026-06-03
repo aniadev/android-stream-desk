@@ -72,3 +72,8 @@ Surfaced during step-04 review of `spec-shell-command-action.md`. Accepted under
 ## Deferred from: code review of v1.4.0 (2026-05-29)
 
 - **W1 (BH) — legacy `layout.buttons` mirror is dead-weight** [`src/stores/layout.ts`: `updateLayout`, `resizeGrid`, `reorderButtons`]: with multi-page, `layout.buttons` is always force-synced from `pages[0]` while every live consumer (GridArea, DashboardView, metrics.rs, broadcast→migrateLayout) now reads `pages`/`currentButtons`. So the mirror is never read correctly on pages ≥ 1, duplicates page-0 buttons in every `sync_layout` broadcast, and is a footgun if a future caller reads `layout.buttons` expecting the active page. Cleanup: drop the mirror (make `buttons` derived/removed from the wire format) or document it as page-0-only. Not done now — no live consumer reads it wrongly, so behavior is correct today.
+
+## Deferred from: code review of 1-1-read-write-network-config.md (2026-06-03)
+
+- **Rò rỉ file .tmp cấu hình khi đổi tên thất bại [src-tauri/src/lib.rs:97]** — Tệp tạm `.tmp` không được thu hồi hoặc dọn dẹp khi đổi tên thất bại trong save_server_config.
+- **Âm thầm nạp cấu hình mặc định khi file hỏng không in log [src-tauri/src/lib.rs:61]** — Khi tệp tin cấu hình tồn tại nhưng không thể phân tích hoặc validation lỗi, hệ thống âm thầm trả về fallback an toàn mà không in log cảnh báo.
