@@ -159,14 +159,18 @@ fn add_header(response: &mut Response<Cursor<Vec<u8>>>, name: &str, value: &str)
 }
 
 fn content_type_for_path(path: &str) -> &'static str {
-    match path.rsplit('.').next().unwrap_or_default() {
+    match path.rsplit('.').next().unwrap_or_default().to_ascii_lowercase().as_str() {
         "css" => "text/css; charset=utf-8",
         "html" => "text/html; charset=utf-8",
         "js" => "text/javascript; charset=utf-8",
         "json" => "application/json",
         "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "ico" => "image/x-icon",
         "svg" => "image/svg+xml",
         "wav" => "audio/wav",
+        "woff2" => "font/woff2",
         _ => "application/octet-stream",
     }
 }

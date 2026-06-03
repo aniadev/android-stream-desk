@@ -1,6 +1,6 @@
 # Story 2.1: Phục vụ Web Client tĩnh & API Server Info
 
-Status: review
+Status: done
 
 ## Story
 
@@ -33,6 +33,11 @@ so that tôi dễ dàng truy cập macro pad bằng trình duyệt web.
 - [x] Task 3: Tích hợp vòng đời server vào system bootstrap (AC: 1, 3)
   - [x] Đọc cấu hình mạng `ServerConfig` khi startup; nếu `webEnabled` được bật thì spawn HTTP Web Server trên thread blocking độc lập.
   - [x] Bắt lỗi bind cổng TCP port conflict, nếu gặp lỗi thì gửi message `server-web-error` thông trình xử lý backend lên cửa sổ Dashboard.
+
+### Review Findings
+
+- [x] [Review][Patch] Thieu MIME type cho mot so dinh dang va font pho bien (jpg, jpeg, gif, ico, woff2) [src-tauri/src/webserver.rs:161]
+- [x] [Review][Defer] May chu HTTP tiny-http don luong co the gay nghen xu ly co so [src-tauri/src/webserver.rs:58] — deferred, pre-existing
 
 ## Dev Notes
 

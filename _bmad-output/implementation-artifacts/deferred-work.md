@@ -77,3 +77,7 @@ Surfaced during step-04 review of `spec-shell-command-action.md`. Accepted under
 
 - **Rò rỉ file .tmp cấu hình khi đổi tên thất bại [src-tauri/src/lib.rs:97]** — Tệp tạm `.tmp` không được thu hồi hoặc dọn dẹp khi đổi tên thất bại trong save_server_config.
 - **Âm thầm nạp cấu hình mặc định khi file hỏng không in log [src-tauri/src/lib.rs:61]** — Khi tệp tin cấu hình tồn tại nhưng không thể phân tích hoặc validation lỗi, hệ thống âm thầm trả về fallback an toàn mà không in log cảnh báo.
+
+## Deferred from: code review of 2-1-http-static-server.md (2026-06-03)
+
+- **Máy chủ HTTP tiny-http đơn luồng có thể gây nghẽn xử lý cơ sở [src-tauri/src/webserver.rs:58]** — Máy chủ tiny-http xử lý tuần tự, các yêu cầu tĩnh chậm có thể giữ chân luồng xử lý nếu người dùng kết nối mạng kém hoặc tải dữ liệu lớn đồng thời.

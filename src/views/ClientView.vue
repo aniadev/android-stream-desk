@@ -8,6 +8,11 @@ import GridArea from '../components/GridArea.vue';
 import { Icon } from '@iconify/vue';
 import { acquireWakeLock, releaseWakeLock, isWakeLockActive } from '../lib/wakelock';
 import { unlockAudio } from '../lib/clicksound';
+import {
+  fetchBrowserServerInfo,
+  isBrowserMode,
+  toBrowserBootstrapTarget,
+} from '../lib/browserBootstrap';
 
 const connectionStore = useConnectionStore();
 const layoutStore = useLayoutStore();
@@ -30,6 +35,21 @@ const showToast = (msg: string, ms = 3500) => {
     toastMessage.value = null;
     toastTimer = null;
   }, ms);
+};
+
+const isBrowserModeActive = isBrowserMode(window);
+
+const bootstrapBrowserConnection = async () => {
+  try {
+    const info = await fetchBrowserServerInfo(window.location);
+    const target = toBrowserBootstrapTarget(info, window.location);
+    connectionStore.ipAddress = target.ipAddress;
+    connectionStore.port = target.port;
+    connectionStore.connect();
+  } catch (e) {
+    console.warn('Browser server-info bootstrap failed:', e);
+    isSubmitted.value = false;
+  }
 };
 
 type OrientationMode = 'auto' | 'landscape' | 'portrait' | 'landscape-reverse';
@@ -148,13 +168,16 @@ onMounted(async () => {
   }
   document.addEventListener('visibilitychange', handleVisibilityChange);
 
+  if (isBrowserModeActive) {
+    await bootstrapBrowserConnection();
+    return;
+  }
+
   if (connectionStore.ipAddress) {
     // connectionStore.connect();
     return;
   }
   try {
-    // @ts-ignore
-    if (!window.__TAURI_INTERNALS__) return;
     const { invoke } = await import('@tauri-apps/api/core');
     const info = await invoke<{ ip: string; port: number }>('get_server_info');
     const parts = info.ip.split('.');
@@ -534,6 +557,7 @@ onUnmounted(() => {
 
             <!-- Battery optimization notice for MIUI/Android devices -->
             <div
+              v-if="!isBrowserModeActive"
               class="flex items-start gap-2 rounded-xl bg-amber-950/40 px-3 py-2.5 border border-amber-900/30"
             >
               <Icon icon="mdi:battery-alert" class="text-amber-400 text-base mt-0.5 shrink-0" />

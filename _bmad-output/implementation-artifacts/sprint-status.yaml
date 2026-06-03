@@ -47,10 +47,10 @@ development_status:
   1-2-network-settings-gui: review
   epic-1-retrospective: optional
 
-  epic-2: in-progress
-  2-1-http-static-server: review
-  2-2-browser-client-bootstrap: backlog
-  2-3-web-client-url-qr-dashboard: backlog
+  epic-2: done
+  2-1-http-static-server: done
+  2-2-browser-client-bootstrap: done
+  2-3-web-client-url-qr-dashboard: done
   epic-2-retrospective: optional
 
   epic-3: backlog

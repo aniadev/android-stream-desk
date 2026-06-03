@@ -8,6 +8,7 @@ import { Icon, listIcons } from '@iconify/vue';
 import { vDraggable } from 'vue-draggable-plus';
 import { normalizeHex } from '../lib/color';
 import { applyTheme, isValidTheme, THEMES, type ThemeName } from '../lib/themes';
+import { createQrSvg } from '../lib/qrSvg';
 
 // Import Shadcn UI Components
 import Input from '../components/ui/Input.vue';
@@ -35,6 +36,7 @@ const activeTab = ref<'shortcut' | 'media' | 'app' | 'command'>('shortcut');
 const serverIp = ref<string>('—');
 const serverPort = ref<number>(8089);
 const copyHint = ref<string>('');
+const webCopyHint = ref<string>('');
 const colorCopyHint = ref<string>('');
 const syncHint = ref<string>('');
 let syncTimer: ReturnType<typeof setTimeout> | null = null;
@@ -123,6 +125,14 @@ const hasPendingServerChanges = computed(() => {
 const networkSettingsBadgeText = computed(() =>
   hasPendingServerChanges.value ? 'Có thay đổi chưa áp dụng' : 'Đang khớp cấu hình hiện thời',
 );
+
+const webClientUrl = computed(() => {
+  const config = savedServerConfig.value;
+  if (!config?.webEnabled || serverIp.value === '—') return '';
+  return `http://${serverIp.value}:${config.webPort}`;
+});
+
+const webClientQrSvg = computed(() => (webClientUrl.value ? createQrSvg(webClientUrl.value) : ''));
 
 const buildServerConfigPayload = (): ServerConfig | null => {
   const ws = parsePortDraft(serverConfigDraft.value.wsPort, 'Cổng WebSocket');
@@ -752,6 +762,17 @@ const copyAddress = async () => {
   }
 };
 
+const copyWebClientUrl = async () => {
+  if (!webClientUrl.value) return;
+  try {
+    await navigator.clipboard.writeText(webClientUrl.value);
+    webCopyHint.value = 'Copied!';
+    setTimeout(() => (webCopyHint.value = ''), 1500);
+  } catch (_) {
+    webCopyHint.value = 'Failed';
+  }
+};
+
 const copyColor = async () => {
   if (!selectedButton.value?.backgroundColor) return;
   try {
@@ -1075,6 +1096,27 @@ const updateStatusText = computed(() => {
             :disabled="serverIp === '—'"
           >
             {{ copyHint || 'Copy' }}
+          </button>
+        </div>
+
+        <div
+          v-if="webClientUrl"
+          class="cyber-hud hidden xl:flex items-center gap-3 px-4 py-2 max-w-[420px]"
+        >
+          <Icon icon="lucide:triangle-alert" class="text-amber-400 text-sm shrink-0" />
+          <div class="flex flex-col min-w-0">
+            <label class="text-[8px] uppercase tracking-widest font-bold text-amber-300/80"
+              >Chỉ bật trên Wi-Fi tin cậy</label
+            >
+            <span class="font-mono text-xs font-bold text-slate-300 truncate">
+              {{ webClientUrl }}
+            </span>
+          </div>
+          <button
+            class="cyber-action-btn ml-1 font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1 shrink-0"
+            @click="copyWebClientUrl"
+          >
+            {{ webCopyHint || 'Copy' }}
           </button>
         </div>
 
@@ -1983,6 +2025,47 @@ const updateStatusText = computed(() => {
                     />
                     {{ serverConfigSaving ? 'Đang lưu...' : 'Lưu và khởi động lại' }}
                   </button>
+                </div>
+
+                <div
+                  v-if="webClientUrl"
+                  class="cyber-divider pt-3 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-start"
+                >
+                  <div class="flex flex-col gap-2 min-w-0">
+                    <div class="flex items-center gap-2">
+                      <Icon icon="lucide:triangle-alert" class="text-amber-400 text-sm shrink-0" />
+                      <span class="text-[9px] font-bold uppercase tracking-wider text-amber-300/90"
+                        >Chỉ bật trên Wi-Fi tin cậy</span
+                      >
+                    </div>
+                    <div
+                      class="rounded-lg border border-slate-800 bg-slate-950/80 px-3 py-2.5 font-mono text-[11px] text-slate-300 shadow-inner truncate"
+                    >
+                      {{ webClientUrl }}
+                    </div>
+                    <button
+                      type="button"
+                      class="cyber-action-btn w-full sm:w-fit font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-2 flex items-center justify-center gap-1.5"
+                      @click="copyWebClientUrl"
+                    >
+                      <Icon :icon="webCopyHint ? 'lucide:check' : 'lucide:copy'" class="text-xs" />
+                      {{ webCopyHint || 'Copy Web URL' }}
+                    </button>
+                  </div>
+
+                  <div
+                    class="w-[148px] rounded-xl border border-cyan-400/20 bg-slate-950/80 p-3 shadow-[0_0_24px_rgba(34,211,238,0.08)]"
+                  >
+                    <div
+                      class="rounded-lg overflow-hidden bg-white p-1"
+                      v-html="webClientQrSvg"
+                    ></div>
+                    <div
+                      class="mt-2 text-center text-[8.5px] font-bold uppercase tracking-wider text-cyan-300/80"
+                    >
+                      Mở trên iPad / Browser
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

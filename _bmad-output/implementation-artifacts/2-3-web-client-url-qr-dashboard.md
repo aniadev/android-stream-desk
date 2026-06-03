@@ -1,6 +1,6 @@
 # Story 2.3: Hiển thị URL truy cập & Mã QR mở Web Client
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -17,13 +17,13 @@ so that tôi copy link nhanh hoặc quét bằng máy ảnh iPad để sử dụ
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Render liên kết mạng LAN Web Client (AC: 1)
-  - [ ] Thu thập địa chỉ IPv4 LAN đang chạy qua Tauri API.
-  - [ ] Hiển thị dòng chữ `http://<LAN-IP>:<webPort>` trong giao diện kết nối Dashboard.
-  - [ ] Thêm nút Copy nhanh liên kết này vào clipboard.
-- [ ] Task 2: Sinh mã QR địa chỉ URL Web (AC: 1)
-  - [ ] Dung thư viện Vue QR Code generator (không gọi API online để bảo mật ngoại tuyến).
-  - [ ] Kết xuất mã QR hiển thị bên dưới dòng URL cùng với tiêu đề nhãn "Mở trên iPad / Browser".
+- [x] Task 1: Render liên kết mạng LAN Web Client (AC: 1)
+  - [x] Thu thập địa chỉ IPv4 LAN đang chạy qua Tauri API.
+  - [x] Hiển thị dòng chữ `http://<LAN-IP>:<webPort>` trong giao diện kết nối Dashboard.
+  - [x] Thêm nút Copy nhanh liên kết này vào clipboard.
+- [x] Task 2: Sinh mã QR địa chỉ URL Web (AC: 1)
+  - [x] Dung thư viện Vue QR Code generator (không gọi API online để bảo mật ngoại tuyến).
+  - [x] Kết xuất mã QR hiển thị bên dưới dòng URL cùng với tiêu đề nhãn "Mở trên iPad / Browser".
 
 ## Dev Notes
 
@@ -32,3 +32,45 @@ so that tôi copy link nhanh hoặc quét bằng máy ảnh iPad để sử dụ
 ### References
 
 - [Source: src/views/DashboardView.vue#343] - Nơi bind các event copy/action.
+
+## Dev Agent Record
+
+### Implementation Plan
+
+- Red: thêm `src/lib/qrSvg.ts` stub và Node assertion yêu cầu SVG QR có path/viewBox, xác nhận fail.
+- Green: implement QR SVG offline version 3-L byte mode, không thêm dependency và không gọi API online.
+- UI: dùng `get_server_info` hiện có để lấy LAN IP, `get_server_config` để lấy `webEnabled/webPort`, render URL/copy/warning/QR trong Dashboard.
+
+### Debug Log
+
+- `node --input-type=module -e ... createQrSvg(...)` fail ở red phase vì helper trả chuỗi rỗng.
+- `pnpm exec tsc src/lib/qrSvg.ts --ignoreConfig --target ES2022 --module NodeNext --moduleResolution NodeNext --lib ES2022,DOM --outDir /tmp/asd-qr-test --skipLibCheck --declaration false --sourceMap false` pass.
+- `node --input-type=module -e ...` pass với assertions cho SVG, viewBox `37x37`, path modules và payload quá dài.
+- `pnpm exec vue-tsc -b` pass.
+- `pnpm build` pass; Vite chỉ cảnh báo chunk lớn, không fail build.
+- `cargo test --manifest-path src-tauri/Cargo.toml` pass: 10/10.
+
+### Completion Notes
+
+- Dashboard hiển thị Web Client URL khi cấu hình đã lưu có `webEnabled=true` và LAN IP đã nạp: `http://<LAN-IP>:<webPort>`.
+- URL có nút copy nhanh ở header desktop rộng và trong khối Network settings.
+- UI hiển thị cảnh báo "Chỉ bật trên Wi-Fi tin cậy" bằng icon cảnh báo.
+- QR SVG offline được render với nhãn "Mở trên iPad / Browser" và encode trực tiếp URL HTTP.
+
+### File List
+
+- `src/views/DashboardView.vue`
+- `src/lib/qrSvg.ts`
+- `dist-client/index.html`
+- `dist-client/assets/index-CcrVOKsV.js`
+- `dist-client/assets/index-Q_SfVjGk.css`
+- `dist-client/assets/index-BUn5KQWo.js` (deleted)
+- `dist-client/assets/index-CISstjn4.css` (deleted)
+- `_bmad-output/implementation-artifacts/2-3-web-client-url-qr-dashboard.md`
+- `_bmad-output/implementation-artifacts/sprint-status.yaml`
+
+### Change Log
+
+| Date | Version | Description | Author |
+| --- | --- | --- | --- |
+| 2026-06-03 | 1.0 | Render Web Client URL, trusted Wi-Fi warning, copy action, and offline QR SVG on Dashboard. | Amelia |
