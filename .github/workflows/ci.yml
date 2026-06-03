@@ -46,6 +46,21 @@ jobs:
         with:
           workspaces: src-tauri
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install and Build Frontend (needed for CLIENT_DIST include_dir)
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
       - name: Create BuildTools→Enterprise junction for cargo linker path
         shell: pwsh
         run: |
