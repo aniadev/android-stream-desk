@@ -81,3 +81,8 @@ Surfaced during step-04 review of `spec-shell-command-action.md`. Accepted under
 ## Deferred from: code review of 2-1-http-static-server.md (2026-06-03)
 
 - **Máy chủ HTTP tiny-http đơn luồng có thể gây nghẽn xử lý cơ sở [src-tauri/src/webserver.rs:58]** — Máy chủ tiny-http xử lý tuần tự, các yêu cầu tĩnh chậm có thể giữ chân luồng xử lý nếu người dùng kết nối mạng kém hoặc tải dữ liệu lớn đồng thời.
+
+## Deferred from: code review of 4-1-first-run-checklist-diagnostics.md (2026-06-03)
+
+- **Rò rỉ event listener trước khi unlisten hoàn thành trong Vue lifecycle [src/views/DashboardView.vue:785]** — Lắng nghe Tauri event bất đồng bộ, unprepare unlisten có khả năng rò rỉ nếu component unmount chớp nhoáng khi await chưa trả về.
+- **Tranh chấp thứ tự gói tin IPC client-count-changed [src-tauri/src/websocket.rs:119]** — Thứ tự gói tin emit client-count có thể bị đảo chiều ngầm trong môi trường truyền tin IPC đa tiến trình không đồng bộ.

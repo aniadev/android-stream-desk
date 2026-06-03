@@ -15,6 +15,7 @@ import { buildApkConnectPayload } from '../lib/apkConnectQr';
 import Input from '../components/ui/Input.vue';
 import GridButton from '../components/GridButton.vue';
 import AppPickerModal from '../components/AppPickerModal.vue';
+import GuideCenterModal from '../components/GuideCenterModal.vue';
 
 interface ServerConfig {
   wsPort: number;
@@ -30,6 +31,19 @@ interface ServerConfigDraft {
 
 const layoutStore = useLayoutStore();
 const updaterStore = useUpdaterStore();
+
+// --- First-Run Checklist ---
+const FIRST_RUN_KEY = 'dashboard:first-run-dismissed';
+const firstRunDismissed = ref(localStorage.getItem(FIRST_RUN_KEY) === 'true');
+const dismissFirstRun = () => {
+  firstRunDismissed.value = true;
+  localStorage.setItem(FIRST_RUN_KEY, 'true');
+};
+
+// --- Realtime HUD ---
+const activeConnectionsCount = ref(0);
+const serverBindError = ref(false);
+let tauriUnlisteners: (() => void)[] = [];
 
 const selectedButtonId = ref<string | null>(null);
 const activeTab = ref<'shortcut' | 'media' | 'app' | 'command'>('shortcut');
@@ -64,6 +78,7 @@ const setTheme = (name: ThemeName) => {
 // Modal Control
 const settingsOpen = ref(false);
 const appPickerOpen = ref(false);
+const guideCenterOpen = ref(false);
 const autostartOn = ref(false);
 const serverConfigLoaded = ref(false);
 const serverConfigSaving = ref(false);
@@ -715,6 +730,8 @@ onUnmounted(() => {
     permissionPollTimer = null;
   }
   iconObserver?.disconnect();
+  tauriUnlisteners.forEach(fn => fn());
+  tauriUnlisteners = [];
 });
 
 // Accessibility / input permission state
@@ -772,6 +789,19 @@ onMounted(async () => {
         permissionPollTimer = setInterval(probePermission, 3000);
       }
       window.addEventListener('focus', probePermission);
+
+      // Listen Tauri events for HUD realtime
+      const { listen } = await import('@tauri-apps/api/event');
+      const unlistenCount = await listen<{ count: number }>('client-count-changed', (e) => {
+        activeConnectionsCount.value = e.payload.count;
+      });
+      const unlistenError = await listen<{ port: number; error: string }>('server-error', () => {
+        serverBindError.value = true;
+      });
+      const unlistenReady = await listen<{ port: number }>('server-ready', () => {
+        serverBindError.value = false;
+      });
+      tauriUnlisteners.push(unlistenCount, unlistenError, unlistenReady);
     } else {
       const fallback = { wsPort: serverPort.value, webEnabled: false, webPort: 8090 };
       savedServerConfig.value = fallback;
@@ -1149,6 +1179,34 @@ const updateStatusText = computed(() => {
           </button>
         </div>
 
+        <!-- HUD: Active Connections Counter (AC: 2) -->
+        <div class="cyber-hud flex items-center gap-3 px-4 py-2">
+          <Icon
+            icon="lucide:users"
+            class="text-sm shrink-0"
+            :class="activeConnectionsCount > 0 ? 'text-emerald-400' : 'text-slate-500'"
+          />
+          <div class="flex flex-col">
+            <label class="text-[8px] uppercase tracking-widest font-bold text-slate-500">Đang kết nối</label>
+            <span class="font-mono text-xs font-bold" :class="activeConnectionsCount > 0 ? 'text-emerald-300' : 'text-slate-500'">
+              {{ activeConnectionsCount }} thiết bị
+            </span>
+          </div>
+        </div>
+
+        <!-- HUD: Bind Error Badge (AC: 2) -->
+        <div
+          v-if="serverBindError"
+          class="cyber-hud flex items-center gap-2 px-3 py-2 border-rose-500/50"
+          title="Socket server không thể bind cổng — kiểm tra Firewall / Port conflict"
+        >
+          <Icon icon="lucide:wifi-off" class="text-base text-rose-400 shrink-0 animate-pulse" />
+          <div class="flex flex-col leading-tight">
+            <span class="text-[9px] font-bold text-rose-400 uppercase tracking-wider">Firewall / Port Blocked</span>
+            <span class="text-[8px] text-slate-400">Server không bind được cổng</span>
+          </div>
+        </div>
+
         <div
           v-if="webClientUrl"
           class="cyber-hud hidden xl:flex items-center gap-3 px-4 py-2 max-w-[420px]"
@@ -1251,6 +1309,60 @@ const updateStatusText = computed(() => {
         <span>Kiểm tra</span>
       </button>
     </div>
+
+    <!-- First-Run Checklist Card (AC: 1) -->
+    <transition name="fade">
+      <div
+        v-if="!firstRunDismissed"
+        class="cyber-panel flex flex-col gap-3 px-4 py-3 border-cyan-400/30"
+      >
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <Icon icon="lucide:clipboard-list" class="text-base text-cyan-400 shrink-0" />
+            <span class="text-[11px] font-bold text-cyan-300 uppercase tracking-wider">Checklist cài đặt Companion</span>
+          </div>
+          <button
+            type="button"
+            class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1 flex items-center gap-1.5"
+            @click="dismissFirstRun"
+            title="Ẩn vĩnh viễn"
+          >
+            <Icon icon="lucide:x" class="text-xs" />
+            <span>Dismiss</span>
+          </button>
+        </div>
+        <div class="grid grid-cols-2 gap-2 xl:grid-cols-4">
+          <div class="cyber-inset flex items-start gap-2 p-3">
+            <Icon icon="lucide:power" class="text-sm text-cyan-400 shrink-0 mt-0.5" />
+            <div class="flex flex-col gap-0.5">
+              <span class="text-[10px] font-bold text-slate-200">Khởi động cùng hệ thống</span>
+              <span class="text-[9px] text-slate-500 leading-relaxed">Bật toggle tự động khởi động trong Settings → General</span>
+            </div>
+          </div>
+          <div class="cyber-inset flex items-start gap-2 p-3">
+            <Icon icon="lucide:shield" class="text-sm text-amber-400 shrink-0 mt-0.5" />
+            <div class="flex flex-col gap-0.5">
+              <span class="text-[10px] font-bold text-slate-200">Firewall / Port Rule</span>
+              <span class="text-[9px] text-slate-500 leading-relaxed">Cho phép cổng WebSocket qua Windows Defender Firewall</span>
+            </div>
+          </div>
+          <div class="cyber-inset flex items-start gap-2 p-3">
+            <Icon icon="lucide:globe" class="text-sm text-fuchsia-400 shrink-0 mt-0.5" />
+            <div class="flex flex-col gap-0.5">
+              <span class="text-[10px] font-bold text-slate-200">Web Client (iPad)</span>
+              <span class="text-[9px] text-slate-500 leading-relaxed">Bật Web Client trong Settings nếu dùng trình duyệt trên iPad</span>
+            </div>
+          </div>
+          <div class="cyber-inset flex items-start gap-2 p-3">
+            <Icon icon="lucide:qr-code" class="text-sm text-emerald-400 shrink-0 mt-0.5" />
+            <div class="flex flex-col gap-0.5">
+              <span class="text-[10px] font-bold text-slate-200">Quét QR tải APK</span>
+              <span class="text-[9px] text-slate-500 leading-relaxed">Quét QR bên dưới để tải APK hoặc mở Web URL trên thiết bị Android</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </transition>
 
     <!-- Main Content -->
     <div class="flex flex-1 overflow-hidden gap-6">
@@ -1766,14 +1878,25 @@ const updateStatusText = computed(() => {
                       {{ appPathHint }}
                     </span>
                   </div>
-                  <button
-                    type="button"
-                    class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-2 flex items-center gap-1.5"
-                    @click="appPickerOpen = true"
-                  >
-                    <Icon icon="lucide:search" class="text-xs" />
-                    <span>Browse installed apps...</span>
-                  </button>
+                  <div class="flex items-center gap-2">
+                    <button
+                      type="button"
+                      class="cyber-action-btn flex-1 font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-2 flex items-center gap-1.5"
+                      @click="appPickerOpen = true"
+                    >
+                      <Icon icon="lucide:search" class="text-xs" />
+                      <span>Browse installed apps...</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-2 flex items-center gap-1.5"
+                      title="Xem hướng dẫn dán Shortcut / Copy as path"
+                      @click="guideCenterOpen = true"
+                    >
+                      <Icon icon="lucide:help-circle" class="text-xs" />
+                      <span>Trợ giúp</span>
+                    </button>
+                  </div>
                   <div class="flex flex-col gap-1.5 pt-2 cyber-divider">
                     <span class="text-[9px] font-bold uppercase tracking-widest text-slate-500"
                       >Chọn nhanh ứng dụng:</span
@@ -1804,6 +1927,16 @@ const updateStatusText = computed(() => {
                     class="w-full text-[11px] font-mono cyber-input-group bg-transparent px-2.5 py-2 resize-y focus:outline-none"
                     @input="saveButtonSettings"
                   ></textarea>
+                  <div class="flex justify-end">
+                    <button
+                      type="button"
+                      class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-2 flex items-center gap-1.5"
+                      @click="guideCenterOpen = true"
+                    >
+                      <Icon icon="lucide:help-circle" class="text-xs" />
+                      <span>Xem mẫu lệnh trợ giúp...</span>
+                    </button>
+                  </div>
                   <p
                     class="text-[9px] font-bold leading-relaxed text-amber-400/90 cyber-warning px-2 py-1.5"
                   >
@@ -2326,6 +2459,19 @@ const updateStatusText = computed(() => {
         (path: string) => {
           if (selectedButton) {
             selectedButton.appPath = path;
+            saveButtonSettings();
+          }
+        }
+      "
+    />
+
+    <!-- Guide Center Modal -->
+    <GuideCenterModal
+      v-model="guideCenterOpen"
+      @apply-template="
+        (cmdVal: string) => {
+          if (selectedButton) {
+            selectedButton.commandValue = cmdVal;
             saveButtonSettings();
           }
         }

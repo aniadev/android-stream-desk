@@ -2,6 +2,7 @@ use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::net::SocketAddr;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use tauri::Emitter;
 use tauri::Manager;
@@ -20,6 +21,7 @@ pub struct WSMessage {
 
 lazy_static::lazy_static! {
     static ref WS_MUTEX: Arc<Mutex<Option<broadcast::Sender<String>>>> = Arc::new(Mutex::new(None));
+    static ref CLIENT_COUNT: Arc<AtomicUsize> = Arc::new(AtomicUsize::new(0));
 }
 
 const BROADCAST_CAPACITY: usize = 256;
@@ -104,12 +106,32 @@ async fn send_current_layout(
     Ok(())
 }
 
+struct ConnectionGuard {
+    app_handle: tauri::AppHandle,
+}
+
+impl ConnectionGuard {
+    fn new(app_handle: tauri::AppHandle) -> Self {
+        let count = CLIENT_COUNT.fetch_add(1, Ordering::SeqCst) + 1;
+        let _ = app_handle.emit("client-count-changed", serde_json::json!({ "count": count }));
+        Self { app_handle }
+    }
+}
+
+impl Drop for ConnectionGuard {
+    fn drop(&mut self) {
+        let count = CLIENT_COUNT.fetch_sub(1, Ordering::SeqCst) - 1;
+        let _ = self.app_handle.emit("client-count-changed", serde_json::json!({ "count": count }));
+    }
+}
+
 async fn handle_connection(
     stream: TcpStream,
     addr: SocketAddr,
     tx: broadcast::Sender<String>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let _guard = ConnectionGuard::new(app_handle.clone());
     let ws_stream = accept_async(stream).await?;
     println!("New WebSocket connection established from: {}", addr);
 

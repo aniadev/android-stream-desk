@@ -52,8 +52,8 @@ development_status:
   3-2-android-native-camera-scanner: done
   epic-3-retrospective: optional
 
-  epic-4: backlog
-  4-1-first-run-checklist-diagnostics: backlog
+  epic-4: done
+  4-1-first-run-checklist-diagnostics: done
   epic-4-retrospective: optional
 
   epic-5: backlog

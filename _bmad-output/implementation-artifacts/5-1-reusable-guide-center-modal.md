@@ -22,13 +22,13 @@ so that tôi sao chép hoặc áp dụng trực tiếp nhanh mà không cần l�
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Xây dựng Component Modal Guide Center (AC: 1, 2)
-  - [ ] Tạo file component `src/components/GuideCenterModal.vue` sử dụng CSS của tailwind.
-  - [ ] Thiết kế menu lề trái chọn mục hướng dẫn, khung hiển thị nội dung bên phải.
-  - [ ] Tạo template các ví dụ OS-aware (tự động highlight mẫu code cho Windows/macOS theo User Agent).
-- [ ] Task 2: Implement hành động "Dùng mẫu này" (AC: 1)
-  - [ ] Phát ra emit event `apply-template` kèm theo command string tương ứng.
-  - [ ] Lắng nghe event trên Dashboard editor và tự động apply vào textbox `commandValue` của button cấu hình hiện đang mở.
+- [x] Task 1: Xây dựng Component Modal Guide Center (AC: 1, 2)
+  - [x] Tạo file component `src/components/GuideCenterModal.vue` sử dụng CSS của tailwind.
+  - [x] Thiết kế menu lề trái chọn mục hướng dẫn, khung hiển thị nội dung bên phải.
+  - [x] Tạo template các ví dụ OS-aware (tự động highlight mẫu code cho Windows/macOS theo User Agent).
+- [x] Task 2: Implement hành động "Dùng mẫu này" (AC: 1)
+  - [x] Phát ra emit event `apply-template` kèm theo command string tương ứng.
+  - [x] Lắng nghe event trên Dashboard editor và tự động apply vào textbox `commandValue` của button cấu hình hiện đang mở.
 
 ## Dev Notes
 
