@@ -56,16 +56,16 @@ development_status:
   4-1-first-run-checklist-diagnostics: done
   epic-4-retrospective: optional
 
-  epic-5: backlog
+  epic-5: in-progress
   5-1-reusable-guide-center-modal: backlog
-  5-2-contextual-help-entry-points: backlog
+  5-2-contextual-help-entry-points: done
   epic-5-retrospective: optional
 
-  epic-6: backlog
-  6-1-windows-autostart-tray-fix: backlog
-  6-2-autostart-diagnostics-and-toasts: backlog
+  epic-6: done
+  6-1-windows-autostart-tray-fix: done
+  6-2-autostart-diagnostics-and-toasts: done
   epic-6-retrospective: optional
 
-  epic-7: backlog
-  7-1-wake-lock-websocket-status-bound: backlog
+  epic-7: done
+  7-1-wake-lock-websocket-status-bound: done
   epic-7-retrospective: optional

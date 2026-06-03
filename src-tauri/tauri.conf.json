@@ -1,6 +1,6 @@
 {
   "productName": "Android Stream Desk",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "identifier": "com.ania.android.stream.desk",
   "bundle": {
     "active": true,
@@ -24,7 +24,8 @@
         "height": 768,
         "resizable": true,
         "fullscreen": false,
-        "label": "main"
+        "label": "main",
+        "visible": false
       }
     ]
   },

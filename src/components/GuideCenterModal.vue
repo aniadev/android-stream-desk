@@ -1,17 +1,41 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { Icon } from '@iconify/vue';
 
-const props = defineProps<{
-  modelValue: boolean;
-}>();
+const props = withDefaults(
+  defineProps<{
+    modelValue: boolean;
+    activeTopic?: 'browser' | 'shortcut' | 'firewall';
+  }>(),
+  {
+    activeTopic: 'browser',
+  }
+);
 
 const emit = defineEmits<{
   (e: 'update:modelValue', v: boolean): void;
   (e: 'apply-template', command: string): void;
 }>();
 
-const activeTab = ref<'browser' | 'shortcut'>('browser');
+const activeTab = ref<'browser' | 'shortcut' | 'firewall'>('browser');
+
+watch(
+  () => props.modelValue,
+  (isOpen) => {
+    if (isOpen) {
+      activeTab.value = props.activeTopic || 'browser';
+    }
+  }
+);
+
+watch(
+  () => props.activeTopic,
+  (newTopic) => {
+    if (newTopic) {
+      activeTab.value = newTopic;
+    }
+  }
+);
 
 const isMac = computed(() => {
   return (
@@ -51,7 +75,7 @@ function applyTemplate(cmd: string) {
               <h2 class="text-xs font-bold text-slate-50 uppercase tracking-wider">
                 Trung tâm trợ giúp (Guide Center)
               </h2>
-              <p class="text-[8px] text-slate-500 mt-0.5">Hướng dẫn thiết lập phím tắt & mở ứng dụng nhanh</p>
+              <p class="text-[8px] text-slate-500 mt-0.5">Hướng dẫn thiết lập mạng, phím tắt & mở ứng dung nhanh</p>
             </div>
           </div>
           <button
@@ -65,7 +89,7 @@ function applyTemplate(cmd: string) {
         </div>
 
         <!-- Body Layout -->
-        <div class="flex flex-1 min-h-[350px] gap-4 overflow-hidden">
+        <div class="flex flex-1 min-h-0 gap-4 overflow-hidden">
           <!-- Left Navigation Menu -->
           <nav class="w-1/3 flex flex-col gap-1 border-r border-cyan-500/10 pr-3">
             <button
@@ -85,6 +109,15 @@ function applyTemplate(cmd: string) {
             >
               <Icon icon="lucide:external-link" class="text-xs text-cyan-400 shrink-0" />
               <span>Dán (.lnk) Shortcut</span>
+            </button>
+            <button
+              type="button"
+              class="menu-btn flex items-center gap-2 px-3 py-2.5 rounded-lg text-left text-[10px] font-bold uppercase transition-all"
+              :class="activeTab === 'firewall' ? 'menu-btn--active' : ''"
+              @click="activeTab = 'firewall'"
+            >
+              <Icon icon="lucide:shield-alert" class="text-xs text-rose-450 shrink-0 animate-pulse" />
+              <span>Tường Lửa & Cổng mạng</span>
             </button>
           </nav>
 
@@ -190,6 +223,46 @@ function applyTemplate(cmd: string) {
                   <div>
                     <span class="font-bold text-slate-200 block text-[10px] mb-0.5">Dán đường dẫn và lưu trữ</span>
                     <span class="text-slate-400">Dán (Ctrl + V) trực tiếp vào ô nhập đường dẫn. Client tự động loại bỏ dấu ngoặc kép kép nếu có và thực hiện mở rộng tệp logic dưới backend khi kích hoạt.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tab: LAN / Firewall Troubleshooting -->
+            <div v-else-if="activeTab === 'firewall'" class="flex flex-col gap-4 text-[9px] leading-relaxed">
+              <div>
+                <h3 class="text-[11px] font-bold text-rose-400 uppercase tracking-wide mb-1 flex items-center gap-1.5">
+                  <Icon icon="lucide:shield-alert" class="text-xs shrink-0" />
+                  Khắc phục lỗi Tường lửa & Trùng cổng mạng
+                </h3>
+                <p class="text-slate-400">
+                  Khi socket Companion bị chặn hoặc đụng độ cổng mạng (Address already in use), thiết bị nhận tin của bạn sẽ hiển thị ngoại tuyến.
+                </p>
+              </div>
+
+              <!-- Step Guide List -->
+              <div class="flex flex-col gap-2.5">
+                <div class="step-card flex gap-3 p-2.5 rounded bg-slate-900/30 border border-slate-800">
+                  <span class="step-num text-xs font-bold text-rose-450 w-5 h-5 rounded-full bg-rose-500/10 flex items-center justify-center shrink-0">1</span>
+                  <div>
+                    <span class="font-bold text-slate-200 block text-[10px] mb-0.5">Cho phép Companion qua Windows Defender Firewall</span>
+                    <span class="text-slate-400">Khi khởi chạy Companion lần đầu, hãy click <strong>"Allow access"</strong> trên bảng thông báo Windows. Nếu đã lỡ bỏ qua, hãy vào <em>Control Panel -> Windows Defender Firewall -> Allow an app through firewall</em>, tìm <code>android-stream-desk</code> và bật tick chọn cho cả <strong>Private</strong> và <strong>Public</strong>.</span>
+                  </div>
+                </div>
+
+                <div class="step-card flex gap-3 p-2.5 rounded bg-slate-900/30 border border-slate-800">
+                  <span class="step-num text-xs font-bold text-rose-400 w-5 h-5 rounded-full bg-rose-500/10 flex items-center justify-center shrink-0">2</span>
+                  <div>
+                    <span class="font-bold text-slate-200 block text-[10px] mb-0.5">Thay đổi số cổng WebSocket (Port Conflict)</span>
+                    <span class="text-slate-400">Nếu có ứng dụng khác đang chiếm dụng cổng mặc định 8089, bạn cần đổi sang một cổng khác hoạt động (ví dụ: 8090, 8092, v.v.). Đi tới phần <strong>Cài đặt kết nối hệ thống Companion</strong> bên dưới mục trạng thái mạng của Dashboard để sửa lại cổng và lưu.</span>
+                  </div>
+                </div>
+
+                <div class="step-card flex gap-3 p-2.5 rounded bg-slate-900/30 border border-slate-800">
+                  <span class="step-num text-xs font-bold text-rose-400 w-5 h-5 rounded-full bg-rose-500/10 flex items-center justify-center shrink-0">3</span>
+                  <div>
+                    <span class="font-bold text-slate-200 block text-[10px] mb-0.5">Xác nhận Wi-Fi & LAN cùng subnet (AP isolation)</span>
+                    <span class="text-slate-400">Đảm bảo cả máy tính Companion lẫn thiết bị Android Client của bạn kết nối vào cùng 1 Router/Access Point mạng LAN. Hãy tắt chế độ "AP Isolation / Guest Network" nếu được bật trên router của bạn.</span>
                   </div>
                 </div>
               </div>

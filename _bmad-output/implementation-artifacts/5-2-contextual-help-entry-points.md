@@ -1,6 +1,6 @@
 # Story 5.2: Cung cấp điểm liên kết trợ giúp ngữ cảnh
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -19,11 +19,11 @@ so that tôi biết chính xác cách khắc phục sự cố tại vị trí l�
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Bố trí icon trigger guide theo ngữ cảnh (AC: 1)
-  - [ ] Gắn thêm nút icon `?` kế bên textbox "Đường dẫn .exe" (tab App) và textbox "Lệnh shell" (tab Command).
-  - [ ] Kích hoạt mở modal `GuideCenterModal` với props `activeTopic` tương tự (`app-shortcut` hoặc `command-url`).
-- [ ] Task 2: Hướng dẫn giải quyết lỗi hệ thống (AC: 2)
-  - [ ] Tích hợp check lỗi socket bind thất bại. Giao diện hiển thị Banner cảnh báo lỗi màu đỏ kèm nút link gọi Modal Guide Center mục `firewall-troubleshooting`.
+- [x] Task 1: Bố trí icon trigger guide theo ngữ cảnh (AC: 1)
+  - [x] Gắn thêm nút icon `?` kế bên textbox "Đường dẫn .exe" (tab App) và textbox "Lệnh shell" (tab Command).
+  - [x] Kích hoạt mở modal `GuideCenterModal` với props `activeTopic` tương tự (`app-shortcut` hoặc `command-url`).
+- [x] Task 2: Hướng dẫn giải quyết lỗi hệ thống (AC: 2)
+  - [x] Tích hợp check lỗi socket bind thất bại. Giao diện hiển thị Banner cảnh báo lỗi màu đỏ kèm nút link gọi Modal Guide Center mục `firewall-troubleshooting`.
 
 ## Dev Notes
 

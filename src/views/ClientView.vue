@@ -179,18 +179,28 @@ watch(
 );
 
 const handleVisibilityChange = async () => {
-  if (document.visibilityState === 'visible' && keepScreenOn.value && !isWakeLockActive()) {
+  if (
+    document.visibilityState === 'visible' &&
+    keepScreenOn.value &&
+    connectionStore.status === 'connected' &&
+    !isWakeLockActive()
+  ) {
     await acquireWakeLock();
   }
 };
 
-watch(keepScreenOn, async val => {
-  if (val) {
-    await acquireWakeLock();
-  } else {
-    await releaseWakeLock();
+watch(
+  [keepScreenOn, () => connectionStore.status],
+  async ([keepOn, status]) => {
+    if (keepOn && status === 'connected') {
+      if (document.visibilityState === 'visible') {
+        await acquireWakeLock();
+      }
+    } else {
+      await releaseWakeLock();
+    }
   }
-});
+);
 
 onMounted(async () => {
   applyOrientation(orientationMode.value);

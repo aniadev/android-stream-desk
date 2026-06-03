@@ -79,7 +79,33 @@ const setTheme = (name: ThemeName) => {
 const settingsOpen = ref(false);
 const appPickerOpen = ref(false);
 const guideCenterOpen = ref(false);
+const guideTopic = ref<'browser' | 'shortcut' | 'firewall'>('browser');
+
+const openGuide = (topic?: 'browser' | 'shortcut' | 'firewall') => {
+  if (topic) {
+    guideTopic.value = topic;
+  }
+  guideCenterOpen.value = true;
+};
 const autostartOn = ref(false);
+const autostartLoading = ref(false);
+
+watch(settingsOpen, async (open) => {
+  if (open) {
+    autostartLoading.value = true;
+    try {
+      // @ts-ignore
+      if (window.__TAURI_INTERNALS__) {
+        const { isEnabled } = await import('@tauri-apps/plugin-autostart');
+        autostartOn.value = await isEnabled();
+      }
+    } catch (err) {
+      console.warn('Failed to load autostart status:', err);
+    } finally {
+      autostartLoading.value = false;
+    }
+  }
+});
 const serverConfigLoaded = ref(false);
 const serverConfigSaving = ref(false);
 const serverConfigError = ref<string>('');
@@ -257,6 +283,8 @@ const saveNetworkSettingsAndRelaunch = async () => {
 };
 
 const toggleAutostart = async () => {
+  if (autostartLoading.value) return;
+  autostartLoading.value = true;
   try {
     const { enable, disable, isEnabled } = await import('@tauri-apps/plugin-autostart');
     if (autostartOn.value) {
@@ -265,13 +293,22 @@ const toggleAutostart = async () => {
       await enable();
     }
     autostartOn.value = await isEnabled();
+    layoutStore.lastToast = {
+      kind: 'info',
+      message: autostartOn.value
+        ? 'Đã bật tự khởi động cùng hệ thống thành công'
+        : 'Đã tắt tự khởi động cùng hệ thống thành công',
+      at: Date.now(),
+    };
   } catch (err: any) {
     console.error('Failed to toggle autostart:', err);
     layoutStore.lastToast = {
       kind: 'error',
-      message: `Lỗi autostart: ${err?.message || err}`,
+      message: `Lỗi thiết lập khởi động: ${err?.message || err}. Hãy chạy ứng dụng với quyền Administrator hoặc kiểm tra danh sách Startup.`,
       at: Date.now()
     };
+  } finally {
+    autostartLoading.value = false;
   }
 };
 
@@ -1140,12 +1177,12 @@ const updateStatusText = computed(() => {
     </transition>
 
     <!-- Top Nav HUD Header -->
-    <div class="cyber-panel flex items-center justify-between px-4 py-2.5 shadow-xl">
+    <div class="cyber-panel flex flex-col md:flex-row gap-3 md:items-center md:justify-between px-4 py-2.5 shadow-xl">
       <div class="flex items-center gap-2">
         <!-- <div
           class="h-8 w-8 cyber-hex flex items-center justify-center"
         >
-          <span class="text-base">🕹️</span>
+          ...
         </div> -->
         <img src="/logo.png" alt="Logo" class="h-8 w-8" />
         <div class="flex flex-col leading-none">
@@ -1157,7 +1194,7 @@ const updateStatusText = computed(() => {
       </div>
 
       <!-- Right Header: IP + Settings -->
-      <div class="flex items-center gap-4">
+      <div class="flex flex-wrap items-center gap-2.5 md:gap-3 justify-end">
         <div class="cyber-hud flex items-center gap-3 px-4 py-2">
           <span
             class="inline-flex h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_6px_#22d3ee] animate-pulse"
@@ -1197,13 +1234,19 @@ const updateStatusText = computed(() => {
         <!-- HUD: Bind Error Badge (AC: 2) -->
         <div
           v-if="serverBindError"
-          class="cyber-hud flex items-center gap-2 px-3 py-2 border-rose-500/50"
+          class="cyber-hud flex items-center gap-2.5 px-3.5 py-2 border-rose-500/50 max-w-[320px]"
           title="Socket server không thể bind cổng — kiểm tra Firewall / Port conflict"
         >
           <Icon icon="lucide:wifi-off" class="text-base text-rose-400 shrink-0 animate-pulse" />
-          <div class="flex flex-col leading-tight">
+          <div class="flex flex-col leading-tight min-w-0">
             <span class="text-[9px] font-bold text-rose-400 uppercase tracking-wider">Firewall / Port Blocked</span>
-            <span class="text-[8px] text-slate-400">Server không bind được cổng</span>
+            <button
+              type="button"
+              class="text-[8px] text-slate-400 hover:text-cyan-400 transition-colors text-left underline decoration-dotted cursor-pointer font-medium mt-0.5 truncate"
+              @click="openGuide('firewall')"
+            >
+              Hướng dẫn mở khóa Tường lửa & Sửa dải cổng mạng
+            </button>
           </div>
         </div>
 
@@ -1238,25 +1281,6 @@ const updateStatusText = computed(() => {
           <span>{{ syncHint || 'Sync' }}</span>
         </button>
 
-        <!-- Export button -->
-        <button
-          class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5 flex items-center gap-1.5"
-          @click="handleExport"
-          title="Xuất cấu hình hiện tại ra file JSON"
-        >
-          <Icon icon="lucide:download" class="text-xs" />
-          <span>Export</span>
-        </button>
-
-        <!-- Import button -->
-        <button
-          class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5 flex items-center gap-1.5"
-          @click="triggerImport"
-          title="Nạp cấu hình từ file JSON"
-        >
-          <Icon icon="lucide:upload" class="text-xs" />
-          <span>Import</span>
-        </button>
         <input
           ref="importInput"
           type="file"
@@ -1266,7 +1290,7 @@ const updateStatusText = computed(() => {
         />
 
         <button
-          class="cyber-icon-btn cursor-pointer flex items-center justify-center"
+          class="cyber-icon-btn cursor-pointer flex items-center justify-center animate-pulse"
           @click="settingsOpen = true"
           title="Thiết lập hệ thống & Cập nhật"
         >
@@ -1849,16 +1873,27 @@ const updateStatusText = computed(() => {
                   </select>
                 </div>
 
-                <!-- App -->
+                 <!-- App -->
                 <div v-else-if="activeTab === 'app'" class="flex flex-col gap-3">
                   <div class="flex flex-col gap-1.5">
-                    <span class="text-[9px] font-bold uppercase text-slate-400">
-                      {{
-                        isMac
-                          ? 'Đường dẫn App macOS (.app):'
-                          : 'Đường dẫn .exe hoặc dán shortcut (.lnk):'
-                      }}
-                    </span>
+                    <div class="flex items-center justify-between">
+                      <span class="text-[9px] font-bold uppercase text-slate-400">
+                        {{
+                          isMac
+                            ? 'Đường dẫn App macOS (.app):'
+                            : 'Đường dẫn .exe hoặc dán shortcut (.lnk):'
+                        }}
+                      </span>
+                      <button
+                        type="button"
+                        class="text-slate-400 hover:text-cyan-400 transition-colors cursor-pointer p-0.5 flex items-center gap-1"
+                        title="Xem hướng dẫn dán Shortcut / Copy as path"
+                        @click="openGuide('shortcut')"
+                      >
+                        <Icon icon="lucide:help-circle" class="text-xs" />
+                        <span class="text-[8.5px] uppercase tracking-wider font-semibold">Trợ giúp</span>
+                      </button>
+                    </div>
                     <Input
                       v-model="selectedButton.appPath"
                       type="text"
@@ -1878,25 +1913,14 @@ const updateStatusText = computed(() => {
                       {{ appPathHint }}
                     </span>
                   </div>
-                  <div class="flex items-center gap-2">
-                    <button
-                      type="button"
-                      class="cyber-action-btn flex-1 font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-2 flex items-center gap-1.5"
-                      @click="appPickerOpen = true"
-                    >
-                      <Icon icon="lucide:search" class="text-xs" />
-                      <span>Browse installed apps...</span>
-                    </button>
-                    <button
-                      type="button"
-                      class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-2 flex items-center gap-1.5"
-                      title="Xem hướng dẫn dán Shortcut / Copy as path"
-                      @click="guideCenterOpen = true"
-                    >
-                      <Icon icon="lucide:help-circle" class="text-xs" />
-                      <span>Trợ giúp</span>
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    class="cyber-action-btn w-full font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-2 flex items-center justify-center gap-1.5"
+                    @click="appPickerOpen = true"
+                  >
+                    <Icon icon="lucide:search" class="text-xs" />
+                    <span>Browse installed apps...</span>
+                  </button>
                   <div class="flex flex-col gap-1.5 pt-2 cyber-divider">
                     <span class="text-[9px] font-bold uppercase tracking-widest text-slate-500"
                       >Chọn nhanh ứng dụng:</span
@@ -1931,7 +1955,7 @@ const updateStatusText = computed(() => {
                     <button
                       type="button"
                       class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-2 flex items-center gap-1.5"
-                      @click="guideCenterOpen = true"
+                      @click="openGuide('browser')"
                     >
                       <Icon icon="lucide:help-circle" class="text-xs" />
                       <span>Xem mẫu lệnh trợ giúp...</span>
@@ -2300,15 +2324,54 @@ const updateStatusText = computed(() => {
                 </div>
                 <button
                   @click="toggleAutostart"
-                  class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5"
+                  :disabled="autostartLoading"
+                  class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5 flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                   :class="
                     autostartOn
                       ? 'border-cyan-400/70 text-cyan-300 bg-slate-900/80 shadow shadow-cyan-900/20'
                       : 'border-slate-750 text-slate-400 hover:border-slate-600'
                   "
                 >
-                  {{ autostartOn ? 'Bật' : 'Tắt' }}
+                  <Icon
+                    v-if="autostartLoading"
+                    icon="lucide:loader-2"
+                    class="animate-spin text-xs"
+                  />
+                  <span>{{ autostartOn ? 'Bật' : 'Tắt' }}</span>
                 </button>
+              </div>
+            </div>
+
+            <!-- Sao lưu & Cấu hình -->
+            <div class="flex flex-col gap-2.5">
+              <span class="text-[9px] font-bold uppercase tracking-wider text-cyan-400/70"
+                >Sao lưu & Cấu hình</span
+              >
+              <div class="cyber-inset flex items-center justify-between p-3">
+                <div class="flex flex-col gap-0.5">
+                  <span class="font-medium text-slate-300">Xuất/Nhập dữ liệu layout:</span>
+                  <span class="text-[9px] text-slate-500">Tải về hoặc tải lên file JSON cấu hình lưới phím</span>
+                </div>
+                <div class="flex gap-2">
+                  <button
+                    type="button"
+                    class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5 flex items-center gap-1.5"
+                    @click="handleExport"
+                    title="Xuất cấu hình hiện tại ra file JSON"
+                  >
+                    <Icon icon="lucide:download" class="text-xs" />
+                    <span>Export</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5 flex items-center gap-1.5"
+                    @click="triggerImport"
+                    title="Nạp cấu hình từ file JSON"
+                  >
+                    <Icon icon="lucide:upload" class="text-xs" />
+                    <span>Import</span>
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -2468,6 +2531,7 @@ const updateStatusText = computed(() => {
     <!-- Guide Center Modal -->
     <GuideCenterModal
       v-model="guideCenterOpen"
+      :active-topic="guideTopic"
       @apply-template="
         (cmdVal: string) => {
           if (selectedButton) {

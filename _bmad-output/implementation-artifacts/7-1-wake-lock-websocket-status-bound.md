@@ -1,6 +1,6 @@
 # Story 7.1: Tự động bật/tắt Screen Wake Lock theo trạng thái hoạt động của socket kết nối
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -22,12 +22,12 @@ so that thiết bị di động của tôi tự động ngủ tiết kiệm pin 
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Thay đổi logic kích hoạt Wake Lock (AC: 1, 2)
-  - [ ] Sửa đổi watcher trong `ClientView.vue` để trigger `acquireWakeLock` dựa trên tổ hợp `keepScreenOn` và trạng thái `connectionStore.status === 'connected'`.
-  - [ ] Thêm watcher theo dõi `connectionStore.status`, nếu khác `'connected'` và sentinel đang tồn tại, gọi `releaseWakeLock()`.
-- [ ] Task 2: Kiểm thử fallback an toàn và rò rỉ (AC: 3)
-  - [ ] Implement guard check `'wakeLock' in navigator` tại root file `src/lib/wakelock.ts`.
-  - [ ] Đăng ký hàm hủy release trên `onUnmounted` của Vue để tránh leak.
+- [x] Task 1: Thay đổi logic kích hoạt Wake Lock (AC: 1, 2)
+  - [x] Sửa đổi watcher trong `ClientView.vue` to trigger `acquireWakeLock` dựa trên tổ hợp `keepScreenOn` và trạng thái `connectionStore.status === 'connected'`.
+  - [x] Thêm watcher theo dõi `connectionStore.status`, nếu khác `'connected'` và sentinel đang tồn tại, gọi `releaseWakeLock()`.
+- [x] Task 2: Kiểm thử fallback an toàn và rò rùi (AC: 3)
+  - [x] Implement guard check `'wakeLock' in navigator` tại root file `src/lib/wakelock.ts`.
+  - [x] Đăng ký hàm hủy release trên `onUnmounted` của Vue để tránh leak.
 
 ## Dev Notes
 

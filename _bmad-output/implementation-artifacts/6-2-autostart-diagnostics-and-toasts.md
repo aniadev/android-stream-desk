@@ -1,6 +1,6 @@
 # Story 6.2: Cải thiện chẩn đoán và phản hồi thiết lập Autostart
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 

@@ -1,6 +1,6 @@
 # Story 6.1: Chạy ẩn Companion đi vào System Tray khi khởi động hệ thống
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -20,12 +20,12 @@ so that ứng dụng sẵn sàng nhận kết nối macro mà không làm gián 
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Cấu hình build & CLI arg parsing (AC: 1)
-  - [ ] Bổ sung/kiểm tra parser tham số CLI trong `src-tauri/src/lib.rs` để lắng nghe token arg `--hidden`.
-  - [ ] Bỏ qua lệnh `.show()` đối với cửa sổ chính chính của Tauri nếu phát hiện cờ ẩn.
-- [ ] Task 2: Đồng bộ Registry qua plugin Autostart (AC: 2)
-  - [ ] Tải plugin `autostart` nếu cần thiết và cấp permissions tương ứng.
-  - [ ] Gọi hàm `enable()` kèm args là `["--hidden"]` khi người dùng kích hoạt toggle cài đặt khởi động.
+- [x] Task 1: Cấu hình build & CLI arg parsing (AC: 1)
+  - [x] Bổ sung/kiểm tra parser tham số CLI trong `src-tauri/src/lib.rs` để lắng nghe token arg `--hidden`.
+  - [x] Bỏ qua lệnh `.show()` đối với cửa sổ chính chính của Tauri nếu phát hiện cờ ẩn.
+- [x] Task 2: Đồng bộ Registry qua plugin Autostart (AC: 2)
+  - [x] Tải plugin `autostart` nếu cần thiết và cấp permissions tương ứng.
+  - [x] Gọi hàm `enable()` kèm args là `["--hidden"]` khi người dùng kích hoạt toggle cài đặt khởi động.
 
 ## Dev Notes
 
