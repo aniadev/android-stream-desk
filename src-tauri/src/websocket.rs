@@ -39,10 +39,7 @@ pub async fn start_ws_server(port: u16, app_handle: tauri::AppHandle) {
         }
     };
     println!("WebSocket server listening on ws://{}", addr);
-    let _ = app_handle.emit(
-        "server-ready",
-        serde_json::json!({ "port": port }),
-    );
+    let _ = app_handle.emit("server-ready", serde_json::json!({ "port": port }));
 
     let (tx, _) = broadcast::channel::<String>(BROADCAST_CAPACITY);
     {
@@ -179,7 +176,9 @@ async fn handle_connection(
     Ok(())
 }
 
-fn get_cached_layout(app_handle: &tauri::AppHandle) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
+fn get_cached_layout(
+    app_handle: &tauri::AppHandle,
+) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
     let app_dir = app_handle.path().app_config_dir()?;
     let config_path = app_dir.join("layout.json");
     if config_path.exists() {

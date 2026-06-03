@@ -47,15 +47,9 @@ development_status:
   1-2-network-settings-gui: review
   epic-1-retrospective: optional
 
-  epic-2: done
-  2-1-http-static-server: done
-  2-2-browser-client-bootstrap: done
-  2-3-web-client-url-qr-dashboard: done
-  epic-2-retrospective: optional
-
-  epic-3: backlog
-  3-1-apk-connect-qr-generation: backlog
-  3-2-android-native-camera-scanner: backlog
+  epic-3: done
+  3-1-apk-connect-qr-generation: done
+  3-2-android-native-camera-scanner: done
   epic-3-retrospective: optional
 
   epic-4: backlog

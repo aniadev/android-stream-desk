@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "test:qr": "node --experimental-strip-types src/lib/apkConnectQr.test.mjs",
     "android:dev": "tauri android dev",
     "android:build": "tauri android build",
     "android:build:debug": "tauri android build --apk --debug",
@@ -20,6 +21,7 @@
     "@iconify/vue": "^5.0.1",
     "@tauri-apps/api": "^2.2.0",
     "@tauri-apps/plugin-autostart": "^2.2.0",
+    "@tauri-apps/plugin-barcode-scanner": "~2.4.5",
     "@tauri-apps/plugin-dialog": "^2.0.0",
     "@tauri-apps/plugin-process": "^2.3.1",
     "@tauri-apps/plugin-shell": "^2.2.0",

@@ -8,7 +8,8 @@ import { Icon, listIcons } from '@iconify/vue';
 import { vDraggable } from 'vue-draggable-plus';
 import { normalizeHex } from '../lib/color';
 import { applyTheme, isValidTheme, THEMES, type ThemeName } from '../lib/themes';
-import { createQrSvg } from '../lib/qrSvg';
+import { safeCreateQrSvg } from '../lib/qrSvg';
+import { buildApkConnectPayload } from '../lib/apkConnectQr';
 
 // Import Shadcn UI Components
 import Input from '../components/ui/Input.vue';
@@ -37,6 +38,7 @@ const serverIp = ref<string>('—');
 const serverPort = ref<number>(8089);
 const copyHint = ref<string>('');
 const webCopyHint = ref<string>('');
+const apkCopyHint = ref<string>('');
 const colorCopyHint = ref<string>('');
 const syncHint = ref<string>('');
 let syncTimer: ReturnType<typeof setTimeout> | null = null;
@@ -68,6 +70,8 @@ const serverConfigSaving = ref(false);
 const serverConfigError = ref<string>('');
 const restartDialogOpen = ref(false);
 const restartDialogMessage = ref('Đang lưu cấu hình và khởi động lại Companion...');
+const restartDialogFailed = ref(false);
+const isDevBuild = import.meta.env.DEV;
 const savedServerConfig = ref<ServerConfig | null>(null);
 const serverConfigDraft = ref<ServerConfigDraft>({
   wsPort: '8089',
@@ -132,7 +136,34 @@ const webClientUrl = computed(() => {
   return `http://${serverIp.value}:${config.webPort}`;
 });
 
-const webClientQrSvg = computed(() => (webClientUrl.value ? createQrSvg(webClientUrl.value) : ''));
+const webClientQrSvg = computed(() => (webClientUrl.value ? safeCreateQrSvg(webClientUrl.value) : ''));
+
+const apkConnectPayload = computed(() => {
+  if (serverIp.value === '—') return '';
+  return buildApkConnectPayload(serverIp.value, serverPort.value);
+});
+
+const apkConnectQrSvg = computed(() =>
+  apkConnectPayload.value ? safeCreateQrSvg(apkConnectPayload.value) : '',
+);
+
+const runRelaunchWithTimeout = async () => {
+  const { relaunch } = await import('@tauri-apps/plugin-process');
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  try {
+    await Promise.race([
+      relaunch(),
+      new Promise<never>((_, reject) => {
+        timeoutId = window.setTimeout(
+          () => reject(new Error('Restart IPC timed out after 5 seconds')),
+          5000,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeoutId !== null) clearTimeout(timeoutId);
+  }
+};
 
 const buildServerConfigPayload = (): ServerConfig | null => {
   const ws = parsePortDraft(serverConfigDraft.value.wsPort, 'Cổng WebSocket');
@@ -175,13 +206,21 @@ const saveNetworkSettingsAndRelaunch = async () => {
     await invoke('save_server_config', { config: payload });
     savedServerConfig.value = payload;
     restartDialogOpen.value = true;
+    restartDialogFailed.value = false;
     restartDialogMessage.value = 'Đã lưu cấu hình. Companion đang khởi động lại để áp dụng cổng mới...';
+
+    if (isDevBuild) {
+      restartDialogFailed.value = true;
+      restartDialogMessage.value =
+        'Đã lưu cấu hình. Đang chạy ở chế độ dev nên Companion không tự relaunch để tránh webview trắng do mất Vite dev server. Hãy dừng và chạy lại `pnpm tauri dev` để áp dụng cổng mới.';
+      return;
+    }
 
     window.setTimeout(async () => {
       try {
-        const { relaunch } = await import('@tauri-apps/plugin-process');
-        await relaunch();
+        await runRelaunchWithTimeout();
       } catch (err: any) {
+        restartDialogFailed.value = true;
         restartDialogMessage.value = `Đã lưu cấu hình nhưng chưa thể tự khởi động lại: ${err?.message || err}`;
         layoutStore.lastToast = {
           kind: 'error',
@@ -773,6 +812,17 @@ const copyWebClientUrl = async () => {
   }
 };
 
+const copyApkConnectPayload = async () => {
+  if (!apkConnectPayload.value) return;
+  try {
+    await navigator.clipboard.writeText(apkConnectPayload.value);
+    apkCopyHint.value = 'Copied!';
+    setTimeout(() => (apkCopyHint.value = ''), 1500);
+  } catch (_) {
+    apkCopyHint.value = 'Failed';
+  }
+};
+
 const copyColor = async () => {
   if (!selectedButton.value?.backgroundColor) return;
   try {
@@ -1256,6 +1306,41 @@ const updateStatusText = computed(() => {
                   +
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- APK Connect QR -->
+        <div v-if="apkConnectQrSvg" class="cyber-divider pt-4 flex flex-col gap-3">
+          <div class="flex items-center justify-between gap-2">
+            <div>
+              <h2 class="cyber-section-title">Kết nối APK</h2>
+              <p class="cyber-section-desc">Deep link cấu hình LAN tức thời</p>
+            </div>
+            <button
+              type="button"
+              class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5 flex items-center gap-1.5"
+              @click="copyApkConnectPayload"
+              title="Sao chép payload kết nối APK"
+            >
+              <Icon :icon="apkCopyHint ? 'lucide:check' : 'lucide:copy'" class="text-xs" />
+              <span>{{ apkCopyHint || 'Copy' }}</span>
+            </button>
+          </div>
+          <div class="cyber-inset grid grid-cols-[104px_minmax(0,1fr)] gap-3 p-3 items-center">
+            <div
+              class="rounded-lg overflow-hidden bg-white p-1 shadow-[0_0_18px_rgba(34,211,238,0.08)]"
+              v-html="apkConnectQrSvg"
+            ></div>
+            <div class="flex flex-col gap-1 min-w-0">
+              <span class="text-[8px] font-bold uppercase tracking-wider text-cyan-300/80">
+                Payload
+              </span>
+              <span
+                class="font-mono text-[9px] leading-relaxed text-slate-400 break-all select-text"
+              >
+                {{ apkConnectPayload }}
+              </span>
             </div>
           </div>
         </div>
@@ -2197,21 +2282,39 @@ const updateStatusText = computed(() => {
           <div class="flex items-center gap-3">
             <div
               class="h-9 w-9 rounded-lg border border-cyan-300/20 bg-cyan-400/10 flex items-center justify-center"
+              :class="restartDialogFailed ? 'border-rose-300/30 bg-rose-400/10' : ''"
             >
-              <Icon icon="lucide:refresh-cw" class="text-base text-cyan-300 animate-spin" />
+              <Icon
+                :icon="restartDialogFailed ? 'lucide:triangle-alert' : 'lucide:refresh-cw'"
+                class="text-base"
+                :class="restartDialogFailed ? 'text-rose-300' : 'text-cyan-300 animate-spin'"
+              />
             </div>
             <div class="flex flex-col">
               <h3 class="text-xs font-bold text-slate-50 uppercase tracking-wider">
-                Đang áp dụng cấu hình mạng
+                {{ restartDialogFailed ? 'Chưa tự khởi động lại được' : 'Đang áp dụng cấu hình mạng' }}
               </h3>
               <p class="text-[9px] text-slate-500 mt-0.5">
-                Companion sẽ mở lại với listener mới.
+                {{
+                  restartDialogFailed
+                    ? 'Cấu hình đã lưu; hãy mở lại Companion thủ công nếu cần.'
+                    : 'Companion sẽ mở lại với listener mới.'
+                }}
               </p>
             </div>
           </div>
           <p class="text-[11px] leading-relaxed text-slate-300">
             {{ restartDialogMessage }}
           </p>
+          <button
+            v-if="restartDialogFailed"
+            type="button"
+            class="cyber-action-btn w-full font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-2 flex items-center justify-center gap-1.5"
+            @click="restartDialogOpen = false"
+          >
+            <Icon icon="lucide:x" class="text-xs" />
+            Đóng
+          </button>
         </div>
       </div>
     </transition>

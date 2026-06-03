@@ -6,7 +6,9 @@ use std::net::{IpAddr, UdpSocket};
 use std::path::Path;
 #[cfg(desktop)]
 use std::sync::Mutex;
-use tauri::{AppHandle, Emitter, Listener, Manager};
+#[cfg(desktop)]
+use tauri::Emitter;
+use tauri::{AppHandle, Listener, Manager};
 
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub mod metrics;
@@ -227,10 +229,7 @@ async fn export_layout_to_path(path: String, layout: serde_json::Value) -> Resul
 }
 
 #[tauri::command]
-async fn execute_button_action(
-    app_handle: AppHandle,
-    button: ButtonConfig,
-) -> Result<(), String> {
+async fn execute_button_action(app_handle: AppHandle, button: ButtonConfig) -> Result<(), String> {
     execute_logic(app_handle, button).await
 }
 
@@ -356,9 +355,18 @@ foreach($d in $dirs){
 
         // Isolate the bare target exe (strip quotes/args) for the icon heuristic.
         let clean_exe_target = if resolved.starts_with('"') {
-            resolved.split('"').nth(1).unwrap_or(&resolved).trim().to_string()
+            resolved
+                .split('"')
+                .nth(1)
+                .unwrap_or(&resolved)
+                .trim()
+                .to_string()
         } else {
-            resolved.split_whitespace().next().unwrap_or(&resolved).to_string()
+            resolved
+                .split_whitespace()
+                .next()
+                .unwrap_or(&resolved)
+                .to_string()
         };
 
         let name = if name.is_empty() {
@@ -385,9 +393,18 @@ fn list_installed_apps_windows() -> Vec<InstalledApp> {
     use winreg::RegKey;
 
     let hives: &[(RegKey, &str)] = &[
-        (RegKey::predef(HKEY_LOCAL_MACHINE), r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
-        (RegKey::predef(HKEY_LOCAL_MACHINE), r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"),
-        (RegKey::predef(HKEY_CURRENT_USER), r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
+        (
+            RegKey::predef(HKEY_LOCAL_MACHINE),
+            r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+        ),
+        (
+            RegKey::predef(HKEY_LOCAL_MACHINE),
+            r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall",
+        ),
+        (
+            RegKey::predef(HKEY_CURRENT_USER),
+            r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+        ),
     ];
 
     let mut apps: Vec<InstalledApp> = Vec::new();
@@ -427,7 +444,8 @@ fn list_installed_apps_windows() -> Vec<InstalledApp> {
                 || dn_lower.contains("hotfix")
                 || dn_lower.contains("security update")
                 || dn_lower.contains("redistributable")
-                || (dn_lower.starts_with("kb") && dn[2..].chars().next().is_some_and(|c| c.is_ascii_digit()));
+                || (dn_lower.starts_with("kb")
+                    && dn[2..].chars().next().is_some_and(|c| c.is_ascii_digit()));
             if is_junk {
                 continue;
             }
@@ -464,9 +482,18 @@ fn list_installed_apps_windows() -> Vec<InstalledApp> {
     for app in apps {
         // Trích xuất tên exe trần làm khóa so khớp trùng
         let clean_exe_key = if app.path.starts_with('"') {
-            app.path.split('"').nth(1).unwrap_or(&app.path).trim().to_lowercase()
+            app.path
+                .split('"')
+                .nth(1)
+                .unwrap_or(&app.path)
+                .trim()
+                .to_lowercase()
         } else {
-            app.path.split_whitespace().next().unwrap_or(&app.path).to_lowercase()
+            app.path
+                .split_whitespace()
+                .next()
+                .unwrap_or(&app.path)
+                .to_lowercase()
         };
 
         seen.entry(clean_exe_key)
@@ -474,7 +501,7 @@ fn list_installed_apps_windows() -> Vec<InstalledApp> {
                 // Nếu entry mới có Arguments (độ dài chuỗi path dài hơn / chứa tham số) thì ưu tiên lưu đè
                 let new_has_args = app.path.trim().contains(' ');
                 let ext_has_args = existing.path.trim().contains(' ');
-                
+
                 if new_has_args && !ext_has_args {
                     *existing = app.clone();
                 } else if !new_has_args && !ext_has_args {
@@ -546,10 +573,11 @@ fn list_installed_apps() -> Vec<InstalledApp> {
 fn read_clipboard_files() -> Result<Vec<String>, String> {
     #[cfg(target_os = "windows")]
     {
-        use std::process::Command;
         use std::os::windows::process::CommandExt;
+        use std::process::Command;
         const CREATE_NO_WINDOW: u32 = 0x08000000;
-        let script = "[void][System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms'); \
+        let script =
+            "[void][System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms'); \
                       $clip = [System.Windows.Forms.Clipboard]::GetFileDropList(); \
                       if ($clip) { $clip } else { @() }";
         let out = Command::new("powershell")
@@ -579,8 +607,8 @@ fn read_clipboard_files() -> Result<Vec<String>, String> {
 fn resolve_shortcut(lnk_path: String) -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
-        use std::process::Command;
         use std::os::windows::process::CommandExt;
+        use std::process::Command;
         const CREATE_NO_WINDOW: u32 = 0x08000000;
         // Use PowerShell WScript.Shell COM to read .lnk target + arguments
         let script = format!(
@@ -742,7 +770,10 @@ fn parse_shortcut(shortcut: &str) -> Result<(Vec<Key>, Vec<Key>), String> {
         }
     }
     if bases.is_empty() {
-        return Err(format!("Shortcut '{}' has only modifiers and no base key", shortcut));
+        return Err(format!(
+            "Shortcut '{}' has only modifiers and no base key",
+            shortcut
+        ));
     }
     Ok((modifiers, bases))
 }
@@ -966,6 +997,11 @@ pub fn run() {
     // release prep). Re-enable when minisign key lands.
     #[allow(unused_mut)]
     let mut builder = tauri::Builder::default();
+
+    #[cfg(mobile)]
+    {
+        builder = builder.plugin(tauri_plugin_barcode_scanner::init());
+    }
 
     #[cfg(desktop)]
     {
@@ -1207,7 +1243,9 @@ mod tests {
             .and_then(|value| value.as_array())
             .unwrap();
 
-        assert!(permissions.iter().any(|permission| permission == "process:default"));
+        assert!(permissions
+            .iter()
+            .any(|permission| permission == "process:default"));
     }
 }
 

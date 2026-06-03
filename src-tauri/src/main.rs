@@ -1,5 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-  android_stream_desk::run();
+    android_stream_desk::run();
 }

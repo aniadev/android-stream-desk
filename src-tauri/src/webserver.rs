@@ -159,7 +159,13 @@ fn add_header(response: &mut Response<Cursor<Vec<u8>>>, name: &str, value: &str)
 }
 
 fn content_type_for_path(path: &str) -> &'static str {
-    match path.rsplit('.').next().unwrap_or_default().to_ascii_lowercase().as_str() {
+    match path
+        .rsplit('.')
+        .next()
+        .unwrap_or_default()
+        .to_ascii_lowercase()
+        .as_str()
+    {
         "css" => "text/css; charset=utf-8",
         "html" => "text/html; charset=utf-8",
         "js" => "text/javascript; charset=utf-8",

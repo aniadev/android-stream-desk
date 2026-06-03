@@ -1,9 +1,9 @@
-const VERSION = 3;
-const SIZE = 29;
+const VERSION = 4;
+const SIZE = 33;
 const QUIET_ZONE = 4;
-const DATA_CODEWORDS = 55;
-const EC_CODEWORDS = 15;
-const MAX_BYTE_LENGTH = 53;
+const DATA_CODEWORDS = 80;
+const EC_CODEWORDS = 20;
+const MAX_BYTE_LENGTH = 78;
 
 type Matrix = (boolean | null)[][];
 
@@ -79,7 +79,7 @@ const drawFunctionPatterns = (matrix: Matrix, reserved: boolean[][]) => {
   drawFinder(matrix, reserved, 0, 0);
   drawFinder(matrix, reserved, SIZE - 7, 0);
   drawFinder(matrix, reserved, 0, SIZE - 7);
-  drawAlignment(matrix, reserved, 22, 22);
+  drawAlignment(matrix, reserved, 26, 26);
 
   for (let i = 8; i <= SIZE - 9; i += 1) {
     const dark = i % 2 === 0;
@@ -242,4 +242,13 @@ export function createQrSvg(text: string): string {
   drawFormatBits(matrix, reserved);
 
   return toSvg(matrix);
+}
+
+export function safeCreateQrSvg(text: string): string {
+  try {
+    return createQrSvg(text);
+  } catch (error) {
+    console.warn('Failed to create QR SVG:', error);
+    return '';
+  }
 }
