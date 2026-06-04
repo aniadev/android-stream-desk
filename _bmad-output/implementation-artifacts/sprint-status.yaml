@@ -35,13 +35,15 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: "2026-06-03"
-last_updated: "2026-06-03"
+last_updated: "2026-06-04"
 project: "android-stream-desk"
 project_key: "NOKEY"
 tracking_system: "file-system"
 story_location: "_bmad-output/implementation-artifacts"
 
 development_status:
+  # NOTE: story file của epic-1..epic-7 (1-1..7-1) đã archive ngày 2026-06-04
+  # sang ./archive/ — xem ./archive/README.md. Block dưới giữ làm dấu vết status.
   epic-1: in-progress
   1-1-read-write-network-config: done
   1-2-network-settings-gui: review
@@ -69,3 +71,51 @@ development_status:
   epic-7: done
   7-1-wake-lock-websocket-status-bound: done
   epic-7-retrospective: optional
+
+  # =====================================================================
+  # Release v1.5.1 — Stability Hotfix, macOS Accessibility & QR UX
+  # Source: planning-artifacts/breakdown-v1.5.1.md
+  # Sprint phasing (from breakdown §6 Proposed Phasing):
+  #   Sprint 1 (Critical stability): s-rel1, s-rel2, s-rel3, s-rust1, s-link1
+  #   Sprint 2 (macOS Accessibility): s-mac1, s-mac2, s-mac3
+  #   Sprint 3 (QR/UX polish + gate): s-qrx1, s-qrx2, s-qrx3, s-ux1, s-ux2,
+  #     s-client1, s-client2, s-client3, s-rust2, s-rust3
+  # =====================================================================
+
+  # Epic 8 — Mobile reconnect after Companion relaunch (GitHub #2)
+  epic-8: in-progress
+  s-rel1-startup-network-health: ready-for-dev
+  s-rel2-relaunch-endpoint-state: ready-for-dev
+  s-rel3-mobile-reconnect-after-restart: ready-for-dev
+  epic-8-retrospective: optional
+
+  # Epic 9 — macOS Accessibility diagnostics & recovery
+  epic-9: in-progress
+  s-mac1-native-accessibility-diagnostics: ready-for-dev
+  s-mac2-accessibility-recovery-ui: ready-for-dev
+  s-mac3-macos-manual-verification: ready-for-dev
+  epic-9-retrospective: optional
+
+  # Epic 10 — QR renderer & UX polish (GitHub #3)
+  epic-10: in-progress
+  s-qrx1-qr-renderer-scannability: ready-for-dev
+  s-qrx2-dashboard-qr-layout: ready-for-dev
+  s-qrx3-mobile-qr-scan-ux: ready-for-dev
+  s-ux1-windows-readability: ready-for-dev
+  s-ux2-settings-ia-cleanup: ready-for-dev
+  epic-10-retrospective: optional
+
+  # Epic 11 — Client fit mode & tablet responsive layout
+  epic-11: in-progress
+  s-client1-display-fit-mode: ready-for-dev
+  s-client2-tablet-responsive-css: ready-for-dev
+  s-client3-web-client-fullscreen: ready-for-dev
+  epic-11-retrospective: optional
+
+  # Epic 12 — Runtime fixes (wake lock, link button, build preflight)
+  epic-12: in-progress
+  s-rust1-wake-lock-connected-only: ready-for-dev
+  s-link1-companion-link-browser: ready-for-dev
+  s-rust2-backend-startup-preflight: ready-for-dev
+  s-rust3-rust-regression-gate: ready-for-dev
+  epic-12-retrospective: optional
