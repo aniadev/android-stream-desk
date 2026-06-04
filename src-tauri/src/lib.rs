@@ -860,6 +860,18 @@ fn parse_shortcut(shortcut: &str) -> Result<(Vec<Key>, Vec<Key>), String> {
 }
 
 #[cfg(desktop)]
+fn enigo_settings() -> Settings {
+    // KHÔNG để enigo tự bật prompt Accessibility của macOS. Mặc định enigo đặt
+    // open_prompt_to_get_permissions = true, nên mỗi lần Enigo::new (kể cả lúc
+    // poll diagnostics) sẽ bung dialog "Accessibility Access" liên tục.
+    // App tự kiểm tra quyền qua native_input_trusted() và hướng dẫn user trong UI.
+    Settings {
+        open_prompt_to_get_permissions: false,
+        ..Settings::default()
+    }
+}
+
+#[cfg(desktop)]
 fn enigo_init_err(e: impl std::fmt::Display) -> String {
     #[cfg(target_os = "macos")]
     {
@@ -881,7 +893,7 @@ fn probe_input_permission() -> bool {
         let Ok(_guard) = ENIGO_LOCK.lock() else {
             return false;
         };
-        Enigo::new(&Settings::default()).is_ok()
+        Enigo::new(&enigo_settings()).is_ok()
     }
     #[cfg(not(desktop))]
     {
@@ -903,7 +915,7 @@ fn simulate_shortcut(shortcut: &str) -> Result<(), String> {
         .lock()
         .map_err(|e| format!("Enigo lock poisoned: {}", e))?;
 
-    let settings = Settings::default();
+    let settings = enigo_settings();
     let mut enigo = Enigo::new(&settings).map_err(enigo_init_err)?;
 
     // Press modifiers; on first failure release ones already pressed and bail.
@@ -959,7 +971,7 @@ fn simulate_media(action: &str) -> Result<(), String> {
     let _guard = ENIGO_LOCK
         .lock()
         .map_err(|e| format!("Enigo lock poisoned: {}", e))?;
-    let mut enigo = Enigo::new(&Settings::default()).map_err(enigo_init_err)?;
+    let mut enigo = Enigo::new(&enigo_settings()).map_err(enigo_init_err)?;
     enigo
         .key(key, Direction::Click)
         .map_err(|e| format!("Media key failed: {}", e))
