@@ -19,7 +19,8 @@ import {
 const connectionStore = useConnectionStore();
 const layoutStore = useLayoutStore();
 const settingsStore = useSettingsStore();
-const { keepScreenOn, vibrateOnClick, soundOnClick } = storeToRefs(settingsStore);
+const { keepScreenOn, vibrateOnClick, soundOnClick, displayFitMode } =
+  storeToRefs(settingsStore);
 
 const showConnectModal = computed(() => {
   return !connectionStore.hasConnectedOnce && connectionStore.status !== 'connected';
@@ -29,6 +30,8 @@ const toastMessage = ref<string | null>(null);
 const isSubmitted = ref(false);
 const settingsOpen = ref(false);
 const isScanningQr = ref(false);
+const scanStatus = ref<'idle' | 'scanning' | 'permission_denied' | 'cancelled' | 'invalid_qr' | 'success'>('idle');
+const scannedEndpointLabel = ref('');
 let toastTimer: number | null = null;
 
 const showToast = (msg: string, ms = 3500) => {
@@ -78,6 +81,32 @@ const orientationOptions: { value: OrientationMode; label: string; icon: string 
   { value: 'landscape-reverse', label: 'Ngang ngược', icon: 'mdi:phone-rotate-landscape' },
   { value: 'portrait', label: 'Dọc', icon: 'mdi:phone-rotate-portrait' },
 ];
+
+// --- S-CLIENT1: Display fit mode (contain/cover/fullscreen) ---
+type FitModeLabel = 'contain' | 'cover' | 'fullscreen';
+const fitModeOptions: { value: FitModeLabel; label: string; icon: string; hint: string }[] = [
+  {
+    value: 'contain',
+    label: 'Contain',
+    icon: 'mdi:fit-to-page-outline',
+    hint: 'Giữ toàn bộ lưới trong viewport, có viền shell',
+  },
+  {
+    value: 'cover',
+    label: 'Cover',
+    icon: 'mdi:fit-to-page',
+    hint: 'Lưới phủ tối đa, crop padding nhẹ, giữ viền',
+  },
+  {
+    value: 'fullscreen',
+    label: 'Full',
+    icon: 'mdi:fit-to-screen',
+    hint: 'Bỏ shell, padding tối đa — gần app native',
+  },
+];
+const setFitMode = (mode: FitModeLabel) => {
+  displayFitMode.value = mode;
+};
 
 // Android ActivityInfo.SCREEN_ORIENTATION_* values — matches Rust set_android_orientation.
 const ANDROID_ORIENTATION: Record<OrientationMode, number> = {
@@ -144,10 +173,12 @@ const scanCompanionQr = async () => {
   if (!isAndroidTauriApp.value || isScanningQr.value) return;
 
   isScanningQr.value = true;
+  scanStatus.value = 'scanning';
   try {
     const { Format, requestPermissions, scan } = await import('@tauri-apps/plugin-barcode-scanner');
     const permission = await requestPermissions();
     if (permission !== 'granted') {
+      scanStatus.value = 'permission_denied';
       showToast('Chưa có quyền camera để quét QR.');
       return;
     }
@@ -155,18 +186,47 @@ const scanCompanionQr = async () => {
     const result = await scan({ cameraDirection: 'back', formats: [Format.QRCode] });
     const target = parseApkConnectPayload(result.content);
     if (!target) {
+      scanStatus.value = 'invalid_qr';
       showToast('QR không đúng định dạng kết nối Android Stream Desk.');
       return;
     }
 
+    scanStatus.value = 'success';
     connectionStore.applyScannedEndpoint(target.host, target.wsPort);
+    scannedEndpointLabel.value = connectionStore.attemptingEndpoint;
     isSubmitted.value = false;
     showToast(`Đã đọc QR Companion. Đang kết nối ${connectionStore.attemptingEndpoint}...`);
     connectionStore.connect();
   } catch (e: any) {
-    showToast(`Quét QR thất bại: ${e?.message || e}`);
+    const errmsg = String(e?.message || e).toLowerCase();
+    if (errmsg.includes('cancel') || errmsg.includes('dismiss')) {
+      scanStatus.value = 'cancelled';
+      showToast('Đã hủy quét QR.');
+    } else {
+      scanStatus.value = 'invalid_qr';
+      showToast(`Quét QR thất bại: ${e?.message || e}`);
+    }
   } finally {
     isScanningQr.value = false;
+  }
+};
+
+const cancelScanQr = async () => {
+  try {
+    const { cancel } = await import('@tauri-apps/plugin-barcode-scanner');
+    await cancel();
+    scanStatus.value = 'cancelled';
+  } catch (e: any) {
+    console.warn('Hủy quét QR thất bại:', e);
+  }
+};
+
+const handleOpenSettings = async () => {
+  try {
+    const { openAppSettings } = await import('@tauri-apps/plugin-barcode-scanner');
+    await openAppSettings();
+  } catch (e: any) {
+    showToast(`Mở cài đặt thất bại: ${e?.message || e}`);
   }
 };
 
@@ -182,6 +242,15 @@ watch(
     }, 3500);
   },
   { deep: true },
+);
+
+watch(
+  () => connectionStore.status,
+  next => {
+    if (next === 'connected') {
+      scanStatus.value = 'idle';
+    }
+  }
 );
 
 const handleVisibilityChange = async () => {
@@ -217,9 +286,6 @@ onMounted(async () => {
   };
   window.addEventListener('pointerdown', unlock, { once: true });
 
-  if (keepScreenOn.value) {
-    await acquireWakeLock();
-  }
   document.addEventListener('visibilitychange', handleVisibilityChange);
 
   if (isBrowserModeActive) {
@@ -248,6 +314,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (toastTimer !== null) clearTimeout(toastTimer);
+  if (isScanningQr.value) void cancelScanQr();
   releaseWakeLock().catch(() => {});
   document.removeEventListener('visibilitychange', handleVisibilityChange);
   connectionStore.disconnect();
@@ -256,8 +323,12 @@ onUnmounted(() => {
 
 <template>
   <div
-    class="h-screen w-screen flex flex-col overflow-hidden relative"
-    :style="{ backgroundColor: 'var(--theme-bg)' }"
+    class="w-screen flex flex-col overflow-hidden relative h-dvh"
+    :style="{
+      backgroundColor: 'var(--theme-bg)',
+      paddingTop: 'env(safe-area-inset-top)',
+      paddingBottom: 'env(safe-area-inset-bottom)',
+    }"
   >
     <!-- Grid Area occupies 98% of the screen when connected -->
     <div
@@ -335,6 +406,99 @@ onUnmounted(() => {
         </div>
       </div>
 
+      <!-- Prominent QR Scan Panel before Manual IP Form when not yet connected (AC-1) -->
+      <div
+        v-if="isAndroidTauriApp"
+        class="mb-6 w-[380px] max-w-full bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-2xl flex flex-col items-center gap-4 text-center relative overflow-hidden"
+      >
+        <span class="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-violet-600 to-indigo-650"></span>
+        <div class="h-10 w-10 rounded-xl bg-violet-600/30 flex items-center justify-center">
+          <Icon icon="mdi:qrcode-scan" class="text-xl text-violet-400" />
+        </div>
+        <div class="flex flex-col gap-1">
+          <h3 class="text-sm font-extrabold text-slate-100 uppercase tracking-wide">
+            Kết nối bằng QR
+          </h3>
+          <p class="text-[10px] text-slate-400 leading-normal px-2">
+            Mở Companion trên máy tính và quét mã QR hiển thị trên màn hình để kết nối nhanh.
+          </p>
+        </div>
+
+        <!-- Scanning and error states (AC-2) -->
+        <div class="w-full flex flex-col gap-2 mt-2">
+          <!-- Permission Denied State -->
+          <div
+            v-if="scanStatus === 'permission_denied'"
+            class="text-[10px] text-rose-400 bg-rose-950/30 border border-rose-900/40 rounded-xl p-2.5 flex flex-col gap-2 items-center"
+          >
+            <span class="font-bold flex items-center gap-1.5">
+              <Icon icon="mdi:camera-off" class="text-base" /> Camera bị chặn quyền truy cập.
+            </span>
+            <button
+              @click="handleOpenSettings"
+              class="w-full bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-[9px] uppercase tracking-wide py-1.5 px-3 rounded-lg transition"
+            >
+              Mở cài đặt quyền ứng dụng
+            </button>
+          </div>
+
+          <!-- Cancelled State -->
+          <div
+            v-else-if="scanStatus === 'cancelled'"
+            class="text-[10px] text-amber-400 bg-amber-950/30 border border-amber-900/40 rounded-xl p-2.5 flex items-center justify-center gap-1.5 font-bold"
+          >
+            <Icon icon="mdi:close-circle" class="text-base" /> Đã hủy lượt quét.
+          </div>
+
+          <!-- Invalid QR State -->
+          <div
+            v-else-if="scanStatus === 'invalid_qr'"
+            class="text-[10px] text-rose-400 bg-rose-950/30 border border-rose-900/40 rounded-xl p-2.5 flex items-center justify-center gap-1.5 font-bold"
+          >
+            <Icon icon="mdi:alert-circle" class="text-base" /> Mã QR không hợp lệ.
+          </div>
+
+          <!-- Scanning State -->
+          <div
+            v-else-if="scanStatus === 'scanning'"
+            class="text-[10px] text-indigo-400 bg-indigo-950/30 border border-indigo-900/40 rounded-xl p-2.5 flex items-center justify-center gap-2 font-bold"
+          >
+            <Icon icon="mdi:loading" class="animate-spin text-base" /> Đang sử dụng camera quét...
+            <button
+              @click="cancelScanQr"
+              class="ml-auto bg-slate-800 text-slate-350 hover:bg-slate-700 hover:text-white font-extrabold text-[8px] uppercase px-2 py-1 rounded"
+            >
+              Hủy
+            </button>
+          </div>
+
+          <!-- Success / connecting state -->
+          <div
+            v-else-if="scanStatus === 'success'"
+            class="text-[10px] text-emerald-400 bg-emerald-950/30 border border-emerald-900/40 rounded-xl p-2.5 flex flex-col items-center justify-center gap-1.5 font-bold"
+          >
+            <span class="flex items-center justify-center gap-1.5">
+              <Icon icon="mdi:loading" class="animate-spin text-base" />
+              Đang kết nối Companion
+            </span>
+            <span class="font-mono text-[9px] text-emerald-200 break-all">
+              {{ scannedEndpointLabel || connectionStore.attemptingEndpoint }}
+            </span>
+          </div>
+
+          <!-- Scan CTA Button -->
+          <button
+            type="button"
+            class="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-white shadow-lg transition duration-150 hover:brightness-110 active:scale-98"
+            :disabled="isScanningQr"
+            @click="scanCompanionQr"
+          >
+            <Icon icon="mdi:camera-iris" class="text-base" />
+            Bắt đầu quét QR
+          </button>
+        </div>
+      </div>
+
       <div
         class="w-[380px] max-w-full bg-slate-900/80 border border-slate-800 rounded-3xl p-6 shadow-2xl flex flex-col items-center gap-5 text-center relative overflow-hidden"
       >
@@ -362,7 +526,7 @@ onUnmounted(() => {
         <div class="flex flex-col w-full gap-3">
           <div class="flex gap-2">
             <div class="flex-1 flex flex-col gap-1.5 align-left text-left">
-              <label class="text-[8px] uppercase tracking-wider font-extrabold text-slate-455"
+              <label class="text-[9px] uppercase tracking-wider font-extrabold text-slate-455"
                 >Địa chỉ IP:</label
               >
               <input
@@ -381,7 +545,7 @@ onUnmounted(() => {
               />
             </div>
             <div class="w-20 flex flex-col gap-1.5 align-left text-left">
-              <label class="text-[8px] uppercase tracking-wider font-extrabold text-slate-455"
+              <label class="text-[9px] uppercase tracking-wider font-extrabold text-slate-455"
                 >Port:</label
               >
               <input
@@ -510,7 +674,7 @@ onUnmounted(() => {
               <h3 class="text-xs font-bold text-slate-50 uppercase tracking-wider">
                 Thông tin kết nối
               </h3>
-              <p class="text-[8px] text-slate-500 uppercase font-bold mt-0.5">Companion config</p>
+              <p class="text-[9px] text-slate-500 uppercase font-bold mt-0.5">Companion config</p>
             </div>
           </div>
 
@@ -558,7 +722,7 @@ onUnmounted(() => {
             <div
               class="flex flex-col gap-2 rounded-xl bg-slate-950/60 p-3 border border-slate-850/60"
             >
-              <span class="text-[8px] uppercase tracking-wider font-extrabold text-slate-450"
+              <span class="text-[9px] uppercase tracking-wider font-extrabold text-slate-450"
                 >Xoay màn hình</span
               >
               <div class="grid grid-cols-2 gap-1.5">
@@ -577,6 +741,41 @@ onUnmounted(() => {
                   {{ opt.label }}
                 </button>
               </div>
+            </div>
+
+            <!-- Display Fit Mode (S-CLIENT1) -->
+            <div
+              class="flex flex-col gap-2 rounded-xl bg-slate-950/60 p-3 border border-slate-850/60"
+            >
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-[9px] uppercase tracking-wider font-extrabold text-slate-450"
+                  >Cách lưới chiếm màn hình</span
+                >
+                <span class="text-[9px] text-slate-500 font-mono">{{ displayFitMode }}</span>
+              </div>
+              <div class="grid grid-cols-3 gap-1.5" role="radiogroup" aria-label="Display fit mode">
+                <button
+                  v-for="opt in fitModeOptions"
+                  :key="opt.value"
+                  type="button"
+                  role="radio"
+                  :aria-checked="displayFitMode === opt.value"
+                  :title="opt.hint"
+                  @click="setFitMode(opt.value)"
+                  class="flex flex-col items-center justify-center gap-1 text-[10px] font-bold uppercase tracking-wider py-2 rounded-lg border transition duration-150 cursor-pointer"
+                  :class="
+                    displayFitMode === opt.value
+                      ? 'bg-violet-600 border-violet-500 text-white shadow shadow-violet-900/40'
+                      : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+                  "
+                >
+                  <Icon :icon="opt.icon" class="text-base" />
+                  <span>{{ opt.label }}</span>
+                </button>
+              </div>
+              <p class="text-[9px] text-slate-500 leading-relaxed">
+                {{ fitModeOptions.find((o) => o.value === displayFitMode)?.hint }}
+              </p>
             </div>
 
             <!-- Keep Screen On -->

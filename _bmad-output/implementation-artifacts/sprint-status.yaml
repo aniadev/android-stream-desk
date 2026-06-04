@@ -36,6 +36,7 @@
 
 generated: "2026-06-03"
 last_updated: "2026-06-04"
+
 project: "android-stream-desk"
 project_key: "NOKEY"
 tracking_system: "file-system"
@@ -97,27 +98,27 @@ development_status:
   epic-9-retrospective: optional
 
   # Epic 10 — QR renderer & UX polish (GitHub #3)
-  epic-10: in-progress
-  s-qrx1-qr-renderer-scannability: ready-for-dev
-  s-qrx2-dashboard-qr-layout: ready-for-dev
-  s-qrx3-mobile-qr-scan-ux: ready-for-dev
-  s-ux1-windows-readability: ready-for-dev
-  s-ux2-settings-ia-cleanup: ready-for-dev
+  epic-10: done
+  s-qrx1-qr-renderer-scannability: done
+  s-qrx2-dashboard-qr-layout: done
+  s-qrx3-mobile-qr-scan-ux: done
+  s-ux1-windows-readability: done
+  s-ux2-settings-ia-cleanup: done
   epic-10-retrospective: optional
 
   # Epic 11 — Client fit mode & tablet responsive layout
   epic-11: in-progress
-  s-client1-display-fit-mode: ready-for-dev
-  s-client2-tablet-responsive-css: ready-for-dev
-  s-client3-web-client-fullscreen: ready-for-dev
+  s-client1-display-fit-mode: review
+  s-client2-tablet-responsive-css: review
+  s-client3-web-client-fullscreen: review
   epic-11-retrospective: optional
 
   # Epic 12 — Runtime fixes (wake lock, link button, build preflight)
   epic-12: in-progress
-  s-rust1-wake-lock-connected-only: ready-for-dev
-  s-link1-companion-link-browser: ready-for-dev
-  s-rust2-backend-startup-preflight: ready-for-dev
-  s-rust3-rust-regression-gate: ready-for-dev
+  s-rust1-wake-lock-connected-only: review
+  s-link1-companion-link-browser: review
+  s-rust2-backend-startup-preflight: review
+  s-rust3-rust-regression-gate: review
   epic-12-retrospective: optional
 
   # Epic 13 — APK size optimization (per-ABI split + web asset diet, target <20MB)

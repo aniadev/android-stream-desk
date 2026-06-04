@@ -1,6 +1,6 @@
 # Story 10.2 (S-QRX2): Dashboard QR layout readable
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -25,12 +25,32 @@ so that quét QR từ màn hình desktop dễ dàng.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Sidebar QR (AC: 1, 4)
-  - [ ] Tăng ≥192px, tách APK/Web, disable theo `wsReady`/`wsBindError` (S-REL1).
-- [ ] Task 2: Hover/focus (AC: 2)
-  - [ ] cursor `zoom-in` + focus ring.
-- [ ] Task 3: Modal phóng to (AC: 3)
-  - [ ] Modal QR lớn, copy payload/URL, đóng bằng Esc/backdrop/close.
+- [x] Task 1: Sidebar QR (AC: 1, 4)
+  - [x] Tăng ≥192px, tách APK/Web, disable theo `wsReady`/`wsBindError` (S-REL1).
+- [x] Task 2: Hover/focus (AC: 2)
+  - [x] cursor `zoom-in` + focus ring.
+- [x] Task 3: Modal phóng to (AC: 3)
+  - [x] Modal QR lớn, copy payload/URL, đóng bằng Esc/backdrop/close.
+
+### Review Findings
+
+- [x] [Review][Patch] Modal QR phóng to dùng `w-96 h-96` cố định nên có thể tràn viewport hẹp [src/views/DashboardView.vue:3061]
+- [x] [Review][Patch] `runRelaunchWithTimeout` bị hạ type safety từ `ReturnType<typeof setTimeout>` xuống `any` [src/views/DashboardView.vue:329]
+
+## Dev Agent Record
+
+### Implementation Plan
+- Tích hợp cụm chuyển đổi Tab switcher (APK vs Web client) ở sidebar của DashboardView.vue.
+- Gắn các lớp css Tailwind `cursor-zoom-in` và focus states `focus-visible:ring-2` vào các cấu phần vẽ QR.
+- Viết component/modal phóng to trực quan 384px cho QR khi nhấp chuột hoặc nhấn Enter vào mã QR.
+- Hiện khung thông báo lỗi/trạng thái kết nối khi Server chưa sẵn sàng thay vì vỡ sidebar.
+
+### File List
+- `src/views/DashboardView.vue`
+
+### Change Log
+- Cập nhật Sidebar Layout và nâng cỡ QR lên 192px+, hỗ trợ modal phóng to kèm tính năng sao chép.
+
 
 ## Dev Notes
 

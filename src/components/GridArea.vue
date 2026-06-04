@@ -1,13 +1,21 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, nextTick, ref, watch } from 'vue';
+import { onMounted, onUnmounted, nextTick, ref, watch, computed } from 'vue';
 import { useLayoutStore } from '../stores/layout';
 import GridButton from './GridButton.vue';
 
 import { useSettingsStore } from '../stores/settings';
 import { playClick } from '../lib/clicksound';
+import type { DisplayFitMode } from '../stores/settings';
 
 const layoutStore = useLayoutStore();
 const settingsStore = useSettingsStore();
+
+const fitMode = computed<DisplayFitMode>(() => settingsStore.displayFitMode);
+const isFullscreen = computed(() => fitMode.value === 'fullscreen');
+const isCover = computed(() => fitMode.value === 'cover');
+// `contain` keeps the existing cap (max-w-2xl) so the deck never explodes on a
+// 4K monitor. `cover`/`fullscreen` let the grid fill the whole viewport.
+const applyContainMaxWidth = computed(() => fitMode.value === 'contain');
 
 const scrollerRef = ref<HTMLElement | null>(null);
 
@@ -104,34 +112,52 @@ watch(
 </script>
 
 <template>
-  <div class="w-full flex-1 flex flex-col items-center justify-center p-4 sm:p-0 sm:pt-4 min-h-0 min-w-0 select-none">
+  <div
+    class="w-full flex-1 flex flex-col items-center justify-center min-h-0 min-w-0 select-none"
+    :class="[
+      isFullscreen
+        ? 'p-0 sm:p-0'
+        : isCover
+          ? 'p-2 sm:p-3'
+          : 'p-4 sm:p-0 sm:pt-4',
+    ]"
+  >
     <!-- Stream Deck Cyberpunk Shell -->
     <div
-      class="cyber-shell relative w-full h-full max-w-2xl flex flex-col items-center justify-center overflow-hidden"
+      class="cyber-shell relative w-full h-full flex flex-col items-center justify-center overflow-hidden"
+      :class="{ 'max-w-2xl': applyContainMaxWidth, 'shell--fullscreen': isFullscreen }"
     >
-      <!-- Scanline overlay -->
-      <div class="scanline absolute inset-0 pointer-events-none opacity-[0.04]" />
+      <!-- Scanline overlay (hidden in fullscreen) -->
+      <div
+        v-if="!isFullscreen"
+        class="scanline absolute inset-0 pointer-events-none opacity-[0.04]"
+      />
 
-      <!-- Subtle animated grid bg -->
-      <div class="absolute inset-0 pointer-events-none opacity-[0.03] bg-grid-dot" />
+      <!-- Subtle animated grid bg (hidden in fullscreen) -->
+      <div
+        v-if="!isFullscreen"
+        class="absolute inset-0 pointer-events-none opacity-[0.03] bg-grid-dot"
+      />
 
-      <!-- Corner neon brackets -->
-      <span
-        class="absolute top-3 left-3 w-5 h-5 border-t-[3px] border-l-[3px] pointer-events-none z-20"
-        :style="{ borderColor: 'var(--theme-corner-a)' }"
-      />
-      <span
-        class="absolute top-3 right-3 w-5 h-5 border-t-[3px] border-r-[3px] pointer-events-none z-20"
-        :style="{ borderColor: 'var(--theme-corner-b)' }"
-      />
-      <span
-        class="absolute bottom-3 left-3 w-5 h-5 border-b-[3px] border-l-[3px] pointer-events-none z-20"
-        :style="{ borderColor: 'var(--theme-corner-b)' }"
-      />
-      <span
-        class="absolute bottom-3 right-3 w-5 h-5 border-b-[3px] border-r-[3px] pointer-events-none z-20"
-        :style="{ borderColor: 'var(--theme-corner-a)' }"
-      />
+      <!-- Corner neon brackets (hidden in fullscreen) -->
+      <template v-if="!isFullscreen">
+        <span
+          class="absolute top-3 left-3 w-5 h-5 border-t-[3px] border-l-[3px] pointer-events-none z-20"
+          :style="{ borderColor: 'var(--theme-corner-a)' }"
+        />
+        <span
+          class="absolute top-3 right-3 w-5 h-5 border-t-[3px] border-r-[3px] pointer-events-none z-20"
+          :style="{ borderColor: 'var(--theme-corner-b)' }"
+        />
+        <span
+          class="absolute bottom-3 left-3 w-5 h-5 border-b-[3px] border-l-[3px] pointer-events-none z-20"
+          :style="{ borderColor: 'var(--theme-corner-b)' }"
+        />
+        <span
+          class="absolute bottom-3 right-3 w-5 h-5 border-b-[3px] border-r-[3px] pointer-events-none z-20"
+          :style="{ borderColor: 'var(--theme-corner-a)' }"
+        />
+      </template>
 
       <!-- Native scroll-snap viewport (no JS carousel engine) -->
       <div
@@ -145,10 +171,20 @@ watch(
           <div
             v-for="page in (layoutStore.layout.pages || [])"
             :key="page.id"
-            class="snap-page flex-none w-full h-full p-5 sm:p-6"
+            class="snap-page flex-none w-full h-full"
+            :class="[
+              isFullscreen
+                ? 'p-2 sm:p-3'
+                : isCover
+                  ? 'p-3 sm:p-4'
+                  : 'p-5 sm:p-6',
+            ]"
           >
             <div
-              class="grid gap-3 sm:gap-4 w-full h-full max-w-full max-h-full items-stretch justify-items-stretch min-h-0 min-w-0"
+              class="grid w-full h-full max-w-full max-h-full items-stretch justify-items-stretch min-h-0 min-w-0"
+              :class="[
+                isFullscreen ? 'gap-1.5 sm:gap-2' : isCover ? 'gap-2 sm:gap-3' : 'gap-3 sm:gap-4',
+              ]"
               :style="{
                 gridTemplateColumns: `repeat(${layoutStore.layout.cols}, minmax(0, 1fr))`,
                 gridTemplateRows: `repeat(${layoutStore.layout.rows}, minmax(0, 1fr))`,
@@ -158,6 +194,7 @@ watch(
                 v-for="btn in page.buttons"
                 :key="btn.id"
                 :button="btn"
+                :compact="isFullscreen || isCover"
                 @press="handlePress"
               />
             </div>
@@ -165,10 +202,15 @@ watch(
         </div>
       </div>
 
-      <!-- Neon Dots Pagination -->
-      <div 
+      <!-- Neon Dots Pagination (compact + offset for fullscreen bottom safe-area) -->
+      <div
         v-if="layoutStore.layout.pages && layoutStore.layout.pages.length > 1"
-        class="absolute bottom-3 left-0 right-0 z-30 flex items-center justify-center gap-2 pointer-events-auto"
+        class="absolute left-0 right-0 z-30 flex items-center justify-center gap-2 pointer-events-auto"
+        :class="[
+          isFullscreen
+            ? 'bottom-1 pb-[env(safe-area-inset-bottom)]'
+            : 'bottom-3',
+        ]"
       >
         <button
           v-for="(_, idx) in layoutStore.layout.pages"
@@ -220,6 +262,15 @@ watch(
 
 .scroller::-webkit-scrollbar {
   display: none;
+}
+
+/* Fullscreen: drop the rounded shell + clip-path so the grid reaches every edge
+   of the device viewport. Safe-area handled via env() on the parent. */
+.shell--fullscreen {
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+  clip-path: none;
 }
 
 .snap-page {

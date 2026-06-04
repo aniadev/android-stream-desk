@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import type { Layout, ButtonConfig, Page } from '../types';
 import { useConnectionStore } from './connection';
 import { applyTheme, isValidTheme, type ThemeName } from '../lib/themes';
+import { sanitizeLinkUrl } from '../lib/linkUrl';
 
 const backfillButton = (b: any): ButtonConfig => {
   if (b.emoji && !b.icon) b.icon = 'mdi:button';
@@ -10,7 +11,7 @@ const backfillButton = (b: any): ButtonConfig => {
   return b as ButtonConfig;
 };
 
-const VALID_ACTIONS = new Set<ButtonConfig['actionType']>(['shortcut', 'media', 'app', 'command']);
+const VALID_ACTIONS = new Set<ButtonConfig['actionType']>(['shortcut', 'media', 'app', 'command', 'link']);
 
 // Only accept image data URIs; reject foreign data:/javascript:/url schemes (XSS/SSRF guard).
 const sanitizeIcon = (iconStr: any): string => {
@@ -47,6 +48,7 @@ const sanitizeButton = (b: any, i: number): ButtonConfig => ({
   mediaAction: typeof b?.mediaAction === 'string' ? b.mediaAction : undefined,
   appPath: typeof b?.appPath === 'string' ? b.appPath : undefined,
   commandValue: typeof b?.commandValue === 'string' ? b.commandValue : undefined,
+  linkUrl: sanitizeLinkUrl(b?.linkUrl),
   iconSizing: ['normal', 'cover', 'contain', 'fill'].includes(b?.iconSizing) ? b.iconSizing : undefined,
 });
 

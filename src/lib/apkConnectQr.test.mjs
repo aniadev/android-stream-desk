@@ -31,13 +31,14 @@ assert.equal(parseApkConnectPayload('http://192.168.31.112:8089'), null);
 assert.equal(parseApkConnectPayload('android-stream-desk://connect?v=1&host=&wsPort=8089'), null);
 assert.equal(parseApkConnectPayload('android-stream-desk://connect?v=1&host=192.168.31.112&wsPort=99999'), null);
 
-const warn = console.warn;
-console.warn = () => {};
-try {
-  assert.equal(
-    safeCreateQrSvg('android-stream-desk://connect?v=1&host=2001%3A0db8%3A85a3%3A0000%3A0000%3A8a2e%3A0370%3A7334&wsPort=65535'),
-    '',
-  );
-} finally {
-  console.warn = warn;
-}
+// Test safeCreateQrSvg with longer IPv6 addresses (which now succeed due to dynamic version scaling)
+const longIpPayload = 'android-stream-desk://connect?v=1&host=2001%3A0db8%3A85a3%3A0000%3A0000%3A8a2e%3A0370%3A7334&wsPort=65535';
+const longSvg = safeCreateQrSvg(longIpPayload);
+assert.match(longSvg, /^<svg /);
+assert.match(longSvg, /role="img"/);
+
+// Verify that excessive payload throws an error rather than silently returning empty string
+assert.throws(() => {
+  createQrSvg('a'.repeat(4000));
+}, /too big|too long|too large|large/i);
+

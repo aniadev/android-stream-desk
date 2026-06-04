@@ -1,6 +1,28 @@
 import { defineStore } from 'pinia';
 import { ref, watch } from 'vue';
 
+export type DisplayFitMode = 'contain' | 'cover' | 'fullscreen';
+
+export const DISPLAY_FIT_MODES: DisplayFitMode[] = ['contain', 'cover', 'fullscreen'];
+
+export const DEFAULT_FIT_MODE: DisplayFitMode = 'contain';
+const FIT_MODE_KEY = 'settings:displayFitMode';
+
+export function parseFitMode(raw: string | null | undefined): DisplayFitMode {
+  if (raw && (DISPLAY_FIT_MODES as string[]).includes(raw)) {
+    return raw as DisplayFitMode;
+  }
+  return DEFAULT_FIT_MODE;
+}
+
+function readFitMode(): DisplayFitMode {
+  try {
+    return parseFitMode(localStorage.getItem(FIT_MODE_KEY));
+  } catch (_) {
+    return DEFAULT_FIT_MODE;
+  }
+}
+
 export const useSettingsStore = defineStore('settings', () => {
   let initialKeepScreenOn = false;
   try {
@@ -20,6 +42,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const keepScreenOn = ref<boolean>(initialKeepScreenOn);
   const vibrateOnClick = ref<boolean>(initialVibrate);
   const soundOnClick = ref<boolean>(initialSound);
+  const displayFitMode = ref<DisplayFitMode>(readFitMode());
 
   watch(keepScreenOn, val => {
     localStorage.setItem('settings:keepScreenOn', JSON.stringify(val));
@@ -33,5 +56,11 @@ export const useSettingsStore = defineStore('settings', () => {
     localStorage.setItem('settings:soundOnClick', JSON.stringify(val));
   });
 
-  return { keepScreenOn, vibrateOnClick, soundOnClick };
+  watch(displayFitMode, val => {
+    try {
+      localStorage.setItem(FIT_MODE_KEY, val);
+    } catch (_) {}
+  });
+
+  return { keepScreenOn, vibrateOnClick, soundOnClick, displayFitMode };
 });

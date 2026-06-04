@@ -14,6 +14,7 @@ import {
   buildWebClientUrl,
   hasPendingServerChanges as computeHasPendingServerChanges,
 } from '../lib/networkEndpointState';
+import { FONT_TIER_CLASS } from '../lib/typography';
 
 // Import Shadcn UI Components
 import Input from '../components/ui/Input.vue';
@@ -88,7 +89,7 @@ const webBindError = ref<ListenerBindError | null>(null);
 let tauriUnlisteners: (() => void)[] = [];
 
 const selectedButtonId = ref<string | null>(null);
-const activeTab = ref<'shortcut' | 'media' | 'app' | 'command'>('shortcut');
+const activeTab = ref<'shortcut' | 'media' | 'app' | 'command' | 'link'>('shortcut');
 
 const serverIp = ref<string>('—');
 const serverPort = ref<number>(8089);
@@ -122,6 +123,108 @@ const settingsOpen = ref(false);
 const appPickerOpen = ref(false);
 const guideCenterOpen = ref(false);
 const guideTopic = ref<'browser' | 'shortcut' | 'firewall'>('browser');
+
+// --- S-UX2: Settings IA group rail ---
+type SettingsGroupId =
+  | 'general'
+  | 'network'
+  | 'client-qr'
+  | 'permissions'
+  | 'updates'
+  | 'import-export'
+  | 'about';
+
+const settingsGroups: Array<{ id: SettingsGroupId; label: string; icon: string }> = [
+  { id: 'general', label: 'General', icon: 'lucide:sliders-horizontal' },
+  { id: 'network', label: 'Network', icon: 'lucide:wifi' },
+  { id: 'client-qr', label: 'Client & QR', icon: 'lucide:qr-code' },
+  { id: 'permissions', label: 'Permissions', icon: 'lucide:shield-check' },
+  { id: 'updates', label: 'Updates', icon: 'lucide:refresh-cw' },
+  { id: 'import-export', label: 'Import/Export', icon: 'lucide:database' },
+  { id: 'about', label: 'About/Support', icon: 'lucide:info' },
+];
+
+const typographyClass = FONT_TIER_CLASS;
+const visibleSettingsGroups = computed(() =>
+  settingsGroups.filter((group) => group.id !== 'permissions' || isMac.value),
+);
+const activeSettingsGroup = ref<SettingsGroupId>('general');
+
+const scrollToSettingsGroup = (id: SettingsGroupId) => {
+  if (!visibleSettingsGroups.value.some((group) => group.id === id)) return;
+  activeSettingsGroup.value = id;
+  const el = document.getElementById(`settings-group-${id}`);
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+};
+
+const onSettingsScroll = (e: Event) => {
+  const container = e.target as HTMLElement;
+  if (!container) return;
+  const groups: SettingsGroupId[] = visibleSettingsGroups.value.map((g) => g.id);
+  let current: SettingsGroupId = groups[0];
+  for (const id of groups) {
+    const el = document.getElementById(`settings-group-${id}`);
+    if (!el) continue;
+    const top = el.getBoundingClientRect().top - container.getBoundingClientRect().top;
+    if (top <= 80) current = id;
+  }
+  if (current !== activeSettingsGroup.value) {
+    activeSettingsGroup.value = current;
+  }
+};
+
+const canSaveServerConfig = computed(
+  () =>
+    !serverConfigSaving.value &&
+    !restartDialogOpen.value &&
+    !serverConfigValidationError.value &&
+    hasPendingServerChanges.value,
+);
+const serverConfigSaveHint = computed(() => {
+  if (serverConfigSaving.value) return 'Đang ghi server.json và chuẩn bị relaunch…';
+  if (restartDialogOpen.value) return 'Đang chờ Companion khởi động lại để áp dụng cấu hình.';
+  if (serverConfigValidationError.value) return serverConfigValidationError.value;
+  if (!hasPendingServerChanges.value)
+    return 'Chưa có thay đổi. Bật/tắt toggle hoặc đổi port để kích hoạt nút.';
+  return 'Lưu thay đổi port sẽ ghi vào server.json và khởi động lại Companion.';
+});
+
+// QR Layout and Zoom Modal
+const activeQrTab = ref<'apk' | 'web'>('apk');
+const zoomModalOpen = ref(false);
+const zoomModalTitle = ref('');
+const zoomModalPayload = ref('');
+const zoomModalQrSvg = ref('');
+const zoomModalCopyHint = ref('');
+
+const openZoomModal = (title: string, payload: string, svg: string) => {
+  zoomModalTitle.value = title;
+  zoomModalPayload.value = payload;
+  zoomModalQrSvg.value = svg;
+  zoomModalCopyHint.value = '';
+  zoomModalOpen.value = true;
+};
+
+const copyZoomModalPayload = async () => {
+  if (!zoomModalPayload.value) return;
+  try {
+    await navigator.clipboard.writeText(zoomModalPayload.value);
+    zoomModalCopyHint.value = 'Copied!';
+    setTimeout(() => {
+      zoomModalCopyHint.value = '';
+    }, 1500);
+  } catch (_) {
+    zoomModalCopyHint.value = 'Failed';
+  }
+};
+
+const handleEscKey = (e: KeyboardEvent) => {
+  if (e.key === 'Escape' && zoomModalOpen.value) {
+    zoomModalOpen.value = false;
+  }
+};
 
 const openGuide = (topic?: 'browser' | 'shortcut' | 'firewall') => {
   if (topic) {
@@ -291,7 +394,7 @@ const apkConnectQrSvg = computed(() =>
 
 const runRelaunchWithTimeout = async () => {
   const { relaunch } = await import('@tauri-apps/plugin-process');
-  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  let timeoutId: number | null = null;
   try {
     await Promise.race([
       relaunch(),
@@ -485,6 +588,38 @@ const applyAppPreset = (preset: { name: string; path: string; icon: string }) =>
 };
 
 const appPathHint = ref<string>('');
+
+// --- S-LINK1: link action helpers ---
+type LinkUrlValidation =
+  | { ok: true; domain: string; normalized: string }
+  | { ok: false; reason: string };
+
+const validateLinkUrl = (raw: string | undefined | null): LinkUrlValidation => {
+  const trimmed = (raw ?? '').trim();
+  if (!trimmed) return { ok: false, reason: 'Nhập URL bắt đầu bằng http:// hoặc https://' };
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return { ok: false, reason: 'Chỉ chấp nhận http:// hoặc https://' };
+    }
+    if (!parsed.hostname) {
+      return { ok: false, reason: 'URL thiếu hostname' };
+    }
+    if (parsed.username || parsed.password) {
+      return { ok: false, reason: 'URL không được chứa tài khoản/mật khẩu (user:pass@)' };
+    }
+    return { ok: true, domain: parsed.hostname, normalized: parsed.toString() };
+  } catch {
+    return { ok: false, reason: 'URL không hợp lệ' };
+  }
+};
+
+const linkUrlValidation = computed<LinkUrlValidation>(() => {
+  if (!selectedButton.value || selectedButton.value.actionType !== 'link') {
+    return { ok: false, reason: '' };
+  }
+  return validateLinkUrl(selectedButton.value.linkUrl);
+});
 
 const handleAppPathPaste = async (e: ClipboardEvent) => {
   const raw = e.clipboardData?.getData('text') ?? '';
@@ -857,6 +992,7 @@ const toggleRecording = () => {
 };
 
 onUnmounted(() => {
+  window.removeEventListener('keydown', handleEscKey);
   window.removeEventListener('keydown', handleKeyDown, true);
   window.removeEventListener('keyup', handleKeyUp, true);
   window.removeEventListener('blur', handleWindowBlur);
@@ -989,6 +1125,7 @@ const scrollToAccessibilityRecovery = async () => {
 };
 
 onMounted(async () => {
+  window.addEventListener('keydown', handleEscKey);
   try {
     // @ts-ignore
     if (window.__TAURI_INTERNALS__) {
@@ -1429,7 +1566,7 @@ const updateStatusText = computed(() => {
             class="inline-flex h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_6px_#22d3ee] animate-pulse"
           ></span>
           <div class="flex flex-col">
-            <label class="text-[8px] uppercase tracking-widest font-bold text-slate-500"
+            <label class="text-[9px] uppercase tracking-widest font-bold text-slate-500"
               >WebSocket LAN IP</label
             >
             <span class="font-mono text-xs font-bold text-slate-300">
@@ -1453,7 +1590,7 @@ const updateStatusText = computed(() => {
             :class="activeConnectionsCount > 0 ? 'text-emerald-400' : 'text-slate-500'"
           />
           <div class="flex flex-col">
-            <label class="text-[8px] uppercase tracking-widest font-bold text-slate-500">Đang kết nối</label>
+            <label class="text-[9px] uppercase tracking-widest font-bold text-slate-500">Đang kết nối</label>
             <span class="font-mono text-xs font-bold" :class="activeConnectionsCount > 0 ? 'text-emerald-300' : 'text-slate-500'">
               {{ activeConnectionsCount }} thiết bị
             </span>
@@ -1495,7 +1632,7 @@ const updateStatusText = computed(() => {
         >
           <Icon icon="lucide:triangle-alert" class="text-amber-400 text-sm shrink-0" />
           <div class="flex flex-col min-w-0">
-            <label class="text-[8px] uppercase tracking-widest font-bold text-amber-300/80"
+            <label class="text-[9px] uppercase tracking-widest font-bold text-amber-300/80"
               >Chỉ bật trên Wi-Fi tin cậy</label
             >
             <span class="font-mono text-xs font-bold text-slate-300 truncate">
@@ -1582,7 +1719,7 @@ const updateStatusText = computed(() => {
               title="Sao chép executablePath"
             >
               <span class="min-w-0">
-                <span class="block text-[8px] uppercase tracking-widest font-bold text-slate-500">
+                <span class="block text-[9px] uppercase tracking-widest font-bold text-slate-500">
                   executablePath
                 </span>
                 <span class="block font-mono text-[9px] text-slate-300 truncate select-text">
@@ -1602,7 +1739,7 @@ const updateStatusText = computed(() => {
               title="Sao chép appBundlePath"
             >
               <span class="min-w-0">
-                <span class="block text-[8px] uppercase tracking-widest font-bold text-slate-500">
+                <span class="block text-[9px] uppercase tracking-widest font-bold text-slate-500">
                   appBundlePath
                 </span>
                 <span class="block font-mono text-[9px] text-slate-300 truncate select-text">
@@ -1751,37 +1888,121 @@ const updateStatusText = computed(() => {
           </div>
         </div>
 
-        <!-- APK Connect QR -->
-        <div v-if="apkConnectQrSvg" class="cyber-divider pt-4 flex flex-col gap-3">
+        <!-- QR Codes & Connection Tabs -->
+        <div class="cyber-divider pt-4 flex flex-col gap-3">
           <div class="flex items-center justify-between gap-2">
-            <div>
-              <h2 class="cyber-section-title">Kết nối APK</h2>
-              <p class="cyber-section-desc">Deep link cấu hình LAN tức thời</p>
-            </div>
-            <button
-              type="button"
-              class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5 flex items-center gap-1.5"
-              @click="copyApkConnectPayload"
-              title="Sao chép payload kết nối APK"
-            >
-              <Icon :icon="apkCopyHint ? 'lucide:check' : 'lucide:copy'" class="text-xs" />
-              <span>{{ apkCopyHint || 'Copy' }}</span>
-            </button>
-          </div>
-          <div class="cyber-inset grid grid-cols-[104px_minmax(0,1fr)] gap-3 p-3 items-center">
-            <div
-              class="rounded-lg overflow-hidden bg-white p-1 shadow-[0_0_18px_rgba(34,211,238,0.08)]"
-              v-html="apkConnectQrSvg"
-            ></div>
-            <div class="flex flex-col gap-1 min-w-0">
-              <span class="text-[8px] font-bold uppercase tracking-wider text-cyan-300/80">
-                Payload
-              </span>
-              <span
-                class="font-mono text-[9px] leading-relaxed text-slate-400 break-all select-text"
+            <h2 class="cyber-section-title">Kết nối thiết bị</h2>
+            <div class="flex gap-1">
+              <button
+                type="button"
+                class="px-2 py-0.5 text-[8.5px] uppercase font-bold tracking-wider rounded border transition-colors cursor-pointer"
+                :class="activeQrTab === 'apk' ? 'border-cyan-400/50 text-cyan-300 bg-cyan-950/40' : 'border-slate-800 text-slate-500 hover:text-slate-350'"
+                @click="activeQrTab = 'apk'"
               >
-                {{ apkConnectPayload }}
-              </span>
+                APK
+              </button>
+              <button
+                type="button"
+                class="px-2 py-0.5 text-[8.5px] uppercase font-bold tracking-wider rounded border transition-colors cursor-pointer"
+                :class="activeQrTab === 'web' ? 'border-cyan-400/50 text-cyan-300 bg-cyan-950/40' : 'border-slate-800 text-slate-500 hover:text-slate-350'"
+                @click="activeQrTab = 'web'"
+              >
+                Web
+              </button>
+            </div>
+          </div>
+
+          <!-- APK Tab Content -->
+          <div v-show="activeQrTab === 'apk'" class="flex flex-col gap-2.5">
+            <div class="flex justify-between items-center gap-1">
+              <p class="cyber-section-desc">LAN IP cho Android app</p>
+              <button
+                type="button"
+                class="cyber-action-btn font-bold cursor-pointer text-[9px] uppercase tracking-wider px-2 py-1 flex items-center gap-1"
+                @click="copyApkConnectPayload"
+                :disabled="!apkConnectPayload"
+                title="Sao chép payload kết nối APK"
+              >
+                <Icon :icon="apkCopyHint ? 'lucide:check' : 'lucide:copy'" class="text-[10px]" />
+                <span>{{ apkCopyHint || 'Copy' }}</span>
+              </button>
+            </div>
+
+            <div class="flex flex-col items-center justify-center p-3 cyber-inset relative min-h-[224px]">
+              <div v-if="!apkConnectPayload || wsBindError" class="absolute inset-0 bg-slate-950/90 rounded-lg flex flex-col items-center justify-center p-4 text-center z-10 leading-normal gap-2 border border-rose-500/20">
+                <Icon :icon="wsBindError ? 'lucide:wifi-off' : 'lucide:loader-2'" class="text-lg animate-pulse text-rose-400" />
+                <span class="text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                  {{ wsBindError ? 'Bind Error' : 'Chưa sẵn sàng' }}
+                </span>
+                <p class="text-[8.5px] text-slate-500">
+                  {{ wsBindError ? 'Cổng WebSocket lỗi Firewall hoặc xung đột.' : 'Companion server đang khởi động.' }}
+                </p>
+              </div>
+
+              <button
+                v-if="apkConnectQrSvg"
+                type="button"
+                class="w-48 h-48 rounded-lg overflow-hidden bg-white p-1 cursor-zoom-in shadow-[0_0_18px_rgba(34,211,238,0.08)] transition-all focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 outline-none hover:scale-[1.02]"
+                @click="openZoomModal('Kết nối APK', apkConnectPayload, apkConnectQrSvg)"
+                @keydown.enter="openZoomModal('Kết nối APK', apkConnectPayload, apkConnectQrSvg)"
+                @keydown.space.prevent="openZoomModal('Kết nối APK', apkConnectPayload, apkConnectQrSvg)"
+                title="Click để phóng to mã QR"
+                aria-label="Mã QR APK. Nhấn Enter hoặc Space để phóng to."
+              >
+                <div v-html="apkConnectQrSvg" class="w-full h-full"></div>
+              </button>
+            </div>
+
+            <div class="px-1 text-[8.5px] text-slate-500 flex flex-col gap-0.5 leading-relaxed">
+              <span class="font-bold text-[8px] uppercase tracking-wider text-slate-450">Payload:</span>
+              <span class="font-mono break-all line-clamp-2 select-text selection:bg-cyan-550/30">{{ apkConnectPayload || '—' }}</span>
+            </div>
+          </div>
+
+          <!-- Web Client Tab Content -->
+          <div v-show="activeQrTab === 'web'" class="flex flex-col gap-2.5">
+            <div class="flex justify-between items-center gap-1">
+              <p class="cyber-section-desc">Mở Web client trên iPad / Browser</p>
+              <button
+                type="button"
+                class="cyber-action-btn font-bold cursor-pointer text-[9px] uppercase tracking-wider px-2 py-1 flex items-center gap-1"
+                @click="copyWebClientUrl"
+                :disabled="!webClientUrl"
+                title="Sao chép địa chỉ Web Client"
+              >
+                <Icon :icon="webCopyHint ? 'lucide:check' : 'lucide:copy'" class="text-[10px]" />
+                <span>{{ webCopyHint || 'Copy' }}</span>
+              </button>
+            </div>
+
+            <div class="flex flex-col items-center justify-center p-3 cyber-inset relative min-h-[224px]">
+              <div v-if="!webClientUrl || webBindError || !savedServerConfig?.webEnabled" class="absolute inset-0 bg-slate-950/90 rounded-lg flex flex-col items-center justify-center p-4 text-center z-10 leading-normal gap-2 border border-amber-500/20">
+                <Icon :icon="webBindError ? 'lucide:wifi-off' : !savedServerConfig?.webEnabled ? 'lucide:settings-2' : 'lucide:loader-2'" class="text-lg animate-pulse text-amber-400" />
+                <span class="text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                  {{ webBindError ? 'Bind Error' : !savedServerConfig?.webEnabled ? 'Chưa bật Web Client' : 'Chưa sẵn sàng' }}
+                </span>
+                <p class="text-[8.5px] text-slate-500">
+                  {{ webBindError ? 'Cổng Web Server bị xung đột.' : !savedServerConfig?.webEnabled ? 'Hãy bật Web Client trong Cài đặt phía dưới.' : 'Companion HTTP đang khởi chạy.' }}
+                </p>
+              </div>
+
+              <button
+                v-if="webClientQrSvg"
+                type="button"
+                class="w-48 h-48 rounded-lg overflow-hidden bg-white p-1 cursor-zoom-in shadow-[0_0_18px_rgba(34,211,238,0.08)] transition-all focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 outline-none hover:scale-[1.02]"
+                @click="openZoomModal('Web Client LAN', webClientUrl, webClientQrSvg)"
+                @keydown.enter="openZoomModal('Web Client LAN', webClientUrl, webClientQrSvg)"
+                @keydown.space.prevent="openZoomModal('Web Client LAN', webClientUrl, webClientQrSvg)"
+                title="Click để phóng to mã QR"
+                aria-label="Mã QR Web Client. Nhấn Enter hoặc Space để phóng to."
+              >
+                <div v-html="webClientQrSvg" class="w-full h-full"></div>
+              </button>
+            </div>
+
+            <div class="px-1 text-[8.5px] text-slate-500 flex flex-col gap-0.5 leading-relaxed">
+              <span class="font-bold text-[8px] uppercase tracking-wider text-slate-450">Địa chỉ URL:</span>
+              <span class="font-mono break-all line-clamp-2 select-text selection:bg-cyan-550/30">{{ webClientUrl || '—' }}</span>
             </div>
           </div>
         </div>
@@ -2032,7 +2253,7 @@ const updateStatusText = computed(() => {
                 <label class="cyber-input-label">Loại sự kiện</label>
                 <div class="cyber-tab-group flex p-1 text-[10px]">
                   <button
-                    v-for="tab in ['shortcut', 'media', 'app', 'command'] as ActionType[]"
+                    v-for="tab in ['shortcut', 'media', 'app', 'command', 'link'] as ActionType[]"
                     :key="tab"
                     @click="
                       activeTab = tab;
@@ -2274,6 +2495,40 @@ const updateStatusText = computed(() => {
                     <span class="font-mono">cmd /C</span>.
                   </p>
                 </div>
+
+                <!-- Link (S-LINK1) -->
+                <div v-else-if="activeTab === 'link'" class="flex flex-col gap-2">
+                  <label class="text-[9px] font-bold uppercase text-slate-400" for="link-url-input"
+                    >URL trang web:</label
+                  >
+                  <Input
+                    id="link-url-input"
+                    v-model="selectedButton.linkUrl"
+                    type="url"
+                    inputmode="url"
+                    autocomplete="off"
+                    spellcheck="false"
+                    placeholder="https://github.com/ania/android-stream-desk"
+                    @input="saveButtonSettings"
+                  />
+                  <p
+                    v-if="linkUrlValidation.ok"
+                    class="text-[9px] font-bold text-green-400 flex items-center gap-1"
+                  >
+                    <Icon icon="lucide:check-circle" class="text-xs" />
+                    Mở <span class="font-mono">{{ linkUrlValidation.domain }}</span> bằng trình duyệt mặc định.
+                  </p>
+                  <p v-else class="text-[9px] font-bold text-red-400 flex items-center gap-1">
+                    <Icon icon="lucide:alert-circle" class="text-xs" />
+                    {{ linkUrlValidation.reason }}
+                  </p>
+                  <p class="text-[9px] font-bold leading-relaxed text-slate-500 px-2 py-1.5">
+                    URL được truyền nguyên dạng cho lệnh hệ điều hành (Windows
+                    <span class="font-mono">cmd /c start</span>, macOS
+                    <span class="font-mono">open</span>, Linux
+                    <span class="font-mono">xdg-open</span>) — không nối chuỗi shell.
+                  </p>
+                </div>
               </div>
             </template>
           </div>
@@ -2414,21 +2669,14 @@ const updateStatusText = computed(() => {
         class="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4"
       >
         <div
-          class="cyber-modal w-[620px] max-w-full max-h-[calc(100vh-2rem)] flex flex-col p-6 gap-6 relative overflow-hidden"
+          class="cyber-modal w-[840px] max-w-full max-h-[calc(100vh-2rem)] flex flex-col p-0 relative overflow-hidden"
         >
-          <!-- Close -->
-          <button
-            class="absolute top-4 right-4 text-slate-400 hover:text-cyan-400 transition-colors cursor-pointer"
-            @click="settingsOpen = false"
+          <!-- Sticky Header -->
+          <div
+            class="flex items-center gap-3 px-6 py-4 cyber-divider sticky top-0 z-10 bg-slate-950/95 backdrop-blur-md"
           >
-            <Icon icon="lucide:x" class="text-lg" />
-          </button>
-
-          <!-- Modal Header -->
-          <div class="flex items-center gap-3 cyber-divider pb-4">
-            <!-- <div class="h-9 w-9 cyber-hex flex items-center justify-center text-lg">🛡️</div> -->
-            <img src="/logo.png" alt="Logo" class="h-9 w-9" />
-            <div>
+            <img src="/logo.png" alt="Logo" class="h-9 w-9 shrink-0" />
+            <div class="flex-1 min-w-0">
               <h2 class="text-sm font-bold text-slate-50 uppercase tracking-wider">
                 Thiết lập & thông tin hệ thống
               </h2>
@@ -2436,147 +2684,266 @@ const updateStatusText = computed(() => {
                 Tự động cấu hình, updater và giấy phép phần mềm
               </p>
             </div>
+            <button
+              type="button"
+              class="w-8 h-8 rounded-md text-slate-400 hover:text-cyan-400 hover:bg-slate-800/60 flex items-center justify-center transition-colors cursor-pointer shrink-0"
+              @click="settingsOpen = false"
+              title="Đóng"
+              aria-label="Đóng"
+            >
+              <Icon icon="lucide:x" class="text-base" />
+            </button>
           </div>
 
-          <!-- Modal Body -->
-          <div class="flex flex-col gap-5 text-xs text-slate-300 overflow-y-auto pr-1">
-            <!-- Theme Selector -->
-            <div class="flex flex-col gap-2.5">
-              <span class="text-[9px] font-bold uppercase tracking-wider text-cyan-400/70"
-                >Giao diện</span
+          <!-- Body: 2-col layout, left rail nav + scrollable content -->
+          <div class="flex flex-1 overflow-hidden min-h-0">
+            <nav
+              class="w-[160px] shrink-0 border-r border-slate-800/60 p-3 flex flex-col gap-1 overflow-y-auto bg-slate-950/40"
+              aria-label="Settings groups"
+            >
+              <button
+                v-for="g in visibleSettingsGroups"
+                :key="g.id"
+                type="button"
+                @click="scrollToSettingsGroup(g.id)"
+                class="flex items-center gap-2 px-2.5 py-1.5 rounded-md font-bold uppercase tracking-wider transition cursor-pointer text-left"
+                :class="[
+                  typographyClass.control,
+                  activeSettingsGroup === g.id
+                    ? 'bg-cyan-400/10 text-cyan-300 border border-cyan-400/30'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent',
+                ]"
               >
-              <div class="flex gap-2">
-                <button
-                  v-for="(meta, name) in THEMES"
-                  :key="name"
-                  @click="setTheme(name as ThemeName)"
-                  class="flex-1 flex flex-col items-center gap-1.5 py-2 px-1 rounded-xl border transition-all duration-150 cursor-pointer"
-                  :class="
-                    activeTheme === name
-                      ? 'border-cyan-400/70 bg-slate-800/60 shadow shadow-cyan-900/20'
-                      : 'border-slate-700 bg-slate-900/40 hover:border-slate-600'
-                  "
-                >
-                  <span
-                    class="w-5 h-5 rounded-full border-2 border-black/20"
-                    :style="{ backgroundColor: meta.previewColor }"
-                  />
-                  <span class="text-[9px] font-bold uppercase tracking-wider text-slate-300">{{
-                    meta.label
-                  }}</span>
-                </button>
-              </div>
-            </div>
+                <Icon :icon="g.icon" class="text-xs shrink-0" />
+                <span class="truncate">{{ g.label }}</span>
+              </button>
+            </nav>
 
-            <!-- Network Settings -->
-            <div class="flex flex-col gap-2.5">
-              <div class="flex items-center justify-between gap-3">
-                <span class="text-[9px] font-bold uppercase tracking-wider text-cyan-400/70"
-                  >Mạng LAN & Ports</span
-                >
-                <span
-                  class="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[8.5px] font-bold uppercase tracking-wider"
-                  :class="
-                    hasPendingServerChanges
-                      ? 'border-amber-300/40 bg-amber-400/10 text-amber-200 shadow-[0_0_16px_rgba(251,191,36,0.08)]'
-                      : 'border-emerald-300/25 bg-emerald-400/5 text-emerald-300/80'
-                  "
-                >
-                  <Icon
-                    :icon="hasPendingServerChanges ? 'lucide:triangle-alert' : 'lucide:check'"
-                    class="text-[11px]"
-                  />
-                  {{ networkSettingsBadgeText }}
-                </span>
-              </div>
+            <div
+              class="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-6 text-xs text-slate-300"
+              @scroll.passive="onSettingsScroll"
+            >
+              <!-- ===== Group: General ===== -->
+              <section
+                id="settings-group-general"
+                class="flex flex-col gap-3 scroll-mt-4"
+              >
+                <div class="flex items-center gap-2">
+                  <Icon icon="lucide:sliders-horizontal" class="text-sm text-cyan-400" />
+                  <h3 class="cyber-section-title">General</h3>
+                </div>
 
-              <div class="cyber-inset flex flex-col gap-3 p-3">
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <label class="flex flex-col gap-1.5">
-                    <span class="cyber-input-label">Cổng đang chạy</span>
-                    <div
-                      class="h-[38px] rounded-lg border border-slate-800 bg-slate-950/80 px-3 py-2.5 font-mono text-xs text-slate-400 shadow-inner"
-                    >
-                      {{ activeWsPort }}
-                    </div>
-                  </label>
-
-                  <label class="flex flex-col gap-1.5">
-                    <span class="cyber-input-label">Cổng sau khi khởi động lại</span>
-                    <Input
-                      v-model="serverConfigDraft.wsPort"
-                      inputmode="numeric"
-                      autocomplete="off"
-                      class="font-mono"
+                <!-- Theme -->
+                <div class="flex flex-col gap-2.5">
+                  <span class="text-[9px] font-bold uppercase tracking-wider text-slate-500"
+                    >Giao diện</span
+                  >
+                  <div class="flex gap-2">
+                    <button
+                      v-for="(meta, name) in THEMES"
+                      :key="name"
+                      @click="setTheme(name as ThemeName)"
+                      class="flex-1 flex flex-col items-center gap-1.5 py-2 px-1 rounded-xl border transition-all duration-150 cursor-pointer"
                       :class="
-                        serverConfigValidationError
-                          ? 'border-rose-500/40 focus:ring-rose-500/40'
-                          : hasPendingServerChanges
-                            ? 'border-amber-300/35 focus:ring-amber-300/30'
-                            : ''
+                        activeTheme === name
+                          ? 'border-cyan-400/70 bg-slate-800/60 shadow shadow-cyan-900/20'
+                          : 'border-slate-700 bg-slate-900/40 hover:border-slate-600'
                       "
-                    />
-                  </label>
+                    >
+                      <span
+                        class="w-5 h-5 rounded-full border-2 border-black/20"
+                        :style="{ backgroundColor: meta.previewColor }"
+                      />
+                      <span class="text-[9px] font-bold uppercase tracking-wider text-slate-300">{{
+                        meta.label
+                      }}</span>
+                    </button>
+                  </div>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end">
-                  <label class="flex flex-col gap-1.5">
-                    <span class="cyber-input-label">Port HTTP Web Client</span>
-                    <Input
-                      v-model="serverConfigDraft.webPort"
-                      inputmode="numeric"
-                      autocomplete="off"
-                      class="font-mono"
-                    />
-                  </label>
+                <!-- Autostart -->
+                <div class="flex flex-col gap-2.5">
+                  <span class="text-[9px] font-bold uppercase tracking-wider text-slate-500"
+                    >Tự khởi động</span
+                  >
+                  <div class="cyber-inset flex items-center justify-between p-3">
+                    <div class="flex flex-col gap-0.5 min-w-0">
+                      <span class="font-medium text-slate-300">Khởi động cùng hệ thống:</span>
+                      <span class="text-[9px] text-slate-500"
+                        >Chạy ẩn vào khay hệ thống (tray) khi bật máy</span
+                      >
+                    </div>
+                    <button
+                      @click="toggleAutostart"
+                      :disabled="autostartLoading"
+                      class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5 flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                      :class="
+                        autostartOn
+                          ? 'border-cyan-400/70 text-cyan-300 bg-slate-900/80 shadow shadow-cyan-900/20'
+                          : 'border-slate-750 text-slate-400 hover:border-slate-600'
+                      "
+                    >
+                      <Icon
+                        v-if="autostartLoading"
+                        icon="lucide:loader-2"
+                        class="animate-spin text-xs"
+                      />
+                      <span>{{ autostartOn ? 'Bật' : 'Tắt' }}</span>
+                    </button>
+                  </div>
+                </div>
+              </section>
 
-                  <button
-                    type="button"
-                    class="cyber-action-btn h-[38px] min-w-[116px] font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5 flex items-center justify-center gap-1.5"
+              <!-- ===== Group: Network ===== -->
+              <section
+                id="settings-group-network"
+                class="flex flex-col gap-3 scroll-mt-4"
+              >
+                <div class="flex items-center justify-between gap-3">
+                  <div class="flex items-center gap-2">
+                    <Icon icon="lucide:wifi" class="text-sm text-cyan-400" />
+                    <h3 class="cyber-section-title">Network</h3>
+                  </div>
+                  <span
+                    class="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[9px] font-bold uppercase tracking-wider shrink-0"
                     :class="
-                      serverConfigDraft.webEnabled
-                        ? 'border-cyan-400/70 text-cyan-300 bg-slate-900/80 shadow shadow-cyan-900/20'
-                        : 'border-slate-750 text-slate-400 hover:border-slate-600'
+                      hasPendingServerChanges
+                        ? 'border-amber-300/40 bg-amber-400/10 text-amber-200 shadow-[0_0_16px_rgba(251,191,36,0.08)]'
+                        : 'border-emerald-300/25 bg-emerald-400/5 text-emerald-300/80'
                     "
-                    @click="serverConfigDraft.webEnabled = !serverConfigDraft.webEnabled"
                   >
                     <Icon
-                      :icon="serverConfigDraft.webEnabled ? 'lucide:toggle-right' : 'lucide:toggle-left'"
-                      class="text-sm"
+                      :icon="hasPendingServerChanges ? 'lucide:triangle-alert' : 'lucide:check'"
+                      class="text-[11px]"
                     />
-                    {{ serverConfigDraft.webEnabled ? 'Web bật' : 'Web tắt' }}
-                  </button>
+                    {{ networkSettingsBadgeText }}
+                  </span>
                 </div>
 
-                <div class="flex flex-col gap-2 pt-2 cyber-divider">
-                  <p
-                    v-if="serverConfigValidationError || serverConfigError"
-                    class="text-[10px] leading-relaxed text-rose-300"
-                  >
-                    {{ serverConfigError || serverConfigValidationError }}
-                  </p>
-                  <p v-else class="text-[10px] leading-relaxed text-slate-500">
-                    Cấu hình port được ghi vào server.json; socket listener chỉ dùng cổng mới sau khi Companion khởi động lại.
-                  </p>
+                <div class="cyber-inset flex flex-col gap-3 p-3">
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <label class="flex flex-col gap-1.5">
+                      <span class="cyber-input-label">Cổng đang chạy</span>
+                      <div
+                        class="h-[38px] rounded-lg border border-slate-800 bg-slate-950/80 px-3 py-2.5 font-mono text-xs text-slate-400 shadow-inner"
+                      >
+                        {{ activeWsPort }}
+                      </div>
+                    </label>
 
-                  <button
-                    type="button"
-                    class="cyber-action-btn w-full font-bold cursor-pointer disabled:cursor-not-allowed disabled:opacity-45 text-[10px] uppercase tracking-wider px-3 py-2 flex items-center justify-center gap-1.5"
-                    :disabled="serverConfigSaving || !!serverConfigValidationError"
-                    @click="saveNetworkSettingsAndRelaunch"
-                  >
-                    <Icon
-                      :icon="serverConfigSaving ? 'lucide:loader-circle' : 'lucide:refresh-cw'"
-                      class="text-xs"
-                      :class="serverConfigSaving ? 'animate-spin' : ''"
-                    />
-                    {{ serverConfigSaving ? 'Đang lưu...' : 'Lưu và khởi động lại' }}
-                  </button>
+                    <label class="flex flex-col gap-1.5">
+                      <span class="cyber-input-label">Cổng sau khi khởi động lại</span>
+                      <Input
+                        v-model="serverConfigDraft.wsPort"
+                        inputmode="numeric"
+                        autocomplete="off"
+                        class="font-mono"
+                        :class="
+                          serverConfigValidationError
+                            ? 'border-rose-500/40 focus:ring-rose-500/40'
+                            : hasPendingServerChanges
+                              ? 'border-amber-300/35 focus:ring-amber-300/30'
+                              : ''
+                        "
+                      />
+                    </label>
+                  </div>
+
+                  <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end">
+                    <label class="flex flex-col gap-1.5">
+                      <span class="cyber-input-label">Port HTTP Web Client</span>
+                      <Input
+                        v-model="serverConfigDraft.webPort"
+                        inputmode="numeric"
+                        autocomplete="off"
+                        class="font-mono"
+                      />
+                    </label>
+
+                    <button
+                      type="button"
+                      class="cyber-action-btn h-[38px] min-w-[116px] font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5 flex items-center justify-center gap-1.5"
+                      :class="
+                        serverConfigDraft.webEnabled
+                          ? 'border-cyan-400/70 text-cyan-300 bg-slate-900/80 shadow shadow-cyan-900/20'
+                          : 'border-slate-750 text-slate-400 hover:border-slate-600'
+                      "
+                      @click="serverConfigDraft.webEnabled = !serverConfigDraft.webEnabled"
+                    >
+                      <Icon
+                        :icon="serverConfigDraft.webEnabled ? 'lucide:toggle-right' : 'lucide:toggle-left'"
+                        class="text-sm"
+                      />
+                      {{ serverConfigDraft.webEnabled ? 'Web bật' : 'Web tắt' }}
+                    </button>
+                  </div>
+
+                  <div class="flex flex-col gap-2 pt-2 cyber-divider">
+                    <p
+                      class="text-[10px] leading-relaxed"
+                      :class="
+                        serverConfigValidationError || serverConfigError
+                          ? 'text-rose-300'
+                          : hasPendingServerChanges
+                            ? 'text-amber-200/90'
+                            : 'text-slate-500'
+                      "
+                    >
+                      <Icon
+                        v-if="serverConfigSaving"
+                        icon="lucide:loader-circle"
+                        class="inline text-[11px] animate-spin mr-1 align-middle"
+                      />
+                      <Icon
+                        v-else-if="serverConfigValidationError || serverConfigError"
+                        icon="lucide:triangle-alert"
+                        class="inline text-[11px] mr-1 align-middle text-rose-300"
+                      />
+                      <Icon
+                        v-else-if="hasPendingServerChanges"
+                        icon="lucide:triangle-alert"
+                        class="inline text-[11px] mr-1 align-middle text-amber-300"
+                      />
+                      <Icon
+                        v-else
+                        icon="lucide:check"
+                        class="inline text-[11px] mr-1 align-middle text-emerald-300/80"
+                      />
+                      {{ serverConfigSaveHint }}
+                    </p>
+
+                    <button
+                      type="button"
+                      class="cyber-action-btn w-full font-bold cursor-pointer disabled:cursor-not-allowed disabled:opacity-45 text-[10px] uppercase tracking-wider px-3 py-2 flex items-center justify-center gap-1.5"
+                      :disabled="!canSaveServerConfig"
+                      :aria-disabled="!canSaveServerConfig"
+                      :title="serverConfigSaveHint"
+                      @click="saveNetworkSettingsAndRelaunch"
+                    >
+                      <Icon
+                        :icon="serverConfigSaving ? 'lucide:loader-circle' : 'lucide:refresh-cw'"
+                        class="text-xs"
+                        :class="serverConfigSaving ? 'animate-spin' : ''"
+                      />
+                      {{ serverConfigSaving ? 'Đang lưu...' : 'Lưu và khởi động lại' }}
+                    </button>
+                  </div>
+                </div>
+              </section>
+
+              <!-- ===== Group: Client & QR ===== -->
+              <section
+                id="settings-group-client-qr"
+                class="flex flex-col gap-3 scroll-mt-4"
+              >
+                <div class="flex items-center gap-2">
+                  <Icon icon="lucide:qr-code" class="text-sm text-cyan-400" />
+                  <h3 class="cyber-section-title">Client & QR</h3>
                 </div>
 
                 <div
                   v-if="webClientUrl"
-                  class="cyber-divider pt-3 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-start"
+                  class="cyber-inset p-3 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-start"
                 >
                   <div class="flex flex-col gap-2 min-w-0">
                     <div class="flex items-center gap-2">
@@ -2601,203 +2968,242 @@ const updateStatusText = computed(() => {
                   </div>
 
                   <div
-                    class="w-[148px] rounded-xl border border-cyan-400/20 bg-slate-950/80 p-3 shadow-[0_0_24px_rgba(34,211,238,0.08)]"
+                    class="w-56 rounded-xl border border-cyan-400/20 bg-slate-950/80 p-3.5 shadow-[0_0_24px_rgba(34,211,238,0.08)] flex flex-col items-center justify-center gap-2"
                   >
+                    <button
+                      v-if="webClientQrSvg"
+                      type="button"
+                      class="w-48 h-48 rounded-lg overflow-hidden bg-white p-1 cursor-zoom-in transition-all focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 outline-none hover:scale-[1.02]"
+                      @click="openZoomModal('Web Client LAN', webClientUrl, webClientQrSvg)"
+                      @keydown.enter="openZoomModal('Web Client LAN', webClientUrl, webClientQrSvg)"
+                      @keydown.space.prevent="openZoomModal('Web Client LAN', webClientUrl, webClientQrSvg)"
+                      title="Click để phóng to mã QR"
+                      aria-label="Mã QR Web Client. Nhấn Enter hoặc Space để phóng to."
+                    >
+                      <div v-html="webClientQrSvg" class="w-full h-full"></div>
+                    </button>
                     <div
-                      class="rounded-lg overflow-hidden bg-white p-1"
-                      v-html="webClientQrSvg"
-                    ></div>
-                    <div
-                      class="mt-2 text-center text-[8.5px] font-bold uppercase tracking-wider text-cyan-300/80"
+                      class="mt-1 text-center text-[8.5px] font-bold uppercase tracking-wider text-cyan-300/80"
                     >
                       Mở trên iPad / Browser
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
+                <p v-else class="text-[10px] text-slate-500 leading-relaxed">
+                  Bật <strong class="text-slate-300">Web Client</strong> trong nhóm
+                  <em>Network</em> để sinh URL + QR cho iPad/Browser.
+                </p>
+              </section>
 
-            <!-- Autostart -->
-            <div class="flex flex-col gap-2.5">
-              <span class="text-[9px] font-bold uppercase tracking-wider text-cyan-400/70"
-                >Tự khởi động</span
+              <!-- ===== Group: Permissions (mac only) ===== -->
+              <section
+                v-if="isMac"
+                id="settings-group-permissions"
+                class="flex flex-col gap-3 scroll-mt-4"
               >
-              <div class="cyber-inset flex items-center justify-between p-3">
-                <div class="flex flex-col gap-0.5">
-                  <span class="font-medium text-slate-300">Khởi động cùng hệ thống:</span>
-                  <span class="text-[9px] text-slate-500">Chạy ẩn vào khay hệ thống (tray) khi bật máy</span>
-                </div>
-                <button
-                  @click="toggleAutostart"
-                  :disabled="autostartLoading"
-                  class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5 flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                  :class="
-                    autostartOn
-                      ? 'border-cyan-400/70 text-cyan-300 bg-slate-900/80 shadow shadow-cyan-900/20'
-                      : 'border-slate-750 text-slate-400 hover:border-slate-600'
-                  "
-                >
-                  <Icon
-                    v-if="autostartLoading"
-                    icon="lucide:loader-2"
-                    class="animate-spin text-xs"
-                  />
-                  <span>{{ autostartOn ? 'Bật' : 'Tắt' }}</span>
-                </button>
-              </div>
-            </div>
-
-            <!-- Sao lưu & Cấu hình -->
-            <div class="flex flex-col gap-2.5">
-              <span class="text-[9px] font-bold uppercase tracking-wider text-cyan-400/70"
-                >Sao lưu & Cấu hình</span
-              >
-              <div class="cyber-inset flex items-center justify-between p-3">
-                <div class="flex flex-col gap-0.5">
-                  <span class="font-medium text-slate-300">Xuất/Nhập dữ liệu layout:</span>
-                  <span class="text-[9px] text-slate-500">Tải về hoặc tải lên file JSON cấu hình lưới phím</span>
-                </div>
-                <div class="flex gap-2">
-                  <button
-                    type="button"
-                    class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5 flex items-center gap-1.5"
-                    @click="handleExport"
-                    title="Xuất cấu hình hiện tại ra file JSON"
-                  >
-                    <Icon icon="lucide:download" class="text-xs" />
-                    <span>Export</span>
-                  </button>
-                  <button
-                    type="button"
-                    class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5 flex items-center gap-1.5"
-                    @click="triggerImport"
-                    title="Nạp cấu hình từ file JSON"
-                  >
-                    <Icon icon="lucide:upload" class="text-xs" />
-                    <span>Import</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <!-- App Info -->
-            <div class="flex flex-col gap-2.5">
-              <span class="text-[9px] font-bold uppercase tracking-wider text-cyan-400/70"
-                >Thông tin ứng dụng</span
-              >
-              <div class="cyber-inset p-3 flex flex-col gap-3">
-                <div class="grid grid-cols-2 gap-y-2">
-                  <span class="text-slate-400 font-medium">Tên phần mềm:</span>
-                  <span class="text-slate-200 font-bold justify-self-end">Android Stream Desk</span>
-                  <span class="text-slate-400 font-medium">Phiên bản hiện tại:</span>
-                  <span class="font-mono text-cyan-300 justify-self-end">v{{ appVersion }}</span>
-                  <span class="text-slate-400 font-medium">Tác giả:</span>
-                  <span class="text-slate-200 justify-self-end font-semibold">aniadev</span>
-                  <span class="text-slate-400 font-medium">Giấy phép:</span>
-                  <span class="font-mono text-slate-200 justify-self-end">MIT License</span>
-                  <span class="text-slate-400 font-medium">Mã nguồn:</span>
-                  <span class="justify-self-end">
-                    <a
-                      href="https://github.com/aniadev/android-stream-desk"
-                      target="_blank"
-                      class="text-cyan-400 hover:underline flex items-center gap-1"
-                    >
-                      GitHub Repo <Icon icon="lucide:external-link" class="text-[10px]" />
-                    </a>
-                  </span>
+                <div class="flex items-center gap-2">
+                  <Icon icon="lucide:shield-check" class="text-sm text-cyan-400" />
+                  <h3 class="cyber-section-title">Permissions</h3>
                 </div>
 
-                <!-- Donate Card -->
-                <div class="mt-2 p-3 bg-gradient-to-r from-fuchsia-950/20 via-violet-950/30 to-cyan-950/20 rounded-xl border border-violet-500/20 flex flex-col sm:flex-row gap-4 items-center justify-between shadow-[0_0_24px_rgba(139,92,246,0.05)]">
-                  <div class="flex-1 flex flex-col gap-1 items-center sm:items-start text-center sm:text-left">
-                    <div class="flex items-center gap-1.5 text-xs font-bold text-fuchsia-300">
-                      <Icon icon="mdi:coffee" class="text-sm shrink-0 animate-bounce" />
-                      <span>Ủng hộ nhà phát triển</span>
-                    </div>
-                    <p class="text-[9px] text-slate-400 max-w-[280px] leading-relaxed">
-                      Dự án hoàn toàn miễn phí & mã nguồn mở. Hãy mời tác giả một ly cà phê nếu bạn thấy ứng dụng này hữu ích!
-                    </p>
-                    <a
-                      href="https://ko-fi.com/ania9"
-                      target="_blank"
-                      class="mt-2 inline-flex items-center justify-center gap-1.5 rounded-lg border border-fuchsia-500/30 bg-fuchsia-950/30 hover:bg-fuchsia-900/40 hover:border-fuchsia-400 px-3 py-1.5 text-[9px] font-extrabold uppercase tracking-wider text-fuchsia-200 shadow shadow-fuchsia-950/20 transition duration-150 cursor-pointer"
-                    >
-                      <Icon icon="lucide:external-link" class="text-xs" />
-                      <span>Buy me a coffee (Ko-Fi)</span>
-                    </a>
-                  </div>
-                  <div class="w-[148px] shrink-0 bg-slate-900/60 p-2 rounded-lg border border-cyan-500/10 flex flex-col items-center gap-1">
-                    <img
-                      src="/donate/momo.png"
-                      alt="MoMo QR"
-                      class="w-full aspect-square object-cover rounded bg-white p-0.5"
-                    />
-                    <span class="text-[8px] font-extrabold tracking-wider uppercase text-cyan-300/80">Quét MoMo</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Updater -->
-            <div class="flex flex-col gap-2.5">
-              <span class="text-[9px] font-bold uppercase tracking-wider text-cyan-400/70"
-                >Trình kiểm tra cập nhật (Tauri auto-updater)</span
-              >
-              <div class="cyber-inset flex flex-col gap-3 p-3">
-                <div class="flex items-center justify-between">
-                  <div class="flex flex-col gap-0.5">
-                    <span class="font-medium text-slate-300">Nhật ký cập nhật:</span>
-                    <span class="text-[10px] text-slate-500 font-bold uppercase mt-0.5">
-                      {{ updateStatusText || 'Sẵn sàng kiểm tra' }}
+                <div class="cyber-inset flex items-center justify-between p-3">
+                  <div class="flex flex-col gap-0.5 min-w-0">
+                    <span class="font-medium text-slate-300">Accessibility (macOS):</span>
+                    <span class="text-[9px] text-slate-500">
+                      Cần thiết để gửi phím tắt vào app đang focus. Nếu chưa bật, mở
+                      System Settings và bật cho binary đang chạy.
                     </span>
                   </div>
                   <button
-                    class="cyber-action-btn font-bold cursor-pointer disabled:opacity-50 text-[10px] uppercase tracking-wider px-3 py-1.5"
-                    :disabled="
-                      updaterStore.state === 'checking' || updaterStore.state === 'downloading'
-                    "
-                    @click="updaterStore.checkForUpdates()"
+                    type="button"
+                    class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5 flex items-center justify-center gap-1.5 shrink-0"
+                    @click="openAccessibilitySettings"
+                    title="Mở Accessibility Settings"
                   >
-                    Check
+                    <Icon icon="lucide:external-link" class="text-xs" />
+                    <span>Mở System Settings</span>
                   </button>
                 </div>
 
-                <div
-                  v-if="updaterStore.state === 'available'"
-                  class="flex flex-col gap-2 pt-2 cyber-divider"
-                >
-                  <p class="text-[10px] text-emerald-400 font-medium">
-                    Có bản cập nhật mới v{{ updaterStore.update?.version }}. Bạn có muốn tải xuống
-                    và cài đặt tự động?
-                  </p>
-                  <button
-                    class="cyber-action-btn font-bold w-full uppercase tracking-wider text-[10px] py-1.5 cursor-pointer"
-                    @click="updaterStore.startInstall()"
-                  >
-                    {{
-                      (updaterStore.update as any)?.isManual
-                        ? 'Mở trang tải xuống →'
-                        : 'Tải & nâng cấp tự động'
-                    }}
-                  </button>
+                <p class="text-[9px] text-slate-500 leading-relaxed px-1">
+                  Chi tiết executablePath / bundle identifier xem tại
+                  <strong class="text-slate-300">khôi phục Accessibility</strong> phía trên
+                  dashboard.
+                </p>
+              </section>
+
+              <!-- ===== Group: Updates ===== -->
+              <section
+                id="settings-group-updates"
+                class="flex flex-col gap-3 scroll-mt-4"
+              >
+                <div class="flex items-center gap-2">
+                  <Icon icon="lucide:refresh-cw" class="text-sm text-cyan-400" />
+                  <h3 class="cyber-section-title">Updates</h3>
                 </div>
 
-                <div
-                  v-if="updaterStore.state === 'downloading'"
-                  class="flex flex-col gap-1.5 pt-2 cyber-divider"
-                >
-                  <div class="flex justify-between text-[10px] font-mono text-slate-300">
-                    <span>Đang tải xuống...</span>
-                    <span class="text-cyan-400">{{ updaterStore.progressPct }}%</span>
+                <div class="cyber-inset flex flex-col gap-3 p-3">
+                  <div class="flex items-center justify-between">
+                    <div class="flex flex-col gap-0.5 min-w-0">
+                      <span class="font-medium text-slate-300">Nhật ký cập nhật:</span>
+                      <span class="text-[10px] text-slate-500 font-bold uppercase mt-0.5">
+                        {{ updateStatusText || 'Sẵn sàng kiểm tra' }}
+                      </span>
+                    </div>
+                    <button
+                      class="cyber-action-btn font-bold cursor-pointer disabled:opacity-50 text-[10px] uppercase tracking-wider px-3 py-1.5"
+                      :disabled="
+                        updaterStore.state === 'checking' || updaterStore.state === 'downloading'
+                      "
+                      @click="updaterStore.checkForUpdates()"
+                    >
+                      Check
+                    </button>
                   </div>
-                  <div class="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-                    <div
-                      class="h-full bg-cyan-500 rounded-full transition-all duration-150"
-                      :style="{ width: `${updaterStore.progressPct}%` }"
-                    ></div>
+
+                  <div
+                    v-if="updaterStore.state === 'available'"
+                    class="flex flex-col gap-2 pt-2 cyber-divider"
+                  >
+                    <p class="text-[10px] text-emerald-400 font-medium">
+                      Có bản cập nhật mới v{{ updaterStore.update?.version }}. Bạn có muốn tải xuống
+                      và cài đặt tự động?
+                    </p>
+                    <button
+                      class="cyber-action-btn font-bold w-full uppercase tracking-wider text-[10px] py-1.5 cursor-pointer"
+                      @click="updaterStore.startInstall()"
+                    >
+                      {{
+                        (updaterStore.update as any)?.isManual
+                          ? 'Mở trang tải xuống →'
+                          : 'Tải & nâng cấp tự động'
+                      }}
+                    </button>
+                  </div>
+
+                  <div
+                    v-if="updaterStore.state === 'downloading'"
+                    class="flex flex-col gap-1.5 pt-2 cyber-divider"
+                  >
+                    <div class="flex justify-between text-[10px] font-mono text-slate-300">
+                      <span>Đang tải xuống...</span>
+                      <span class="text-cyan-400">{{ updaterStore.progressPct }}%</span>
+                    </div>
+                    <div class="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                      <div
+                        class="h-full bg-cyan-500 rounded-full transition-all duration-150"
+                        :style="{ width: `${updaterStore.progressPct}%` }"
+                      ></div>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </section>
+
+              <!-- ===== Group: Import/Export ===== -->
+              <section
+                id="settings-group-import-export"
+                class="flex flex-col gap-3 scroll-mt-4"
+              >
+                <div class="flex items-center gap-2">
+                  <Icon icon="lucide:database" class="text-sm text-cyan-400" />
+                  <h3 class="cyber-section-title">Import/Export</h3>
+                </div>
+
+                <div class="cyber-inset flex items-center justify-between p-3">
+                  <div class="flex flex-col gap-0.5 min-w-0">
+                    <span class="font-medium text-slate-300">Xuất/Nhập dữ liệu layout:</span>
+                    <span class="text-[9px] text-slate-500"
+                      >Tải về hoặc tải lên file JSON cấu hình lưới phím</span
+                    >
+                  </div>
+                  <div class="flex gap-2 shrink-0">
+                    <button
+                      type="button"
+                      class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5 flex items-center gap-1.5"
+                      @click="handleExport"
+                      title="Xuất cấu hình hiện tại ra file JSON"
+                    >
+                      <Icon icon="lucide:download" class="text-xs" />
+                      <span>Export</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5 flex items-center gap-1.5"
+                      @click="triggerImport"
+                      title="Nạp cấu hình từ file JSON"
+                    >
+                      <Icon icon="lucide:upload" class="text-xs" />
+                      <span>Import</span>
+                    </button>
+                  </div>
+                </div>
+              </section>
+
+              <!-- ===== Group: About/Support ===== -->
+              <section
+                id="settings-group-about"
+                class="flex flex-col gap-3 scroll-mt-4"
+              >
+                <div class="flex items-center gap-2">
+                  <Icon icon="lucide:info" class="text-sm text-cyan-400" />
+                  <h3 class="cyber-section-title">About/Support</h3>
+                </div>
+
+                <div class="flex flex-col gap-3">
+                  <div class="cyber-inset p-3">
+                  <div class="grid grid-cols-2 gap-y-2">
+                    <span class="text-slate-400 font-medium">Tên phần mềm:</span>
+                    <span class="text-slate-200 font-bold justify-self-end">Android Stream Desk</span>
+                    <span class="text-slate-400 font-medium">Phiên bản hiện tại:</span>
+                    <span class="font-mono text-cyan-300 justify-self-end">v{{ appVersion }}</span>
+                    <span class="text-slate-400 font-medium">Tác giả:</span>
+                    <span class="text-slate-200 justify-self-end font-semibold">aniadev</span>
+                    <span class="text-slate-400 font-medium">Giấy phép:</span>
+                    <span class="font-mono text-slate-200 justify-self-end">MIT License</span>
+                    <span class="text-slate-400 font-medium">Mã nguồn:</span>
+                    <span class="justify-self-end">
+                      <a
+                        href="https://github.com/aniadev/android-stream-desk"
+                        target="_blank"
+                        class="text-cyan-400 hover:underline flex items-center gap-1"
+                      >
+                        GitHub Repo <Icon icon="lucide:external-link" class="text-[10px]" />
+                      </a>
+                    </span>
+                  </div>
+                  </div>
+
+                  <div
+                    class="p-3 bg-gradient-to-r from-fuchsia-950/20 via-violet-950/30 to-cyan-950/20 rounded-xl border border-violet-500/20 flex flex-col sm:flex-row gap-4 items-center justify-between shadow-[0_0_24px_rgba(139,92,246,0.05)]"
+                  >
+                    <div class="flex-1 flex flex-col gap-1 items-center sm:items-start text-center sm:text-left">
+                      <div class="flex items-center gap-1.5 text-xs font-bold text-fuchsia-300">
+                        <Icon icon="mdi:coffee" class="text-sm shrink-0 animate-bounce" />
+                        <span>Ủng hộ nhà phát triển</span>
+                      </div>
+                      <p class="text-[9px] text-slate-400 max-w-[280px] leading-relaxed">
+                        Dự án hoàn toàn miễn phí & mã nguồn mở. Hãy mời tác giả một ly cà phê nếu bạn thấy ứng dụng này hữu ích!
+                      </p>
+                      <a
+                        href="https://ko-fi.com/ania9"
+                        target="_blank"
+                        class="mt-2 inline-flex items-center justify-center gap-1.5 rounded-lg border border-fuchsia-500/30 bg-fuchsia-950/30 hover:bg-fuchsia-900/40 hover:border-fuchsia-400 px-3 py-1.5 text-[9px] font-extrabold uppercase tracking-wider text-fuchsia-200 shadow shadow-fuchsia-950/20 transition duration-150 cursor-pointer"
+                      >
+                        <Icon icon="lucide:external-link" class="text-xs" />
+                        <span>Buy me a coffee (Ko-Fi)</span>
+                      </a>
+                    </div>
+                    <div class="w-[148px] shrink-0 p-2 flex flex-col items-center gap-1">
+                      <img
+                        src="/donate/momo.png"
+                        alt="MoMo QR"
+                        class="w-full aspect-square object-cover rounded bg-white p-0.5"
+                      />
+                      <span class="text-[8px] font-extrabold tracking-wider uppercase text-cyan-300/80">Quét MoMo</span>
+                    </div>
+                  </div>
+                </div>
+              </section>
             </div>
           </div>
         </div>
@@ -2897,6 +3303,67 @@ const updateStatusText = computed(() => {
         }
       "
     />
+
+    <!-- QR Zoom Modal (S-QRX2) -->
+    <transition name="fade">
+      <div
+        v-if="zoomModalOpen"
+        class="fixed inset-0 z-[70] flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 cursor-default"
+        @click.self="zoomModalOpen = false"
+      >
+        <div 
+          class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full flex flex-col p-6 gap-5 shadow-2xl relative overflow-hidden"
+          role="dialog"
+          aria-modal="true"
+          :aria-label="`Phóng to ${zoomModalTitle}`"
+        >
+          <!-- Header -->
+          <div class="flex items-center justify-between">
+            <div class="flex flex-col gap-0.5">
+              <h3 class="text-xs font-bold text-slate-100 uppercase tracking-widest">{{ zoomModalTitle }}</h3>
+              <p class="text-[9.5px] text-slate-450">Quét mã QR từ camera điện thoại hoặc iPad</p>
+            </div>
+            <button
+              type="button"
+              class="w-6 h-6 rounded-md hover:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+              @click="zoomModalOpen = false"
+              title="Đóng modal"
+            >
+              <Icon icon="lucide:x" class="text-sm" />
+            </button>
+          </div>
+
+          <!-- Plain White QR Container (no glow/filter) -->
+          <div class="flex justify-center py-2 bg-slate-950/40 rounded-xl p-4 border border-slate-850">
+            <div 
+              class="w-full max-w-96 aspect-square bg-white p-2.5 rounded-xl shadow-[0_4px_24px_rgba(0,0,0,0.4)] transition-transform overflow-hidden"
+            >
+              <div v-html="zoomModalQrSvg" class="w-full h-full"></div>
+            </div>
+          </div>
+
+          <!-- Payload copy & detail -->
+          <div class="flex flex-col gap-2">
+            <div class="flex items-center justify-between text-[9px] uppercase tracking-wider text-slate-450 font-bold px-1">
+              <span>Đường dẫn kết nối</span>
+              <button
+                type="button"
+                class="hover:text-cyan-400 flex items-center gap-1 cursor-pointer transition-colors"
+                @click="copyZoomModalPayload"
+              >
+                <Icon :icon="zoomModalCopyHint ? 'lucide:check' : 'lucide:copy'" class="text-[10px]" />
+                <span>{{ zoomModalCopyHint || 'Sao chép' }}</span>
+              </button>
+            </div>
+            <div 
+              class="rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 font-mono text-[10.5px] text-slate-350 shadow-inner break-all max-h-24 overflow-y-auto selection:bg-cyan-550/30 select-text"
+            >
+              {{ zoomModalPayload }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
@@ -2940,17 +3407,22 @@ const updateStatusText = computed(() => {
   letter-spacing: 0.05em;
 }
 .cyber-section-desc {
-  font-size: 8px;
+  font-size: 9px;
   color: #64748b;
   margin-top: 2px;
 }
 .cyber-input-label {
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: #94a3b8;
 }
+
+/* --- S-UX1 typography tiers (min 9/10/11) --- */
+.cyber-text-2xs { font-size: 9px; line-height: 1.35; }
+.cyber-text-xs  { font-size: 10px; line-height: 1.4; }
+.cyber-text-sm  { font-size: 11px; line-height: 1.45; }
 
 /* --- Dividers --- */
 .cyber-divider {

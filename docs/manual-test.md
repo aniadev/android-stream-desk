@@ -212,6 +212,45 @@ APK output: `src-tauri/gen/android/app/build/outputs/apk/release/app-release.apk
 
 ---
 
+## 10A. Release preflight — dist-client + lifecycle events (S-RUST2)
+
+Mục tiêu: bắt early hai loại regression hay vỡ im lặng trong release: thiếu `dist-client/` và bind listener fail không hiện ra Dashboard.
+
+### 10A.1 Preflight: `dist-client/index.html`
+
+Web server Companion nhúng Vue Web Client bằng `include_dir!("$CARGO_MANIFEST_DIR/../dist-client")`. Nếu thư mục này thiếu, `pnpm tauri build` cũ vẫn pass nhưng release ship thiếu Web Client. Sau S-RUST2, `src-tauri/build.rs` chặn tại compile-time:
+
+```bash
+# Bắt buộc trước mọi lần `pnpm tauri build`:
+pnpm build:client    # ghi dist-client/
+
+# Verify preflight chặn được trường hợp thiếu:
+mv dist-client dist-client.bak
+cargo check --manifest-path src-tauri/Cargo.toml   # → panic "S-RUST2 preflight FAILED"
+mv dist-client.bak dist-client
+```
+
+❌ Fail nếu: `cargo check` pass khi `dist-client/index.html` không tồn tại → `build.rs` bị regress.
+
+### 10A.2 Lifecycle events trong Dashboard DevTools
+
+Mở Dashboard → DevTools → Console, dán:
+
+```js
+const trap = (name) => __TAURI__.event.listen(name, (e) => console.log(name, e.payload));
+['server-ready', 'server-error', 'server-web-ready', 'server-web-error'].forEach(trap);
+```
+
+| Bước | Hành động | Console kỳ vọng |
+|---|---|---|
+| 10A.2a | Bật Companion lần đầu (port 8089 / 8090 trống) | `server-ready {port: 8089}` + nếu webEnabled → `server-web-ready {port: 8090}`. |
+| 10A.2b | Đặt `wsPort = 8089` rồi mở instance thứ 2 cùng port | Instance 2 in `server-error {port:8089, error:"address already in use..."}` ngay trong console. |
+| 10A.2c | Bind error xảy ra | Dashboard HUD đỏ ngay phía dưới đầu trang hiện banner `Bind Error`, QR panel + Web Client panel chuyển sang overlay rose/amber với `wsBindError`/`webBindError`. |
+
+❌ Fail nếu: bind fail xảy ra nhưng Dashboard vẫn xanh / không hiện banner → check `ServerInfo.wsBindError`/`webBindError` đã được populate từ `current_ws_bind_status()` / `current_web_bind_status()` chưa.
+
+---
+
 ## Check-list tóm gọn trước release
 
 - [ ] §1 smoke OK trên platform target
@@ -222,5 +261,7 @@ APK output: `src-tauri/gen/android/app/build/outputs/apk/release/app-release.apk
 - [ ] §7 Android live sync + auto-reconnect OK
 - [ ] §8 heartbeat fail → reconnect OK
 - [ ] §10 build production size < 10MB
+- [ ] §10A.1 preflight chặn khi `dist-client/` thiếu (test rename)
+- [ ] §10A.2 cả 4 lifecycle events fire đúng + Dashboard banner hiện khi bind fail
 
 Bất kỳ mục nào ❌ → log Issue trước khi tag release.

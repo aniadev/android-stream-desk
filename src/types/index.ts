@@ -1,4 +1,4 @@
-export type ActionType = 'shortcut' | 'media' | 'app' | 'command';
+export type ActionType = 'shortcut' | 'media' | 'app' | 'command' | 'link';
 export type MetricType = 'ram_percent' | 'cpu_percent';
 
 export interface MonitorConfig {
@@ -23,6 +23,8 @@ export interface ButtonConfig {
   appPath?: string;
   // Cho 'command': chuỗi shell thô (sh -c hoặc cmd /C), chạy với quyền user
   commandValue?: string;
+  // Cho 'link': URL http(s) — mở bằng default browser của OS (Windows `cmd /c start ""`, macOS `open`, Linux `xdg-open`)
+  linkUrl?: string;
   // Cho custom icon rendering configuration (cover, contain, fill, normal)
   iconSizing?: 'normal' | 'cover' | 'contain' | 'fill';
 }

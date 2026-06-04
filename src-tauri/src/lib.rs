@@ -140,6 +140,8 @@ pub struct ButtonConfig {
     app_path: Option<String>,
     #[serde(rename = "commandValue")]
     command_value: Option<String>,
+    #[serde(rename = "linkUrl")]
+    link_url: Option<String>,
     #[serde(rename = "buttonKind")]
     button_kind: Option<String>,
     #[serde(rename = "monitorConfig")]
@@ -745,6 +747,13 @@ async fn execute_logic(app_handle: AppHandle, button: ButtonConfig) -> Result<()
                 .ok_or_else(|| "Missing command value".to_string())?;
             run_shell_command(cmd).await
         }
+        "link" => {
+            let url = button
+                .link_url
+                .as_deref()
+                .ok_or_else(|| "Missing link URL".to_string())?;
+            open_link(url)
+        }
         other => Err(format!("Unsupported action type: {}", other)),
     };
 
@@ -1064,6 +1073,91 @@ async fn run_shell_command(cmd: &str) -> Result<(), String> {
 }
 
 // -------------------------------------------------------------
+// Link action (S-LINK1) — open URL via platform shell
+// -------------------------------------------------------------
+
+/// Reject anything that is not a syntactically valid http/https URL.
+/// Defense-in-depth alongside the frontend sanitizer — a malicious WS
+/// client could forge a press payload with a `file:` / `javascript:` /
+/// `vbscript:` URL, so the backend must validate before spawning.
+fn validate_link_url(raw: &str) -> Result<String, String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Err("Link URL is empty".to_string());
+    }
+    let lower = trimmed.to_ascii_lowercase();
+    if !(lower.starts_with("http://") || lower.starts_with("https://")) {
+        return Err(format!(
+            "Link URL must start with http:// or https:// (got: {})",
+            trimmed
+        ));
+    }
+    // Reject control chars / whitespace inside the URL — a newline would let an
+    // attacker smuggle a second argument on platforms whose `start`/`open`/`xdg-open`
+    // surprise-tokenises certain inputs.
+    if trimmed.chars().any(|c| c.is_control() || c == '\n' || c == '\r') {
+        return Err("Link URL contains control characters".to_string());
+    }
+    // Reject embedded credentials (`user:pass@host`) — mirror the frontend
+    // sanitizer (defense in depth). The authority is everything between "://"
+    // and the next '/', '?' or '#'; a '@' there means userinfo.
+    if let Some(after_scheme) = trimmed.splitn(2, "://").nth(1) {
+        let authority_end = after_scheme
+            .find(['/', '?', '#'])
+            .unwrap_or(after_scheme.len());
+        if after_scheme[..authority_end].contains('@') {
+            return Err("Link URL must not contain credentials (user:pass@)".to_string());
+        }
+    }
+    Ok(trimmed.to_string())
+}
+
+#[cfg(desktop)]
+fn open_link(raw: &str) -> Result<(), String> {
+    use std::process::Command;
+    let url = validate_link_url(raw)?;
+
+    #[cfg(target_os = "windows")]
+    {
+        // Avoid `cmd /c start` — cmd.exe re-parses its command line and treats
+        // `&`, `^`, `%` (all common in URL query strings) as shell
+        // metacharacters even when the URL is a discrete argv entry, truncating
+        // or garbling the link. rundll32's FileProtocolHandler takes the URL as
+        // a single argument with no shell involved, so it survives intact.
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        Command::new("rundll32")
+            .args(["url.dll,FileProtocolHandler", &url])
+            .creation_flags(CREATE_NO_WINDOW)
+            .spawn()
+            .map_err(|e| format!("Failed to open link via rundll32: {}", e))?;
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg("--")
+            .arg(&url)
+            .spawn()
+            .map_err(|e| format!("Failed to open link via macOS open: {}", e))?;
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
+        // xdg-open has no `--` end-of-options separator (it's a plain shell
+        // script and some openers choke on it). The URL is already validated to
+        // start with http(s):// and contain no control chars, and it's a
+        // discrete argv entry, so no separator is needed.
+        Command::new("xdg-open")
+            .arg(&url)
+            .spawn()
+            .map_err(|e| format!("Failed to open link via xdg-open: {}", e))?;
+    }
+
+    Ok(())
+}
+
+// -------------------------------------------------------------
 // Tauri Initializer Bridge entry
 // -------------------------------------------------------------
 
@@ -1371,5 +1465,99 @@ mod tests {
         assert!(permissions
             .iter()
             .any(|permission| permission == "process:default"));
+    }
+
+    // --- S-LINK1: link action validation ---
+
+    #[test]
+    fn validate_link_url_accepts_http_and_https() {
+        assert_eq!(
+            validate_link_url("https://example.com/path?q=1").unwrap(),
+            "https://example.com/path?q=1"
+        );
+        assert_eq!(
+            validate_link_url("http://192.168.1.5:8080").unwrap(),
+            "http://192.168.1.5:8080"
+        );
+        assert_eq!(
+            validate_link_url("  https://github.com  ").unwrap(),
+            "https://github.com"
+        );
+    }
+
+    #[test]
+    fn validate_link_url_rejects_non_http_schemes() {
+        for bad in [
+            "file:///etc/passwd",
+            "javascript:alert(1)",
+            "data:text/html,<script>alert(1)</script>",
+            "ftp://example.com",
+            "vbscript:msgbox",
+            "example.com",
+            "",
+            "   ",
+        ] {
+            assert!(
+                validate_link_url(bad).is_err(),
+                "expected error for: {:?}",
+                bad
+            );
+        }
+    }
+
+    #[test]
+    fn validate_link_url_rejects_control_characters() {
+        assert!(validate_link_url("https://example.com\n--evil").is_err());
+        assert!(validate_link_url("https://example.com\rfoo").is_err());
+        assert!(validate_link_url("https://example.com\x00bar").is_err());
+    }
+
+    #[test]
+    fn validate_link_url_rejects_embedded_credentials() {
+        assert!(validate_link_url("https://user:pass@example.com").is_err());
+        assert!(validate_link_url("http://admin@192.168.1.5").is_err());
+        assert!(validate_link_url("https://user@github.com/ania").is_err());
+        // '@' in the path or query is fine — only userinfo is rejected.
+        assert!(validate_link_url("https://example.com/u/@ania").is_ok());
+        assert!(validate_link_url("https://example.com/?to=a@b.com").is_ok());
+    }
+
+    #[test]
+    fn button_config_deserializes_link_url_field() {
+        let json = serde_json::json!({
+            "id": "btn_link_1",
+            "label": "GitHub",
+            "icon": "mdi:github",
+            "backgroundColor": "#1e293b",
+            "actionType": "link",
+            "linkUrl": "https://github.com"
+        });
+        let button: ButtonConfig = serde_json::from_value(json).unwrap();
+        assert_eq!(button.action_type, "link");
+        assert_eq!(button.link_url.as_deref(), Some("https://github.com"));
+    }
+
+    #[test]
+    fn button_config_link_url_round_trips_via_serde() {
+        let original = ButtonConfig {
+            id: "btn_x".to_string(),
+            label: "X".to_string(),
+            emoji: None,
+            icon: Some("mdi:link".to_string()),
+            background_color: "#000".to_string(),
+            action_type: "link".to_string(),
+            shortcut_value: None,
+            media_action: None,
+            app_path: None,
+            command_value: None,
+            link_url: Some("https://example.com/x".to_string()),
+            button_kind: Some("action".to_string()),
+            monitor_config: None,
+            icon_sizing: None,
+        };
+        let json = serde_json::to_value(&original).unwrap();
+        assert_eq!(json["linkUrl"], "https://example.com/x");
+        let parsed: ButtonConfig = serde_json::from_value(json).unwrap();
+        assert_eq!(parsed.link_url.as_deref(), Some("https://example.com/x"));
     }
 }

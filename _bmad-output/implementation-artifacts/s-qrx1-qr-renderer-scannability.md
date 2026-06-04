@@ -1,6 +1,6 @@
 # Story 10.1 (S-QRX1): QR renderer chuẩn và test scannability
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -25,12 +25,34 @@ so that tôi không bị mất QR im lặng hoặc quét hoài không ra.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Thay/nâng encoder (AC: 1, 3)
-  - [ ] Thay `src/lib/qrSvg.ts` bằng implementation chuẩn hoặc dependency nhỏ.
-  - [ ] Bỏ `safeCreateQrSvg` trả rỗng im lặng — surface lỗi.
-- [ ] Task 2: Roundtrip test (AC: 2, 4)
-  - [ ] New `src/lib/qrDecodeRoundtrip.test.mjs`: `buildApkConnectPayload` + QR decode.
-  - [ ] Mở rộng `src/lib/apkConnectQr.test.mjs` cho payload dài.
+- [x] Task 1: Thay/nâng encoder (AC: 1, 3)
+  - [x] Thay `src/lib/qrSvg.ts` bằng implementation chuẩn hoặc dependency nhỏ.
+  - [x] Bỏ `safeCreateQrSvg` trả rỗng im lặng — surface lỗi.
+- [x] Task 2: Roundtrip test (AC: 2, 4)
+  - [x] New `src/lib/qrDecodeRoundtrip.test.ts`: `buildApkConnectPayload` + QR decode.
+  - [x] Mở rộng `src/lib/apkConnectQr.test.mjs` cho payload dài.
+
+### Review Findings
+
+- [x] [Review][Patch] Roundtrip test chưa render SVG artifact thực tế trước khi decode [src/lib/qrDecodeRoundtrip.test.ts:20]
+- [x] [Review][Patch] `jsqr` đang nằm trong runtime dependencies dù chỉ dùng cho test [package.json:33]
+
+## Dev Agent Record
+
+### Implementation Plan
+Sử dụng thư viện `qrcode` chuẩn thay thế cho encoder tự vẽ trước đó, cấu hình tự động chọn version/sizing, độ sửa sai (EC) mặc định là 'M'.
+Viết test giải mã QR hoàn chỉnh `qrDecodeRoundtrip.test.ts` dùng `jsqr` để quét ngược từ SVG, chạy không cần Canvas/Cloud API.
+
+### File List
+- `src/lib/qrSvg.ts`
+- `src/lib/apkConnectQr.test.mjs`
+- `src/lib/qrDecodeRoundtrip.test.ts`
+- `package.json`
+
+### Change Log
+- Nâng cấp `qrSvg.ts` dùng `qrcode` package.
+- Cập nhật test cũ và thêm test roundtrip chạy thành công qua `pnpm test:qr`.
+
 
 ## Dev Notes
 
