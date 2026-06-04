@@ -514,3 +514,69 @@ git tag v1.5.1
 git push origin main
 git push origin v1.5.1
 ```
+
+---
+
+## 7. APK Size Optimization & Per-ABI Split (bổ sung)
+
+### 7.1 Root Cause / Technical Analysis
+
+Mục tiêu: giảm APK release từ 131MB xuống dưới 20MB cho mỗi loại điện thoại, và build tách APK theo từng ABI thay vì một universal APK gộp.
+
+Số liệu đo bằng cách giải nén APK release thật (`android-stream-desk-v1_5_0.apk`, 131MB):
+
+* APK là `universalRelease` chứa **cả 4 ABI**: `lib/x86_64` 34MB, `lib/x86` 34MB, `lib/arm64-v8a` 33MB, `lib/armeabi-v7a` 32MB → tổng ~133MB native. `x86`/`x86_64` chỉ dùng cho emulator, vô ích trên điện thoại thật.
+* `npm script android:build` = `tauri android build` (không `--target`) nên build mọi rust target đã cài (cả 4 target Android local đều có) và xuất một universal APK gộp hết.
+* `abiFilters = [arm64-v8a, armeabi-v7a]` trong `build.gradle.kts` **không có tác dụng lọc**: Tauri inject prebuilt jniLibs cho từng target đã build, bỏ qua `ndk.abiFilters` (filter này chỉ chi phối lib do NDK compile, không chi phối jniLibs prebuilt).
+* Frontend **không phải asset APK riêng** — Tauri nhúng toàn bộ `dist` vào trong binary Rust, nên mỗi `.so` per-ABI = native ~13MB + frontend nhúng ~19MB = ~32MB. Chi phí frontend bị trả **nhân với số ABI**.
+* `.so` release đã strip (Cargo `[profile.release]`: `opt-level="z"`, `lto`, `codegen-units=1`, `panic="abort"`, `strip=true`) — KHÔNG cần đụng.
+* Frontend phình từ ~13MB/.so (v1.4.0) lên ~32MB/.so (v1.5.0), tức +19MB: `assets/index-*.js` 11MB (icon pack inline) + `logo.png` + `logo-1.png` 8.2MB (hai logo PNG oversize). `.DS_Store` cũng lọt vào bundle.
+
+Kết luận số học: v1.4.0 = 4 ABI × ~13MB ≈ 55MB; v1.5.0 = 4 ABI × ~32MB ≈ 131MB. Số ABI luôn là 4 (abiFilters chưa từng hiệu lực); cú nhảy 55→131MB là do frontend nhúng phình. Hai đòn bẩy lớn nhất: cắt ABI thừa (x86/x86_64) và giảm frontend nhúng (vì nó trả ×ABI).
+
+### 7.2 Proposed Solution & Architecture Design
+
+* Cắt ABI thừa (đòn bẩy 1):
+  - Build chỉ cho `arm64-v8a` (+ `armeabi-v7a` nếu cần máy 32-bit cũ) bằng `tauri android build --target aarch64-linux-android` (thêm `armv7-linux-androideabi`), KHÔNG dựa vào `abiFilters` vì nó không lọc jniLibs prebuilt.
+  - Đảm bảo môi trường build/CI chỉ cài đúng rust target cần ship; gỡ `i686-linux-android`/`x86_64-linux-android` khỏi targets.
+  - Tùy chọn thêm `splits { abi { isEnable = true; reset(); include("arm64-v8a","armeabi-v7a"); isUniversalApk = false } }` để chắc chắn không gói ABI ngoài danh sách.
+* Per-ABI split (yêu cầu user):
+  - `pnpm tauri android build --apk --split-per-abi` hoặc `splits.abi { isUniversalApk = false }` để xuất từng APK theo ABI; đặt tên output rõ theo ABI.
+  - Ưu tiên phát hành `arm64-v8a`; giữ `armeabi-v7a` cho máy 32-bit.
+* Giảm frontend nhúng (đòn bẩy 2 — vì frontend nằm trong từng `.so`, mỗi MB cắt được nhân với số ABI):
+  - Lazy-load/code-split phần icon pack nặng để `index-*.js` không nhồi toàn bộ dữ liệu icon vào main chunk; dynamic import khi mở icon picker.
+  - Resize/nén logo PNG xuống dưới 200KB, dùng một logo, bỏ `logo-1.png` trùng.
+  - Loại `.DS_Store` khỏi bundle qua `.gitignore`/vite `publicDir` cleanup.
+* Resource shrink phụ: thêm `isShrinkResources = true` cùng `isMinifyEnabled = true` ở buildType release.
+* Đo lại sau mỗi thay đổi; mục tiêu: arm64-v8a split APK = native ~13MB + frontend ~3MB ≈ 16MB < 20MB. Ghi vào release checklist.
+
+### 7.3 Stories
+
+#### S-APK1 — Per-ABI split build và resource shrink
+* **Goal:** Build xuất APK riêng cho từng ABI, mỗi APK gọn hơn universal, có resource shrink.
+* **Scope:**
+  - `build.gradle.kts`: bật `splits.abi` (`isUniversalApk = false`) hoặc tài liệu hóa `--split-per-abi`.
+  - Thêm `isShrinkResources = true` cho release; verify release strip native libs.
+  - Đặt tên output theo ABI; cập nhật release docs/script build APK.
+  - Đo size từng APK ABI và ghi vào checklist.
+* **Complexity:** Medium
+
+#### S-APK2 — Web asset diet để xuống dưới 20MB
+* **Goal:** Giảm web bundle để mỗi APK ABI dưới 20MB sau khi đã split.
+* **Scope:**
+  - Lazy-load/code-split phần icon pack nặng trong `assets/index-*.js` (11MB) bằng dynamic import.
+  - Resize/nén logo PNG xuống dưới 200KB; bỏ `logo-1.png` trùng và `.DS_Store`.
+  - Verify Web Client (`dist-client`) vẫn chạy đúng sau code-split.
+  - Đo lại `dist-client` và APK ABI; xác nhận dưới 20MB.
+* **Complexity:** Medium
+
+### 7.4 Cập nhật Phasing & Matrix
+
+Thêm vào Sprint 3 (release polish), trước version bump/tag:
+
+| Story | Feature / Bug Fix | Complexity | Front-end Only? |
+| :--- | :--- | :--- | :--- |
+| S-APK1 | Per-ABI split build + resource shrink | Medium | No (gradle/build) |
+| S-APK2 | Web asset diet dưới 20MB | Medium | Yes |
+
+Dependency: S-APK1 và S-APK2 độc lập nhau nhưng cùng cần đo chung kết quả; chốt size cuối sau khi cả hai xong, gate trước `git tag v1.5.1`.

@@ -23,10 +23,10 @@ android {
         applicationId = "com.ania.android.stream.desk"
         minSdk = 24
         targetSdk = 36
-        // arm64-v8a  = modern 64-bit Android (API 21+, covers 2015+ devices)
-        // armeabi-v7a = 32-bit ARM for older devices (the primary target of this app)
-        // x86/x86_64 omitted — emulator-only, not shipped to real devices
-        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
+        // KHÔNG set ndk.abiFilters ở defaultConfig: nó union với abiFilters của từng
+        // product flavor (universal/arm64/arm do Tauri RustPlugin tạo), khiến mỗi APK
+        // --split-per-abi dính cả 2 ABI (~66MB). ABI được chọn qua `tauri --target` +
+        // `--split-per-abi`; flavor arm64/arm tự giới hạn đúng 1 ABI.
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
     }
@@ -91,7 +91,9 @@ android {
             val ver = variant.versionName.replace('.', '_')
             val isUnsigned = variant.buildType.name == "release" && variant.signingConfig == null
             val suffix = if (variant.buildType.name == "debug") "-debug" else if (isUnsigned) "-unsigned" else ""
-            out.outputFileName = "android-stream-desk-v${ver}${suffix}.apk"
+            // Khi build --split-per-abi, flavorName là "arm64"/"arm"; thêm vào tên để các APK theo ABI không trùng tên.
+            val abi = if (variant.flavorName.isNotEmpty() && variant.flavorName != "universal") "-${variant.flavorName}" else ""
+            out.outputFileName = "android-stream-desk-v${ver}${abi}${suffix}.apk"
         }
     }
 }

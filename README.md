@@ -148,11 +148,23 @@ Do bản phát hành macOS là **chưa đăng ký bản quyền Apple (unsigned)
 ### Android Client (điện thoại / máy tính bảng)
 
 1. Vào trang [Releases](https://github.com/aniadev/android-stream-desk/releases) → chọn phiên bản mới nhất.
-2. Trong mục **Assets**, tải file `.apk`:
-   - `android-stream-desk-vX.Y.Z.apk` — bản đã ký (có keystore).
-   - `android-stream-desk-vX.Y.Z-unsigned.apk` — bản chưa ký (fallback).
+2. Từ v1.5.1, APK được **tách riêng theo kiến trúc CPU (ABI)** để mỗi file nhẹ hơn nhiều so với bản universal cũ (~33MB thay vì ~131MB). Trong mục **Assets**, chọn đúng file cho máy:
+   - `android-stream-desk-vX.Y.Z-arm64.apk` — **arm64-v8a (64-bit)**. Chọn file này cho hầu hết điện thoại đời 2015 trở lại đây.
+   - `android-stream-desk-vX.Y.Z-arm.apk` — **armeabi-v7a (32-bit)**. Chỉ dành cho máy cũ/giá rẻ chạy chip 32-bit.
+   - Suffix `-unsigned` (vd: `...-arm64-unsigned.apk`) là bản chưa ký (fallback khi release không có keystore).
 3. Trên điện thoại: **Cài đặt** → **Bảo mật** → bật **Nguồn không xác định** (hoặc cho phép khi được hỏi).
 4. Mở file APK vừa tải để cài đặt.
+
+#### Chọn ABI nào cho máy của bạn?
+
+> **Quy tắc nhanh**: gần như mọi máy hiện nay đều dùng **`-arm64`**. Chỉ tải `-arm` nếu máy quá cũ hoặc đã thử `-arm64` báo không cài được.
+
+| ABI | File | Dòng máy ví dụ |
+| :--- | :--- | :--- |
+| `arm64-v8a` (64-bit) | `-arm64.apk` | Samsung Galaxy S8/S10/S20/S21/S23/S24, A52/A54; Xiaomi Redmi Note 8/9/10/11/12, POCO; Google Pixel (tất cả); OPPO/Realme/Vivo đời mới; OnePlus; Galaxy Tab S6/S7/S8/S9 |
+| `armeabi-v7a` (32-bit) | `-arm.apk` | Samsung Galaxy S4/S5, J1/J2/Grand Prime; máy Android Go giá rẻ rất cũ; tablet đời 2014 trở về trước |
+
+> Không chắc máy 32-bit hay 64-bit? Cài app **CPU-Z** (hoặc xem **Cài đặt → Giới thiệu điện thoại**) để kiểm tra; hoặc cứ thử `-arm64` trước — nếu hệ thống báo "ứng dụng không tương thích" thì mới chuyển sang `-arm`.
 
 > **Lưu ý tag**: Releases có suffix `-apk` (vd: `v1.3.2-apk`) chỉ chứa APK, không có file Windows.
 
@@ -188,9 +200,27 @@ Bộ cài đặt MSI kích thước nhỏ gọn (<10MB) kế thừa từ tối �
 
 **Đóng gói Cài đặt Android (`.apk`)**:
 ```bash
-pnpm tauri android build
+pnpm android:build
 ```
-File APK cài đặt độc lập sẽ được phân phối tại `src-tauri/gen/android/app/build/outputs/apk/release/app-release.apk`.
+Lệnh này tách APK theo từng ABI và chỉ build cho điện thoại thật (`arm64-v8a` + `armeabi-v7a`, bỏ `x86`/`x86_64` chỉ dùng cho emulator). File ra tại:
+```text
+src-tauri/gen/android/app/build/outputs/apk/arm64/release/android-stream-desk-vX.Y.Z-arm64.apk   # arm64-v8a
+src-tauri/gen/android/app/build/outputs/apk/arm/release/android-stream-desk-vX.Y.Z-arm.apk       # armeabi-v7a
+```
+
+Build riêng một ABI cho nhanh (khuyến nghị khi test, đa số máy đời mới dùng arm64):
+```bash
+pnpm android:build:arm64    # chỉ arm64-v8a
+```
+
+Tự chọn target thủ công nếu cần ABI khác (tên target ngắn theo `tauri android build`: `aarch64`, `armv7`, `i686`, `x86_64`):
+```bash
+pnpm tauri android build --apk --split-per-abi \
+  --target aarch64 \      # arm64-v8a (64-bit)
+  --target armv7          # armeabi-v7a (32-bit)
+```
+
+> **Vì sao tách ABI?** Bản universal cũ gói cả 4 ABI vào một APK ~131MB vì frontend bị nhúng vào mỗi `.so` per-ABI. Tách theo ABI và bỏ x86/x86_64 đưa mỗi APK về ~33MB; chỉ tải đúng file cho máy mình.
 
 ---
 

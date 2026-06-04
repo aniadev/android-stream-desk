@@ -225,14 +225,16 @@ jobs:
       - name: Build Android APK
         env:
           NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/26.1.10909125
-        run: pnpm tauri android build --apk
+        # --split-per-abi: 1 APK cho mỗi ABI thay vì universal gộp 4 ABI (131MB)
+        # --target: chỉ build arm64-v8a + armeabi-v7a, bỏ x86/x86_64 emulator-only
+        run: pnpm tauri android build --apk --split-per-abi --target aarch64 --target armv7
 
       - name: Upload signed APK to release
         if: env.KEYSTORE_B64 != ''
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.create-release.outputs.tag }}
-          files: src-tauri/gen/android/app/build/outputs/apk/universal/release/android-stream-desk-v*.apk
+          files: src-tauri/gen/android/app/build/outputs/apk/*/release/android-stream-desk-v*.apk
 
       - name: Upload unsigned APK to release (fallback when no signing secrets)
         if: env.KEYSTORE_B64 == ''
@@ -242,7 +244,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.create-release.outputs.tag }}
-          files: src-tauri/gen/android/app/build/outputs/apk/universal/release/android-stream-desk-v*-unsigned.apk
+          files: src-tauri/gen/android/app/build/outputs/apk/*/release/android-stream-desk-v*-unsigned.apk
 
   build-macos:
     name: Build macOS (.dmg)
