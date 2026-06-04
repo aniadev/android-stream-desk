@@ -4,6 +4,29 @@ All notable changes to the **Android Stream Desk** project will be documented in
 
 ---
 
+## [1.5.1] - 2026-06-04
+
+### Added
+- **Chẩn đoán & khôi phục Accessibility (macOS)**: Bổ sung UI chẩn đoán quyền input chi tiết kèm hướng dẫn khôi phục cho trường hợp macOS không nhận quyền Accessibility dù người dùng đã xóa và cấp lại — không còn bắt user thử mò.
+- **Button "Link" mở trình duyệt**: Thêm action `link` riêng biệt — Companion mở thẳng URL trên trình duyệt, không còn bị backend kiểm tra đường dẫn tồn tại rồi fail như khi nhét URL vào ô App path.
+- **Display fit mode (Client)**: Chế độ canh khung lưới phím cho nhiều tỉ lệ màn hình (tablet / Web Client), tránh button bị méo hoặc co nhỏ.
+- **UI quét QR rõ ràng hơn**: QR phóng to được (click mở modal lớn, con trỏ `zoom-in`), panel QR ở Dashboard thu gọn được, MoMo QR zoom — điện thoại quét nhanh và đúng.
+
+### Changed
+- **Tự kết nối lại sau khi Companion khởi động lại**: Mobile reconnect bình thường sau khi người dùng chọn khởi động lại app từ Settings trên Companion.
+- **Action tabs rộng rãi hơn** trong Dashboard editor để thao tác dễ hơn.
+
+### Fixed
+- **Mở external link từ Settings modal**: Liên kết trong modal cài đặt giờ mở đúng trình duyệt ngoài.
+- **Tiến trình zombie khi mở link**: Thu hồi (reap) tiến trình con của `open_link` để tránh zombie tích tụ trên Companion.
+- Tổng hợp các sửa lỗi từ vòng code review v1.5.1 (Rust backend + Vue views).
+
+### Performance
+- **Giảm dung lượng APK ~14MB**: Nén lại logo assets.
+- **Tách APK theo ABI**: Build `--split-per-abi`, bỏ target `x86`/`x86_64` (chỉ dùng cho emulator) — APK nhỏ hơn nhiều so với bản universal gộp 4 ABI.
+
+---
+
 ## [1.5.0] - 2026-06-03
 
 ### Added
