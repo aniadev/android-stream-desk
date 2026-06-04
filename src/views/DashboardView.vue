@@ -193,16 +193,30 @@ const serverConfigSaveHint = computed(() => {
 
 // QR Layout and Zoom Modal
 const activeQrTab = ref<'apk' | 'web'>('apk');
+// QR/Connection block thu gọn mặc định để ưu tiên không gian cho cấu hình phím.
+const qrSectionExpanded = ref(false);
 const zoomModalOpen = ref(false);
 const zoomModalTitle = ref('');
 const zoomModalPayload = ref('');
 const zoomModalQrSvg = ref('');
+const zoomModalImageSrc = ref('');
 const zoomModalCopyHint = ref('');
 
 const openZoomModal = (title: string, payload: string, svg: string) => {
   zoomModalTitle.value = title;
   zoomModalPayload.value = payload;
   zoomModalQrSvg.value = svg;
+  zoomModalImageSrc.value = '';
+  zoomModalCopyHint.value = '';
+  zoomModalOpen.value = true;
+};
+
+// Phóng to ảnh tĩnh (vd QR MoMo donate) — không có payload/URL để copy.
+const openImageZoom = (title: string, src: string) => {
+  zoomModalTitle.value = title;
+  zoomModalPayload.value = '';
+  zoomModalQrSvg.value = '';
+  zoomModalImageSrc.value = src;
   zoomModalCopyHint.value = '';
   zoomModalOpen.value = true;
 };
@@ -1914,9 +1928,21 @@ const updateStatusText = computed(() => {
 
         <!-- QR Codes & Connection Tabs -->
         <div class="cyber-divider pt-4 flex flex-col gap-3">
-          <div class="flex items-center justify-between gap-2">
+          <button
+            type="button"
+            class="flex items-center justify-between gap-2 w-full text-left cursor-pointer group"
+            :aria-expanded="qrSectionExpanded"
+            @click="qrSectionExpanded = !qrSectionExpanded"
+          >
             <h2 class="cyber-section-title">Kết nối thiết bị</h2>
-            <div class="flex gap-1">
+            <Icon
+              :icon="qrSectionExpanded ? 'lucide:chevron-up' : 'lucide:chevron-down'"
+              class="text-sm text-slate-500 group-hover:text-cyan-300 transition-colors shrink-0"
+            />
+          </button>
+
+          <div v-show="qrSectionExpanded" class="flex flex-col gap-3">
+            <div class="flex justify-end gap-1">
               <button
                 type="button"
                 class="px-2 py-0.5 text-[8.5px] uppercase font-bold tracking-wider rounded border transition-colors cursor-pointer"
@@ -1934,7 +1960,6 @@ const updateStatusText = computed(() => {
                 Web
               </button>
             </div>
-          </div>
 
           <!-- APK Tab Content -->
           <div v-show="activeQrTab === 'apk'" class="flex flex-col gap-2.5">
@@ -2028,6 +2053,7 @@ const updateStatusText = computed(() => {
               <span class="font-bold text-[8px] uppercase tracking-wider text-slate-450">Địa chỉ URL:</span>
               <span class="font-mono break-all line-clamp-2 select-text selection:bg-cyan-550/30">{{ webClientUrl || '—' }}</span>
             </div>
+          </div>
           </div>
         </div>
 
@@ -2275,7 +2301,7 @@ const updateStatusText = computed(() => {
             <template v-if="selectedButton.buttonKind !== 'monitor'">
               <div class="flex flex-col gap-2">
                 <label class="cyber-input-label">Loại sự kiện</label>
-                <div class="cyber-tab-group flex p-1 text-[10px]">
+                <div class="cyber-tab-group grid grid-cols-3 gap-1 p-1.5 text-[10px]">
                   <button
                     v-for="tab in ['shortcut', 'media', 'app', 'command', 'link'] as ActionType[]"
                     :key="tab"
@@ -2283,9 +2309,9 @@ const updateStatusText = computed(() => {
                       activeTab = tab;
                       saveButtonSettings();
                     "
-                    class="flex-1 text-center py-1.5 font-bold uppercase tracking-wider transition-all duration-150 h-auto cursor-pointer"
+                    class="text-center py-2 px-1 rounded-md font-bold uppercase tracking-wider transition-all duration-150 cursor-pointer"
                     :class="
-                      activeTab === tab ? 'cyber-tab-active' : 'text-slate-500 hover:text-slate-300'
+                      activeTab === tab ? 'cyber-tab-active' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/40'
                     "
                   >
                     {{ tab }}
@@ -3228,11 +3254,19 @@ const updateStatusText = computed(() => {
                       </a>
                     </div>
                     <div class="w-[148px] shrink-0 p-2 flex flex-col items-center gap-1">
-                      <img
-                        src="/donate/momo.png"
-                        alt="MoMo QR"
-                        class="w-full aspect-square object-cover rounded bg-white p-0.5"
-                      />
+                      <button
+                        type="button"
+                        class="w-full rounded bg-white p-0.5 cursor-zoom-in transition-transform hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-cyan-500 outline-none"
+                        title="Click để phóng to QR MoMo"
+                        aria-label="Mã QR MoMo. Nhấn để phóng to."
+                        @click="openImageZoom('Ủng hộ qua MoMo', '/donate/momo.png')"
+                      >
+                        <img
+                          src="/donate/momo.png"
+                          alt="MoMo QR"
+                          class="w-full aspect-square object-cover rounded"
+                        />
+                      </button>
                       <span class="text-[8px] font-extrabold tracking-wider uppercase text-cyan-300/80">Quét MoMo</span>
                     </div>
                   </div>
@@ -3355,7 +3389,7 @@ const updateStatusText = computed(() => {
           <div class="flex items-center justify-between">
             <div class="flex flex-col gap-0.5">
               <h3 class="text-xs font-bold text-slate-100 uppercase tracking-widest">{{ zoomModalTitle }}</h3>
-              <p class="text-[9.5px] text-slate-450">Quét mã QR từ camera điện thoại hoặc iPad</p>
+              <p class="text-[9.5px] text-slate-450">{{ zoomModalImageSrc ? 'Quét mã bằng app ngân hàng / ví điện tử' : 'Quét mã QR từ camera điện thoại hoặc iPad' }}</p>
             </div>
             <button
               type="button"
@@ -3372,12 +3406,18 @@ const updateStatusText = computed(() => {
             <div 
               class="w-full max-w-96 aspect-square bg-white p-2.5 rounded-xl shadow-[0_4px_24px_rgba(0,0,0,0.4)] transition-transform overflow-hidden"
             >
-              <div v-html="zoomModalQrSvg" class="w-full h-full"></div>
+              <img
+                v-if="zoomModalImageSrc"
+                :src="zoomModalImageSrc"
+                :alt="zoomModalTitle"
+                class="w-full h-full object-contain"
+              />
+              <div v-else v-html="zoomModalQrSvg" class="w-full h-full"></div>
             </div>
           </div>
 
           <!-- Payload copy & detail -->
-          <div class="flex flex-col gap-2">
+          <div v-if="!zoomModalImageSrc" class="flex flex-col gap-2">
             <div class="flex items-center justify-between text-[9px] uppercase tracking-wider text-slate-450 font-bold px-1">
               <span>Đường dẫn kết nối</span>
               <button
