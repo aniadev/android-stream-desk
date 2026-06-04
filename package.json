@@ -16,7 +16,7 @@
     "tauri": "tauri",
     "dev:mac": "tauri dev",
     "build:mac": "tauri build",
-    "icons": "tauri icon public/logo.png"
+    "icons": "tauri icon branding/logo-source.png"
   },
   "dependencies": {
     "@iconify/vue": "^5.0.1",
