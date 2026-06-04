@@ -1173,6 +1173,21 @@ fn open_link(raw: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Mở URL ngoài bằng trình duyệt mặc định của OS. Dùng cho các link trong UI
+/// (GitHub, Ko-Fi…) vì Tauri webview không tự mở `<a target="_blank">`.
+/// Tái dùng validate + spawn của `open_link` (chỉ http/https, không credentials).
+#[cfg(desktop)]
+#[tauri::command]
+fn open_external_link(url: String) -> Result<(), String> {
+    open_link(&url)
+}
+
+#[cfg(mobile)]
+#[tauri::command]
+fn open_external_link(_url: String) -> Result<(), String> {
+    Err("open_external_link unsupported on mobile".to_string())
+}
+
 // -------------------------------------------------------------
 // Tauri Initializer Bridge entry
 // -------------------------------------------------------------
@@ -1223,7 +1238,8 @@ pub fn run() {
             get_input_permission_diagnostics,
             list_installed_apps,
             resolve_shortcut,
-            read_clipboard_files
+            read_clipboard_files,
+            open_external_link
         ])
         .setup(|app| {
             let app_handle_ws = app.handle().clone();

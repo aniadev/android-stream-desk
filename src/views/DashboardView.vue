@@ -621,6 +621,30 @@ const linkUrlValidation = computed<LinkUrlValidation>(() => {
   return validateLinkUrl(selectedButton.value.linkUrl);
 });
 
+// Mở URL ngoài bằng trình duyệt mặc định của OS. Tauri webview KHÔNG tự mở
+// `<a target="_blank">`, nên mọi link trong UI (GitHub, Ko-Fi, mở-thử macro
+// link) phải gọi command open_external_link. Ngoài Tauri (web client) dùng
+// window.open.
+const openExternalLink = async (url: string) => {
+  if (window.__TAURI_INTERNALS__) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('open_external_link', { url });
+    } catch (err) {
+      console.error('Mở link thất bại:', err);
+    }
+  } else {
+    window.open(url, '_blank', 'noopener');
+  }
+};
+
+// Mở thử link macro ngay từ dashboard editor (click nút lưới chỉ chọn-để-sửa,
+// không chạy macro). Browser mở trên chính máy companion.
+const testOpenLink = () => {
+  if (!linkUrlValidation.value.ok) return;
+  void openExternalLink(linkUrlValidation.value.normalized);
+};
+
 const handleAppPathPaste = async (e: ClipboardEvent) => {
   const raw = e.clipboardData?.getData('text') ?? '';
   const text = raw.trim().replace(/^"|"$/g, ''); // strip surrounding quotes
@@ -2518,6 +2542,16 @@ const updateStatusText = computed(() => {
                     <Icon icon="lucide:check-circle" class="text-xs" />
                     Mở <span class="font-mono">{{ linkUrlValidation.domain }}</span> bằng trình duyệt mặc định.
                   </p>
+                  <div v-if="linkUrlValidation.ok" class="flex justify-end">
+                    <button
+                      type="button"
+                      class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-2 flex items-center gap-1.5"
+                      @click="testOpenLink"
+                    >
+                      <Icon icon="lucide:external-link" class="text-xs" />
+                      <span>Mở thử trên máy này</span>
+                    </button>
+                  </div>
                   <p v-else class="text-[9px] font-bold text-red-400 flex items-center gap-1">
                     <Icon icon="lucide:alert-circle" class="text-xs" />
                     {{ linkUrlValidation.reason }}
@@ -3164,8 +3198,8 @@ const updateStatusText = computed(() => {
                     <span class="justify-self-end">
                       <a
                         href="https://github.com/aniadev/android-stream-desk"
-                        target="_blank"
-                        class="text-cyan-400 hover:underline flex items-center gap-1"
+                        @click.prevent="openExternalLink('https://github.com/aniadev/android-stream-desk')"
+                        class="text-cyan-400 hover:underline flex items-center gap-1 cursor-pointer"
                       >
                         GitHub Repo <Icon icon="lucide:external-link" class="text-[10px]" />
                       </a>
@@ -3186,7 +3220,7 @@ const updateStatusText = computed(() => {
                       </p>
                       <a
                         href="https://ko-fi.com/ania9"
-                        target="_blank"
+                        @click.prevent="openExternalLink('https://ko-fi.com/ania9')"
                         class="mt-2 inline-flex items-center justify-center gap-1.5 rounded-lg border border-fuchsia-500/30 bg-fuchsia-950/30 hover:bg-fuchsia-900/40 hover:border-fuchsia-400 px-3 py-1.5 text-[9px] font-extrabold uppercase tracking-wider text-fuchsia-200 shadow shadow-fuchsia-950/20 transition duration-150 cursor-pointer"
                       >
                         <Icon icon="lucide:external-link" class="text-xs" />
