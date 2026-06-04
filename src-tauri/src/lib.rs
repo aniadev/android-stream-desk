@@ -1117,7 +1117,7 @@ fn validate_link_url(raw: &str) -> Result<String, String> {
     // Reject embedded credentials (`user:pass@host`) — mirror the frontend
     // sanitizer (defense in depth). The authority is everything between "://"
     // and the next '/', '?' or '#'; a '@' there means userinfo.
-    if let Some(after_scheme) = trimmed.splitn(2, "://").nth(1) {
+    if let Some(after_scheme) = trimmed.split_once("://").map(|x| x.1) {
         let authority_end = after_scheme
             .find(['/', '?', '#'])
             .unwrap_or(after_scheme.len());

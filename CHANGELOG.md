@@ -4,6 +4,14 @@ All notable changes to the **Android Stream Desk** project will be documented in
 
 ---
 
+## [1.5.2] - 2026-06-05
+
+### Fixed
+- **macOS không còn bung prompt Accessibility liên tục**: enigo mặc định bật `open_prompt_to_get_permissions`, nên mỗi lần khởi tạo Enigo (kể cả khi panel chẩn đoán poll quyền input) macOS lại bung hộp thoại "Accessibility Access". Tắt cờ này cho mọi điểm gọi Enigo; quyền vẫn được kiểm tra qua API native và hiển thị trong UI chẩn đoán mà không tự bung hộp thoại hệ thống.
+- **Hủy quét QR trên Android không còn kẹt màn trắng**: Khi bấm "Hủy quét", plugin tắt camera nhưng không reject promise `scan()` đang treo, khiến app kẹt ở màn hình trắng và không quay lại màn kết nối. Tự khôi phục giao diện + hướng màn hình ngay trong luồng hủy để luôn trở về màn trước.
+
+---
+
 ## [1.5.1] - 2026-06-04
 
 ### Added
