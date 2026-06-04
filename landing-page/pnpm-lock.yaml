@@ -11,6 +11,9 @@ importers:
       '@iconify/vue':
         specifier: ^5.0.1
         version: 5.0.1(vue@3.5.35(typescript@5.6.3))
+      '@vercel/analytics':
+        specifier: ^2.0.1
+        version: 2.0.1(vue-router@4.6.4(vue@3.5.35(typescript@5.6.3)))(vue@3.5.35(typescript@5.6.3))
       '@vueuse/head':
         specifier: ^2.0.0
         version: 2.0.0(vue@3.5.35(typescript@5.6.3))
@@ -458,6 +461,35 @@ packages:
     resolution: {integrity: sha512-sqQaLbwqY9TvLEGeq8Fd7+F2TIuV3nZ5ihVISHjWpAM3y7DwNWRU7NmT9+yYT+2/jw1Vjwdkv5/HvDnvCLrgmg==}
     peerDependencies:
       vue: '>=2.7 || >=3'
+
+  '@vercel/analytics@2.0.1':
+    resolution: {integrity: sha512-MTQG6V9qQrt1tsDeF+2Uoo5aPjqbVPys1xvnIftXSJYG2SrwXRHnqEvVoYID7BTruDz4lCd2Z7rM1BdkUehk2g==}
+    peerDependencies:
+      '@remix-run/react': ^2
+      '@sveltejs/kit': ^1 || ^2
+      next: '>= 13'
+      nuxt: '>= 3'
+      react: ^18 || ^19 || ^19.0.0-rc
+      svelte: '>= 4'
+      vue: ^3
+      vue-router: ^4
+    peerDependenciesMeta:
+      '@remix-run/react':
+        optional: true
+      '@sveltejs/kit':
+        optional: true
+      next:
+        optional: true
+      nuxt:
+        optional: true
+      react:
+        optional: true
+      svelte:
+        optional: true
+      vue:
+        optional: true
+      vue-router:
+        optional: true
 
   '@vitejs/plugin-vue@5.2.4':
     resolution: {integrity: sha512-7Yx/SXSOcQq5HiiV3orevHUFn+pmMB4cgbEkDYgnkUWb0WfeQ/wa2yFv6D5ICiCQOVpjA7vYDXrC7AGO8yjDHA==}
@@ -1626,6 +1658,11 @@ snapshots:
       hookable: 5.5.3
       unhead: 1.11.20
       vue: 3.5.35(typescript@5.6.3)
+
+  '@vercel/analytics@2.0.1(vue-router@4.6.4(vue@3.5.35(typescript@5.6.3)))(vue@3.5.35(typescript@5.6.3))':
+    optionalDependencies:
+      vue: 3.5.35(typescript@5.6.3)
+      vue-router: 4.6.4(vue@3.5.35(typescript@5.6.3))
 
   '@vitejs/plugin-vue@5.2.4(vite@6.4.3(jiti@1.21.7)(terser@5.48.0))(vue@3.5.35(typescript@5.6.3))':
     dependencies:

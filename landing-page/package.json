@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@iconify/vue": "^5.0.1",
+    "@vercel/analytics": "^2.0.1",
     "@vueuse/head": "^2.0.0",
     "gsap": "^3.15.0",
     "lucide-vue-next": "^0.468.0",
@@ -24,7 +25,7 @@
     "tailwindcss": "^3.4.16",
     "typescript": "~5.6.3",
     "vite": "^6.0.3",
-    "vue-tsc": "^2.1.10",
-    "vite-ssg": "^0.24.3"
+    "vite-ssg": "^0.24.3",
+    "vue-tsc": "^2.1.10"
   }
 }

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { Analytics } from '@vercel/analytics/vue';
 import AppBackground from '@/components/landing/AppBackground.vue';
 import AppFooter from '@/components/landing/AppFooter.vue';
 import AppHeader from '@/components/landing/AppHeader.vue';
@@ -41,5 +42,6 @@ function setTheme(theme: ThemeName) {
     <HowItWorksSection :accent-color="currentTheme.color" />
     <DownloadsSection :accent-color="currentTheme.color" />
     <AppFooter :repo-url="repoUrl" />
+    <Analytics />
   </div>
 </template>
