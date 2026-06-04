@@ -4,7 +4,7 @@
 
 @layer base {
   body {
-    @apply bg-brand-bg text-slate-100 selection:bg-brand-accent selection:text-brand-bg;
+    @apply bg-brand-bg text-slate-100 selection:bg-white/10 selection:text-white;
   }
 }
 
