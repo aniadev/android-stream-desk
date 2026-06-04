@@ -247,9 +247,18 @@ const cancelScanQr = async () => {
   try {
     const { cancel } = await import('@tauri-apps/plugin-barcode-scanner');
     await cancel();
-    scanStatus.value = 'cancelled';
   } catch (e: any) {
     console.warn('Hủy quét QR thất bại:', e);
+  } finally {
+    // Trên Android, cancel() tắt camera nhưng KHÔNG reject promise scan() đang
+    // treo, nên finally của scanCompanionQr không chạy → class qr-scan-active còn
+    // (#app ẩn + body trong suốt = màn trắng) và isScanningQr kẹt true. Tự khôi
+    // phục chrome + orientation + state ở đây để luôn trở về màn kết nối. Việc này
+    // idempotent với finally của scanCompanionQr nếu promise có reject sau đó.
+    scanStatus.value = 'cancelled';
+    document.documentElement.classList.remove('qr-scan-active');
+    void applyOrientation(orientationMode.value);
+    isScanningQr.value = false;
   }
 };
 
