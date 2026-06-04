@@ -93,3 +93,4 @@ These are from `AGENTS.md` — please re-read that file when changing `enigo`, `
 - The WS port (`8089`) is exposed as `pub const WS_PORT` in `lib.rs` — reference the constant, don't hardcode.
 - Khi edit markdown file, không tự ý ngắt dòng nếu chưa kết thúc câu.
 - LUÔN LUÔN MỞ ĐẦU CÂU TRẢ LỜI BẰNG "Hey Ania", TRẢ LỜI TRONG CHAT BẰNG TIẾNG VIỆT, EDIT FILE MARKDOWN BẰNG TIẾNG VIỆT TRỪ KHI CÓ YÊU CẦU VIẾT BẰNG TIẾNG ANH
+- Never mention "Co-Authored-By: Claude" in commit messages — this repo's commits are intentionally single-author to preserve clean history. If you want to credit Claude, add a comment in the PR description instead.

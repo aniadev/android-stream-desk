@@ -233,10 +233,78 @@ async fn execute_button_action(app_handle: AppHandle, button: ButtonConfig) -> R
     execute_logic(app_handle, button).await
 }
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ListenerBindError {
+    pub port: u16,
+    pub error: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ListenerBindStatus {
+    pub ready: bool,
+    pub running_port: Option<u16>,
+    pub bind_error: Option<ListenerBindError>,
+}
+
+impl ListenerBindStatus {
+    pub fn ready(port: u16) -> Self {
+        Self {
+            ready: true,
+            running_port: Some(port),
+            bind_error: None,
+        }
+    }
+
+    pub fn bind_error(port: u16, error: String) -> Self {
+        Self {
+            ready: false,
+            running_port: None,
+            bind_error: Some(ListenerBindError { port, error }),
+        }
+    }
+}
+
+#[derive(Serialize, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct ServerInfo {
     pub ip: String,
     pub port: u16,
+    pub configured_ws_port: u16,
+    pub running_ws_port: Option<u16>,
+    pub web_enabled: bool,
+    pub web_port: u16,
+    pub ws_ready: bool,
+    pub ws_bind_error: Option<ListenerBindError>,
+    pub web_ready: bool,
+    pub web_bind_error: Option<ListenerBindError>,
+}
+
+impl ServerInfo {
+    fn from_config_and_bind_status(
+        ip: String,
+        config: &ServerConfig,
+        ws_status: ListenerBindStatus,
+        web_status: ListenerBindStatus,
+    ) -> Self {
+        Self {
+            ip,
+            port: config.ws_port,
+            configured_ws_port: config.ws_port,
+            running_ws_port: ws_status.running_port,
+            web_enabled: config.web_enabled,
+            web_port: config.web_port,
+            ws_ready: ws_status.ready,
+            ws_bind_error: ws_status.bind_error,
+            web_ready: config.web_enabled && web_status.ready,
+            web_bind_error: if config.web_enabled {
+                web_status.bind_error
+            } else {
+                None
+            },
+        }
+    }
 }
 
 #[tauri::command]
@@ -245,10 +313,12 @@ async fn get_server_info(app_handle: AppHandle) -> ServerInfo {
         .await
         .unwrap_or_else(|_| ServerConfig::default());
 
-    ServerInfo {
-        ip: detect_local_ipv4().unwrap_or_else(|| "127.0.0.1".to_string()),
-        port: config.ws_port,
-    }
+    ServerInfo::from_config_and_bind_status(
+        detect_local_ipv4().unwrap_or_else(|| "127.0.0.1".to_string()),
+        &config,
+        websocket::current_ws_bind_status(),
+        webserver::current_web_bind_status(),
+    )
 }
 
 // Orientation is enforced via AndroidManifest `screenOrientation` at build time.
@@ -1178,6 +1248,41 @@ mod tests {
                 web_enabled: false,
                 web_port: 8090,
             }
+        );
+    }
+
+    #[test]
+    fn server_info_serializes_listener_health_contract_in_camel_case() {
+        let info = ServerInfo::from_config_and_bind_status(
+            "192.168.1.12".to_string(),
+            &ServerConfig {
+                ws_port: 18089,
+                web_enabled: true,
+                web_port: 18090,
+            },
+            ListenerBindStatus::ready(18089),
+            ListenerBindStatus::bind_error(18090, "address already in use".to_string()),
+        );
+
+        let json = serde_json::to_value(info).unwrap();
+
+        assert_eq!(
+            json,
+            serde_json::json!({
+                "ip": "192.168.1.12",
+                "port": 18089,
+                "configuredWsPort": 18089,
+                "runningWsPort": 18089,
+                "webEnabled": true,
+                "webPort": 18090,
+                "wsReady": true,
+                "wsBindError": null,
+                "webReady": false,
+                "webBindError": {
+                    "port": 18090,
+                    "error": "address already in use"
+                }
+            })
         );
     }
 

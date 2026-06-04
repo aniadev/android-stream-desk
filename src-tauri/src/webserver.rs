@@ -1,10 +1,15 @@
+use crate::ListenerBindStatus;
 use include_dir::{include_dir, Dir};
 use serde::Serialize;
 use std::io::Cursor;
+use std::sync::Mutex;
 use tauri::Emitter;
 use tiny_http::{Header, Method, Request, Response, Server, StatusCode};
 
 static CLIENT_DIST: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../dist-client");
+lazy_static::lazy_static! {
+    static ref WEB_BIND_STATUS: Mutex<ListenerBindStatus> = Mutex::new(ListenerBindStatus::default());
+}
 
 #[derive(Clone, Debug)]
 pub struct WebServerConfig {
@@ -33,6 +38,7 @@ struct WebServerReadyPayload {
 }
 
 pub fn start_web_server(config: WebServerConfig, app_handle: tauri::AppHandle) {
+    set_web_bind_status(ListenerBindStatus::default());
     let addr = format!("0.0.0.0:{}", config.web_port);
     let server = match Server::http(&addr) {
         Ok(server) => server,
@@ -42,12 +48,14 @@ pub fn start_web_server(config: WebServerConfig, app_handle: tauri::AppHandle) {
                 config.web_port, e
             );
             eprintln!("{}", msg);
+            set_web_bind_status(ListenerBindStatus::bind_error(config.web_port, msg.clone()));
             emit_web_error(&app_handle, config.web_port, msg);
             return;
         }
     };
 
     println!("HTTP web client server listening on http://{}", addr);
+    set_web_bind_status(ListenerBindStatus::ready(config.web_port));
     let _ = app_handle.emit(
         "server-web-ready",
         WebServerReadyPayload {
@@ -58,6 +66,19 @@ pub fn start_web_server(config: WebServerConfig, app_handle: tauri::AppHandle) {
     for request in server.incoming_requests() {
         handle_request(request, config.ws_port);
     }
+}
+
+pub fn current_web_bind_status() -> ListenerBindStatus {
+    WEB_BIND_STATUS
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .clone()
+}
+
+fn set_web_bind_status(status: ListenerBindStatus) {
+    *WEB_BIND_STATUS
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner()) = status;
 }
 
 fn emit_web_error(app_handle: &tauri::AppHandle, port: u16, error: String) {
@@ -190,6 +211,49 @@ mod tests {
         let body = server_info_json(18089);
 
         assert_eq!(body, r#"{"wsPort":18089}"#);
+    }
+
+    #[test]
+    fn web_server_ready_payload_serializes_port() {
+        let payload = WebServerReadyPayload { port: 18090 };
+
+        assert_eq!(
+            serde_json::to_value(payload).unwrap(),
+            serde_json::json!({ "port": 18090 })
+        );
+    }
+
+    #[test]
+    fn web_server_error_payload_serializes_port_error_and_kind() {
+        let payload = WebServerErrorPayload {
+            port: 18090,
+            error: "address already in use".to_string(),
+            kind: "web",
+        };
+
+        assert_eq!(
+            serde_json::to_value(payload).unwrap(),
+            serde_json::json!({
+                "port": 18090,
+                "error": "address already in use",
+                "kind": "web"
+            })
+        );
+    }
+
+    #[test]
+    fn web_bind_status_can_store_ready_and_error_states() {
+        set_web_bind_status(ListenerBindStatus::ready(18090));
+        assert_eq!(current_web_bind_status(), ListenerBindStatus::ready(18090));
+
+        set_web_bind_status(ListenerBindStatus::bind_error(
+            18091,
+            "address already in use".to_string(),
+        ));
+        assert_eq!(
+            current_web_bind_status(),
+            ListenerBindStatus::bind_error(18091, "address already in use".to_string())
+        );
     }
 
     #[test]

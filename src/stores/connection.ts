@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import type { ConnectionState, WSMessage } from '../types';
+import { formatReconnectEndpoint } from '../lib/mobileReconnectState';
 
 export const useConnectionStore = defineStore('connection', () => {
   const MAX_RECONNECT_ATTEMPTS = 3;
@@ -14,6 +15,7 @@ export const useConnectionStore = defineStore('connection', () => {
   const maxReconnectAttempts = ref(MAX_RECONNECT_ATTEMPTS);
   const isOnline = ref(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const hasConnectedOnce = ref(false);
+  const attemptingEndpoint = ref('');
 
   let heartbeatInterval: number | null = null;
   let reconnectInterval: number | null = null;
@@ -79,6 +81,7 @@ export const useConnectionStore = defineStore('connection', () => {
 
     localStorage.setItem('server_ip', ipAddress.value);
     localStorage.setItem('server_port', port.value);
+    attemptingEndpoint.value = formatReconnectEndpoint(ipAddress.value, port.value);
 
     // Tear down any previous socket so its async close handler cannot
     // overwrite the new socket's status mid-handshake.
@@ -93,6 +96,7 @@ export const useConnectionStore = defineStore('connection', () => {
 
     try {
       const url = `ws://${ipAddress.value}:${port.value}`;
+      console.log(`Trying WebSocket endpoint ${attemptingEndpoint.value}`);
       const ws = new WebSocket(url);
       socket.value = ws;
 
@@ -222,8 +226,15 @@ export const useConnectionStore = defineStore('connection', () => {
           clearReconnect();
           return;
         }
+        if (reconnectAttempts.value >= MAX_RECONNECT_ATTEMPTS) {
+          clearReconnect();
+          status.value = 'error';
+          return;
+        }
         reconnectAttempts.value += 1;
-        console.log(`Silent auto-reconnect attempt ${reconnectAttempts.value} (30s interval)`);
+        console.log(
+          `Silent auto-reconnect attempt ${reconnectAttempts.value} to ${formatReconnectEndpoint(ipAddress.value, port.value)} (30s interval)`,
+        );
         connect(true);
       }, 30000);
       return;
@@ -246,9 +257,23 @@ export const useConnectionStore = defineStore('connection', () => {
         return;
       }
       reconnectAttempts.value += 1;
-      console.log(`Auto-reconnect attempt ${reconnectAttempts.value}/${MAX_RECONNECT_ATTEMPTS}`);
+      console.log(
+        `Auto-reconnect attempt ${reconnectAttempts.value}/${MAX_RECONNECT_ATTEMPTS} to ${formatReconnectEndpoint(ipAddress.value, port.value)}`,
+      );
       connect(true);
     }, 3000);
+  };
+
+  const applyScannedEndpoint = (host: string, wsPort: string) => {
+    clearConnectTimeout();
+    clearReconnect();
+    reconnectAttempts.value = 0;
+    ipAddress.value = host;
+    port.value = wsPort;
+    attemptingEndpoint.value = formatReconnectEndpoint(host, wsPort);
+    localStorage.setItem('server_ip', host);
+    localStorage.setItem('server_port', wsPort);
+    userDisconnected = false;
   };
 
   const cancelReconnect = () => {
@@ -266,8 +291,10 @@ export const useConnectionStore = defineStore('connection', () => {
     maxReconnectAttempts,
     isOnline,
     hasConnectedOnce,
+    attemptingEndpoint,
     connect,
     disconnect,
+    applyScannedEndpoint,
     cancelReconnect,
     send,
   };

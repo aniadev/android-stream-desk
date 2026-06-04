@@ -1,14 +1,15 @@
+use crate::ListenerBindStatus;
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex as StdMutex};
 use tauri::Emitter;
 use tauri::Manager;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::broadcast;
-use tokio::sync::Mutex;
+use tokio::sync::Mutex as TokioMutex;
 use tokio_tungstenite::accept_async;
 use tokio_tungstenite::tungstenite::protocol::Message;
 
@@ -19,29 +20,56 @@ pub struct WSMessage {
     pub payload: Option<Value>,
 }
 
+#[derive(Serialize, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+struct WsServerReadyPayload {
+    port: u16,
+}
+
+#[derive(Serialize, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+struct WsServerErrorPayload {
+    port: u16,
+    error: String,
+}
+
 lazy_static::lazy_static! {
-    static ref WS_MUTEX: Arc<Mutex<Option<broadcast::Sender<String>>>> = Arc::new(Mutex::new(None));
+    static ref WS_MUTEX: Arc<TokioMutex<Option<broadcast::Sender<String>>>> = Arc::new(TokioMutex::new(None));
     static ref CLIENT_COUNT: Arc<AtomicUsize> = Arc::new(AtomicUsize::new(0));
+    static ref WS_BIND_STATUS: StdMutex<ListenerBindStatus> = StdMutex::new(ListenerBindStatus::default());
 }
 
 const BROADCAST_CAPACITY: usize = 256;
 
+pub fn current_ws_bind_status() -> ListenerBindStatus {
+    WS_BIND_STATUS
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .clone()
+}
+
+fn set_ws_bind_status(status: ListenerBindStatus) {
+    *WS_BIND_STATUS
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner()) = status;
+}
+
 pub async fn start_ws_server(port: u16, app_handle: tauri::AppHandle) {
+    set_ws_bind_status(ListenerBindStatus::default());
     let addr = format!("0.0.0.0:{}", port);
     let listener = match TcpListener::bind(&addr).await {
         Ok(l) => l,
         Err(e) => {
             let msg = format!("Failed to bind WebSocket TCP port {}: {}", port, e);
             eprintln!("{}", msg);
-            let _ = app_handle.emit(
-                "server-error",
-                serde_json::json!({ "port": port, "error": msg }),
-            );
+            set_ws_bind_status(ListenerBindStatus::bind_error(port, msg.clone()));
+            let _ = app_handle.emit("server-error", WsServerErrorPayload { port, error: msg });
             return;
         }
     };
     println!("WebSocket server listening on ws://{}", addr);
-    let _ = app_handle.emit("server-ready", serde_json::json!({ "port": port }));
+    set_ws_bind_status(ListenerBindStatus::ready(port));
+    let _ = app_handle.emit("server-ready", WsServerReadyPayload { port });
 
     let (tx, _) = broadcast::channel::<String>(BROADCAST_CAPACITY);
     {
@@ -113,7 +141,10 @@ struct ConnectionGuard {
 impl ConnectionGuard {
     fn new(app_handle: tauri::AppHandle) -> Self {
         let count = CLIENT_COUNT.fetch_add(1, Ordering::SeqCst) + 1;
-        let _ = app_handle.emit("client-count-changed", serde_json::json!({ "count": count }));
+        let _ = app_handle.emit(
+            "client-count-changed",
+            serde_json::json!({ "count": count }),
+        );
         Self { app_handle }
     }
 }
@@ -121,7 +152,10 @@ impl ConnectionGuard {
 impl Drop for ConnectionGuard {
     fn drop(&mut self) {
         let count = CLIENT_COUNT.fetch_sub(1, Ordering::SeqCst) - 1;
-        let _ = self.app_handle.emit("client-count-changed", serde_json::json!({ "count": count }));
+        let _ = self.app_handle.emit(
+            "client-count-changed",
+            serde_json::json!({ "count": count }),
+        );
     }
 }
 
@@ -233,4 +267,50 @@ fn default_layout() -> Value {
         "cols": cols,
         "buttons": buttons,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ws_server_ready_payload_serializes_port() {
+        let payload = WsServerReadyPayload { port: 18089 };
+
+        assert_eq!(
+            serde_json::to_value(payload).unwrap(),
+            serde_json::json!({ "port": 18089 })
+        );
+    }
+
+    #[test]
+    fn ws_server_error_payload_serializes_port_and_error() {
+        let payload = WsServerErrorPayload {
+            port: 18089,
+            error: "address already in use".to_string(),
+        };
+
+        assert_eq!(
+            serde_json::to_value(payload).unwrap(),
+            serde_json::json!({
+                "port": 18089,
+                "error": "address already in use"
+            })
+        );
+    }
+
+    #[test]
+    fn ws_bind_status_can_store_ready_and_error_states() {
+        set_ws_bind_status(ListenerBindStatus::ready(18089));
+        assert_eq!(current_ws_bind_status(), ListenerBindStatus::ready(18089));
+
+        set_ws_bind_status(ListenerBindStatus::bind_error(
+            18090,
+            "address already in use".to_string(),
+        ));
+        assert_eq!(
+            current_ws_bind_status(),
+            ListenerBindStatus::bind_error(18090, "address already in use".to_string())
+        );
+    }
 }

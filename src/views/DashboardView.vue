@@ -9,7 +9,11 @@ import { vDraggable } from 'vue-draggable-plus';
 import { normalizeHex } from '../lib/color';
 import { applyTheme, isValidTheme, THEMES, type ThemeName } from '../lib/themes';
 import { safeCreateQrSvg } from '../lib/qrSvg';
-import { buildApkConnectPayload } from '../lib/apkConnectQr';
+import {
+  buildApkEndpointPayload,
+  buildWebClientUrl,
+  hasPendingServerChanges as computeHasPendingServerChanges,
+} from '../lib/networkEndpointState';
 
 // Import Shadcn UI Components
 import Input from '../components/ui/Input.vue';
@@ -21,6 +25,25 @@ interface ServerConfig {
   wsPort: number;
   webEnabled: boolean;
   webPort: number;
+}
+
+interface ListenerBindError {
+  port: number;
+  error: string;
+  kind?: 'web';
+}
+
+interface ServerInfo {
+  ip: string;
+  port: number;
+  configuredWsPort: number;
+  runningWsPort: number | null;
+  webEnabled: boolean;
+  webPort: number;
+  wsReady: boolean;
+  wsBindError: ListenerBindError | null;
+  webReady: boolean;
+  webBindError: ListenerBindError | null;
 }
 
 interface ServerConfigDraft {
@@ -42,7 +65,11 @@ const dismissFirstRun = () => {
 
 // --- Realtime HUD ---
 const activeConnectionsCount = ref(0);
-const serverBindError = ref(false);
+const wsReady = ref(false);
+const runningWsPort = ref<number | null>(null);
+const wsBindError = ref<ListenerBindError | null>(null);
+const webReady = ref(false);
+const webBindError = ref<ListenerBindError | null>(null);
 let tauriUnlisteners: (() => void)[] = [];
 
 const selectedButtonId = ref<string | null>(null);
@@ -153,35 +180,94 @@ const serverConfigValidationError = computed(() => {
 });
 
 const hasPendingServerChanges = computed(() => {
-  const ws = parsePortDraft(serverConfigDraft.value.wsPort, 'Cổng WebSocket');
-  const wsChanged = ws.value !== undefined
-    ? ws.value !== serverPort.value
-    : serverConfigDraft.value.wsPort.trim() !== String(serverPort.value);
-
   const persisted = savedServerConfig.value;
-  const webChanged = persisted
-    ? serverConfigDraft.value.webEnabled !== persisted.webEnabled ||
-      serverConfigDraft.value.webPort.trim() !== String(persisted.webPort)
-    : false;
-
-  return wsChanged || webChanged;
+  return computeHasPendingServerChanges({
+    draftWsPort: serverConfigDraft.value.wsPort,
+    runningWsPort: runningWsPort.value,
+    webEnabledDraft: serverConfigDraft.value.webEnabled,
+    webEnabledSaved: persisted?.webEnabled ?? false,
+    webPortDraft: serverConfigDraft.value.webPort,
+    webPortSaved: persisted?.webPort ?? null,
+  });
 });
 
 const networkSettingsBadgeText = computed(() =>
-  hasPendingServerChanges.value ? 'Có thay đổi chưa áp dụng' : 'Đang khớp cấu hình hiện thời',
+  hasPendingServerChanges.value ? 'Đang áp dụng' : 'Đang khớp listener hiện thời',
 );
+
+const hasListenerBindError = computed(() => Boolean(wsBindError.value || webBindError.value));
+const activeWsPort = computed(() => runningWsPort.value ?? serverPort.value);
+
+const listenerHealthBadge = computed(() => {
+  const bindError = wsBindError.value ?? webBindError.value;
+  if (bindError) {
+    return {
+      label: 'Bind error',
+      detail: `Port ${bindError.port}`,
+      icon: 'lucide:wifi-off',
+      title: bindError.error,
+      classes: 'border-rose-500/50 text-rose-300',
+      iconClass: 'text-rose-400 animate-pulse',
+    };
+  }
+
+  if (hasPendingServerChanges.value) {
+    return {
+      label: 'Đang áp dụng',
+      detail: `WS ${activeWsPort.value}`,
+      icon: 'lucide:refresh-cw',
+      title: 'Cấu hình đã lưu nhưng listener mới chưa chạy',
+      classes: 'border-amber-500/45 text-amber-300',
+      iconClass: 'text-amber-400 animate-spin',
+    };
+  }
+
+  const webConfigured = savedServerConfig.value?.webEnabled ?? false;
+  const restartPending =
+    !wsReady.value || runningWsPort.value !== serverPort.value || (webConfigured && !webReady.value);
+
+  if (restartPending) {
+    return {
+      label: 'Restart pending',
+      detail: `WS ${serverPort.value}`,
+      icon: 'lucide:refresh-cw',
+      title: 'Listener chưa khớp cấu hình hiện thời',
+      classes: 'border-amber-500/45 text-amber-300',
+      iconClass: 'text-amber-400',
+    };
+  }
+
+  return {
+    label: 'Listening',
+    detail: `WS ${activeWsPort.value}`,
+    icon: 'lucide:radio-tower',
+    title: 'WebSocket listener đang chạy',
+    classes: 'border-emerald-500/40 text-emerald-300',
+    iconClass: 'text-emerald-400',
+  };
+});
 
 const webClientUrl = computed(() => {
   const config = savedServerConfig.value;
-  if (!config?.webEnabled || serverIp.value === '—') return '';
-  return `http://${serverIp.value}:${config.webPort}`;
+  return buildWebClientUrl({
+    serverIp: serverIp.value,
+    webEnabled: Boolean(config?.webEnabled),
+    webPort: config?.webPort ?? 8090,
+    webReady: webReady.value,
+    hasPendingServerChanges: hasPendingServerChanges.value,
+    hasBindError: hasListenerBindError.value,
+  });
 });
 
 const webClientQrSvg = computed(() => (webClientUrl.value ? safeCreateQrSvg(webClientUrl.value) : ''));
 
 const apkConnectPayload = computed(() => {
-  if (serverIp.value === '—') return '';
-  return buildApkConnectPayload(serverIp.value, serverPort.value);
+  return buildApkEndpointPayload({
+    serverIp: serverIp.value,
+    runningWsPort: runningWsPort.value,
+    hasPendingServerChanges: hasPendingServerChanges.value,
+    hasBindError: hasListenerBindError.value,
+  });
 });
 
 const apkConnectQrSvg = computed(() =>
@@ -815,9 +901,49 @@ onMounted(async () => {
         console.warn('Failed to load autostart status:', err);
       }
 
-      const info = await invoke<{ ip: string; port: number }>('get_server_info');
+      // Attach Tauri event listeners BEFORE reading the startup snapshot so a
+      // (re)bind event firing during init isn't lost — otherwise runningWsPort/
+      // webReady could stay stale until the next mount.
+      const { listen } = await import('@tauri-apps/api/event');
+      const unlistenCount = await listen<{ count: number }>('client-count-changed', (e) => {
+        activeConnectionsCount.value = e.payload.count;
+      });
+      // WS bind errors only — web bind errors arrive on the separate
+      // `server-web-error` event (WsServerErrorPayload carries no `kind`).
+      const unlistenError = await listen<ListenerBindError>('server-error', (e) => {
+        wsReady.value = false;
+        runningWsPort.value = null;
+        wsBindError.value = e.payload;
+      });
+      const unlistenReady = await listen<{ port: number }>('server-ready', (e) => {
+        wsReady.value = true;
+        runningWsPort.value = e.payload.port;
+        wsBindError.value = null;
+      });
+      const unlistenWebReady = await listen<{ port: number }>('server-web-ready', () => {
+        webReady.value = true;
+        webBindError.value = null;
+      });
+      const unlistenWebError = await listen<ListenerBindError>('server-web-error', (e) => {
+        webReady.value = false;
+        webBindError.value = e.payload;
+      });
+      tauriUnlisteners.push(
+        unlistenCount,
+        unlistenError,
+        unlistenReady,
+        unlistenWebReady,
+        unlistenWebError,
+      );
+
+      const info = await invoke<ServerInfo>('get_server_info');
       serverIp.value = info.ip;
-      serverPort.value = info.port;
+      serverPort.value = info.configuredWsPort || info.port;
+      runningWsPort.value = info.runningWsPort;
+      wsReady.value = info.wsReady;
+      wsBindError.value = info.wsBindError;
+      webReady.value = info.webReady;
+      webBindError.value = info.webBindError;
       await loadServerConfig(invoke);
 
       await probePermission();
@@ -826,21 +952,10 @@ onMounted(async () => {
         permissionPollTimer = setInterval(probePermission, 3000);
       }
       window.addEventListener('focus', probePermission);
-
-      // Listen Tauri events for HUD realtime
-      const { listen } = await import('@tauri-apps/api/event');
-      const unlistenCount = await listen<{ count: number }>('client-count-changed', (e) => {
-        activeConnectionsCount.value = e.payload.count;
-      });
-      const unlistenError = await listen<{ port: number; error: string }>('server-error', () => {
-        serverBindError.value = true;
-      });
-      const unlistenReady = await listen<{ port: number }>('server-ready', () => {
-        serverBindError.value = false;
-      });
-      tauriUnlisteners.push(unlistenCount, unlistenError, unlistenReady);
     } else {
       const fallback = { wsPort: serverPort.value, webEnabled: false, webPort: 8090 };
+      wsReady.value = true;
+      runningWsPort.value = serverPort.value;
       savedServerConfig.value = fallback;
       serverConfigDraft.value = toServerConfigDraft(fallback);
       serverConfigLoaded.value = true;
@@ -849,6 +964,8 @@ onMounted(async () => {
     console.error('Failed initialization:', e);
     if (!serverConfigLoaded.value) {
       const fallback = { wsPort: serverPort.value, webEnabled: false, webPort: 8090 };
+      wsReady.value = true;
+      runningWsPort.value = serverPort.value;
       savedServerConfig.value = fallback;
       serverConfigDraft.value = toServerConfigDraft(fallback);
       serverConfigLoaded.value = true;
@@ -1231,22 +1348,32 @@ const updateStatusText = computed(() => {
           </div>
         </div>
 
-        <!-- HUD: Bind Error Badge (AC: 2) -->
+        <!-- HUD: Listener Health Badge -->
         <div
-          v-if="serverBindError"
-          class="cyber-hud flex items-center gap-2.5 px-3.5 py-2 border-rose-500/50 max-w-[320px]"
-          title="Socket server không thể bind cổng — kiểm tra Firewall / Port conflict"
+          class="cyber-hud flex items-center gap-2.5 px-3.5 py-2 max-w-[320px]"
+          :class="listenerHealthBadge.classes"
+          :title="listenerHealthBadge.title"
         >
-          <Icon icon="lucide:wifi-off" class="text-base text-rose-400 shrink-0 animate-pulse" />
+          <Icon
+            :icon="listenerHealthBadge.icon"
+            class="text-base shrink-0"
+            :class="listenerHealthBadge.iconClass"
+          />
           <div class="flex flex-col leading-tight min-w-0">
-            <span class="text-[9px] font-bold text-rose-400 uppercase tracking-wider">Firewall / Port Blocked</span>
+            <span class="text-[9px] font-bold uppercase tracking-wider">
+              {{ listenerHealthBadge.label }}
+            </span>
             <button
+              v-if="wsBindError || webBindError"
               type="button"
               class="text-[8px] text-slate-400 hover:text-cyan-400 transition-colors text-left underline decoration-dotted cursor-pointer font-medium mt-0.5 truncate"
               @click="openGuide('firewall')"
             >
               Hướng dẫn mở khóa Tường lửa & Sửa dải cổng mạng
             </button>
+            <span v-else class="font-mono text-[9px] text-slate-400 mt-0.5">
+              {{ listenerHealthBadge.detail }}
+            </span>
           </div>
         </div>
 
@@ -2192,7 +2319,7 @@ const updateStatusText = computed(() => {
                     <div
                       class="h-[38px] rounded-lg border border-slate-800 bg-slate-950/80 px-3 py-2.5 font-mono text-xs text-slate-400 shadow-inner"
                     >
-                      {{ serverPort }}
+                      {{ activeWsPort }}
                     </div>
                   </label>
 
@@ -2533,6 +2660,26 @@ const updateStatusText = computed(() => {
           <p class="text-[11px] leading-relaxed text-slate-300">
             {{ restartDialogMessage }}
           </p>
+          <div
+            v-if="restartDialogFailed"
+            class="rounded-lg border border-amber-300/20 bg-amber-400/10 px-3 py-2.5 text-[10px] leading-relaxed text-amber-100/90"
+          >
+            <div class="font-bold uppercase tracking-wider text-amber-200">Checklist restart thủ công</div>
+            <ul class="mt-2 flex flex-col gap-1.5 text-slate-300">
+              <li class="flex gap-2">
+                <Icon icon="lucide:check" class="mt-0.5 text-xs text-amber-300 shrink-0" />
+                Dừng Companion hiện tại.
+              </li>
+              <li class="flex gap-2">
+                <Icon icon="lucide:check" class="mt-0.5 text-xs text-amber-300 shrink-0" />
+                Chạy lại `pnpm tauri dev` hoặc mở lại app đã build.
+              </li>
+              <li class="flex gap-2">
+                <Icon icon="lucide:check" class="mt-0.5 text-xs text-amber-300 shrink-0" />
+                Chờ badge chuyển sang Listening rồi mới quét/copy endpoint.
+              </li>
+            </ul>
+          </div>
           <button
             v-if="restartDialogFailed"
             type="button"

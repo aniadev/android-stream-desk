@@ -9,6 +9,7 @@ import { Icon } from '@iconify/vue';
 import { acquireWakeLock, releaseWakeLock, isWakeLockActive } from '../lib/wakelock';
 import { unlockAudio } from '../lib/clicksound';
 import { parseApkConnectPayload } from '../lib/apkConnectQr';
+import { shouldShowScanAgainCta } from '../lib/mobileReconnectState';
 import {
   fetchBrowserServerInfo,
   isBrowserMode,
@@ -43,6 +44,14 @@ const isBrowserModeActive = isBrowserMode(window);
 const isAndroidTauriApp = computed(() => {
   return !!window.__TAURI_INTERNALS__ && /Android/i.test(navigator.userAgent);
 });
+const showScanAgainCta = computed(() =>
+  shouldShowScanAgainCta({
+    isAndroidTauriApp: isAndroidTauriApp.value,
+    status: connectionStore.status,
+    reconnectAttempts: connectionStore.reconnectAttempts,
+    maxReconnectAttempts: connectionStore.maxReconnectAttempts,
+  }),
+);
 
 const bootstrapBrowserConnection = async () => {
   try {
@@ -150,12 +159,9 @@ const scanCompanionQr = async () => {
       return;
     }
 
-    connectionStore.ipAddress = target.host;
-    connectionStore.port = target.wsPort;
-    localStorage.setItem('server_ip', target.host);
-    localStorage.setItem('server_port', target.wsPort);
+    connectionStore.applyScannedEndpoint(target.host, target.wsPort);
     isSubmitted.value = false;
-    showToast('Đã đọc QR Companion. Đang kết nối...');
+    showToast(`Đã đọc QR Companion. Đang kết nối ${connectionStore.attemptingEndpoint}...`);
     connectionStore.connect();
   } catch (e: any) {
     showToast(`Quét QR thất bại: ${e?.message || e}`);
@@ -295,6 +301,9 @@ onUnmounted(() => {
           <span class="opacity-90 mt-0.5"
             >Sửa IP/Port bên dưới rồi nhấn Kết nối ngay để dừng chu kỳ.</span
           >
+          <span v-if="connectionStore.attemptingEndpoint" class="font-mono opacity-80 mt-1">
+            {{ connectionStore.attemptingEndpoint }}
+          </span>
         </div>
         <button
           @click="connectionStore.cancelReconnect()"
@@ -313,13 +322,16 @@ onUnmounted(() => {
         class="mb-6 w-full max-w-sm bg-rose-600/90 text-white px-4 py-3 rounded-2xl shadow-xl text-xs font-semibold flex items-center gap-3 border border-rose-500/20"
       >
         <Icon icon="mdi:alert-circle" class="text-xl" />
-        <div class="flex flex-col leading-tight">
+        <div class="flex flex-col leading-tight flex-1">
           <span class="font-bold"
             >Không kết nối được sau {{ connectionStore.maxReconnectAttempts }} lần thử</span
           >
           <span class="opacity-90 mt-0.5"
             >Kiểm tra Companion đang chạy + IP/Port đúng rồi thử lại.</span
           >
+          <span v-if="connectionStore.attemptingEndpoint" class="font-mono opacity-80 mt-1">
+            {{ connectionStore.attemptingEndpoint }}
+          </span>
         </div>
       </div>
 
@@ -387,6 +399,7 @@ onUnmounted(() => {
             v-if="isAndroidTauriApp"
             type="button"
             class="w-full flex items-center justify-center gap-2 rounded-xl border border-violet-500/30 bg-violet-950/50 px-3 py-2.5 text-[10px] font-extrabold uppercase tracking-wider text-violet-100 shadow shadow-violet-950/20 transition duration-150 hover:border-violet-400 hover:bg-violet-900/60 disabled:cursor-not-allowed disabled:opacity-50"
+            :class="showScanAgainCta ? 'border-amber-300/70 bg-amber-500/20 text-amber-100 shadow-amber-950/30' : ''"
             :disabled="
               isScanningQr ||
               (connectionStore.status === 'connecting' && !connectionStore.isReconnecting)
@@ -398,7 +411,7 @@ onUnmounted(() => {
               class="text-base"
               :class="{ 'animate-spin': isScanningQr }"
             />
-            {{ isScanningQr ? 'Đang quét...' : 'Quét QR từ Companion' }}
+            {{ isScanningQr ? 'Đang quét...' : showScanAgainCta ? 'Quét QR lại' : 'Quét QR từ Companion' }}
           </button>
         </div>
 
@@ -452,6 +465,21 @@ onUnmounted(() => {
       ></span>
       <Icon icon="mdi:cog" class="text-slate-400 text-base" />
     </div>
+
+    <button
+      v-if="showScanAgainCta"
+      type="button"
+      class="absolute bottom-5 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-2xl border border-amber-300/60 bg-amber-500 px-5 py-3 text-xs font-extrabold uppercase tracking-wider text-slate-950 shadow-2xl shadow-amber-950/30"
+      :disabled="isScanningQr"
+      @click="scanCompanionQr"
+    >
+      <Icon
+        :icon="isScanningQr ? 'mdi:loading' : 'mdi:camera-iris'"
+        class="text-base"
+        :class="{ 'animate-spin': isScanningQr }"
+      />
+      {{ isScanningQr ? 'Đang quét...' : 'Quét QR lại' }}
+    </button>
 
     <!-- Settings Modal to inspect IP/Port or click 'Ngắt kết nối' -->
     <transition name="fade">

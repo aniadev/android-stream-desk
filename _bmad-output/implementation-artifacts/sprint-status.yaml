@@ -83,10 +83,10 @@ development_status:
   # =====================================================================
 
   # Epic 8 — Mobile reconnect after Companion relaunch (GitHub #2)
-  epic-8: in-progress
-  s-rel1-startup-network-health: ready-for-dev
-  s-rel2-relaunch-endpoint-state: ready-for-dev
-  s-rel3-mobile-reconnect-after-restart: ready-for-dev
+  epic-8: done
+  s-rel1-startup-network-health: done
+  s-rel2-relaunch-endpoint-state: done
+  s-rel3-mobile-reconnect-after-restart: done
   epic-8-retrospective: optional
 
   # Epic 9 — macOS Accessibility diagnostics & recovery
@@ -119,3 +119,9 @@ development_status:
   s-rust2-backend-startup-preflight: ready-for-dev
   s-rust3-rust-regression-gate: ready-for-dev
   epic-12-retrospective: optional
+
+  # Epic 13 — APK size optimization (per-ABI split + web asset diet, target <20MB)
+  epic-13: in-progress
+  s-apk1-abi-split-build: review
+  s-apk2-web-asset-diet: review  # logo done (-14MB → arm64 21MB/arm 20MB); icon 11MB deferred → deferred-work.md
+  epic-13-retrospective: optional

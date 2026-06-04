@@ -536,47 +536,48 @@ Kết luận số học: v1.4.0 = 4 ABI × ~13MB ≈ 55MB; v1.5.0 = 4 ABI × ~32
 
 ### 7.2 Proposed Solution & Architecture Design
 
-* Cắt ABI thừa (đòn bẩy 1):
-  - Build chỉ cho `arm64-v8a` (+ `armeabi-v7a` nếu cần máy 32-bit cũ) bằng `tauri android build --target aarch64-linux-android` (thêm `armv7-linux-androideabi`), KHÔNG dựa vào `abiFilters` vì nó không lọc jniLibs prebuilt.
-  - Đảm bảo môi trường build/CI chỉ cài đúng rust target cần ship; gỡ `i686-linux-android`/`x86_64-linux-android` khỏi targets.
-  - Tùy chọn thêm `splits { abi { isEnable = true; reset(); include("arm64-v8a","armeabi-v7a"); isUniversalApk = false } }` để chắc chắn không gói ABI ngoài danh sách.
-* Per-ABI split (yêu cầu user):
-  - `pnpm tauri android build --apk --split-per-abi` hoặc `splits.abi { isUniversalApk = false }` để xuất từng APK theo ABI; đặt tên output rõ theo ABI.
-  - Ưu tiên phát hành `arm64-v8a`; giữ `armeabi-v7a` cho máy 32-bit.
+* Cắt ABI thừa + per-ABI split (đòn bẩy 1) — **cơ chế đã xác minh khi implement, khác đề xuất ban đầu**:
+  - Dùng `tauri android build --apk --split-per-abi` với `--target aarch64 --target armv7` (tên target NGẮN của Tauri, KHÔNG phải rust triple `aarch64-linux-android`). Tauri tạo flavor `arm64`/`arm`, mỗi flavor 1 ABI → xuất `-arm64.apk` / `-arm.apk` riêng, không universal gộp.
+  - **KHÔNG dùng gradle `splits.abi`**: xung đột với product flavor mà RustPlugin tự tạo. Control đúng nằm ở lệnh tauri (`--target` + `--split-per-abi`), không phải gradle.
+  - **Phải XÓA `ndk.abiFilters` ở `defaultConfig`** (`build.gradle.kts:29`): nó union với abiFilters của flavor → mỗi split APK vẫn dính cả 2 ABI (66MB). Gỡ xong flavor mới tự giới hạn đúng 1 ABI.
+  - `build.gradle.kts` output filename kèm `flavorName` để `-arm64.apk`/`-arm.apk` không trùng tên; CI upload glob đổi `universal/release/` → `*/release/`.
+  - CI/`release.yml` chỉ build target cần ship (aarch64, armv7); không build `i686`/`x86_64`.
 * Giảm frontend nhúng (đòn bẩy 2 — vì frontend nằm trong từng `.so`, mỗi MB cắt được nhân với số ABI):
   - Lazy-load/code-split phần icon pack nặng để `index-*.js` không nhồi toàn bộ dữ liệu icon vào main chunk; dynamic import khi mở icon picker.
   - Resize/nén logo PNG xuống dưới 200KB, dùng một logo, bỏ `logo-1.png` trùng.
   - Loại `.DS_Store` khỏi bundle qua `.gitignore`/vite `publicDir` cleanup.
-* Resource shrink phụ: thêm `isShrinkResources = true` cùng `isMinifyEnabled = true` ở buildType release.
-* Đo lại sau mỗi thay đổi; mục tiêu: arm64-v8a split APK = native ~13MB + frontend ~3MB ≈ 16MB < 20MB. Ghi vào release checklist.
+* Resource shrink phụ: `isShrinkResources = true` — **HOÃN** (rủi ro strip nhầm resource; native libs đã strip qua Cargo profile nên lợi ích thấp).
+* Đo lại sau mỗi thay đổi; mục tiêu ban đầu: arm64 ≈ 16MB < 20MB. **Kết quả thật (2026-06-04):** logo fix đưa arm64 35→21MB, arm 35→20MB. arm ĐẠT ≤20MB; arm64 dư ~1MB. Về ~15MB cả hai chỉ khi làm tiếp icon 11MB (HOÃN version sau).
 
 ### 7.3 Stories
 
-#### S-APK1 — Per-ABI split build và resource shrink
-* **Goal:** Build xuất APK riêng cho từng ABI, mỗi APK gọn hơn universal, có resource shrink.
-* **Scope:**
-  - `build.gradle.kts`: bật `splits.abi` (`isUniversalApk = false`) hoặc tài liệu hóa `--split-per-abi`.
-  - Thêm `isShrinkResources = true` cho release; verify release strip native libs.
-  - Đặt tên output theo ABI; cập nhật release docs/script build APK.
-  - Đo size từng APK ABI và ghi vào checklist.
-* **Complexity:** Medium
+#### S-APK1 — Per-ABI split build (DONE 2026-06-04)
+* **Goal:** Build xuất APK riêng cho từng ABI, bỏ x86/x86_64 emulator.
+* **Scope thực hiện:**
+  - `package.json` (`android:build` + `android:build:arm64`) + CI `release.yml` build `--split-per-abi --target aarch64 --target armv7`.
+  - `build.gradle.kts`: XÓA `ndk.abiFilters` defaultConfig (union bug → split vẫn 66MB); output filename kèm `flavorName`.
+  - CI upload glob `universal/release/` → `*/release/`.
+  - **KHÔNG dùng gradle `splits.abi`** (xung đột flavor RustPlugin) và **KHÔNG dùng `isShrinkResources`** (HOÃN).
+* **Outcome đã verify build thật:** 131MB universal 4-ABI → `-arm64.apk` 35MB + `-arm.apk` 34MB. Còn >20MB cho tới khi S-APK2 diet frontend.
+* **Complexity:** Medium · **Status:** done (Task 3 resource-shrink gộp vào đợt đo S-APK2)
 
-#### S-APK2 — Web asset diet để xuống dưới 20MB
-* **Goal:** Giảm web bundle để mỗi APK ABI dưới 20MB sau khi đã split.
-* **Scope:**
-  - Lazy-load/code-split phần icon pack nặng trong `assets/index-*.js` (11MB) bằng dynamic import.
-  - Resize/nén logo PNG xuống dưới 200KB; bỏ `logo-1.png` trùng và `.DS_Store`.
-  - Verify Web Client (`dist-client`) vẫn chạy đúng sau code-split.
-  - Đo lại `dist-client` và APK ABI; xác nhận dưới 20MB.
-* **Complexity:** Medium
+#### S-APK2 — Web asset diet (LOGO DONE, ICON HOÃN)
+* **Goal:** Giảm web bundle nhúng để mỗi APK ABI dưới 20MB.
+* **Scope thực hiện:**
+  - **Logo (done):** `public/logo.png` 3.7MB(1920px) → 123KB(256px) bằng `sips -Z 256`; nguồn hi-res tách sang `branding/logo-source.png` (làm nguồn gen app icon); xóa `logo-1.png` (3.5MB) + `logo.bk.png` (89KB) không ref.
+  - **Icon pack 11MB (HOÃN version sau):** `src/icons-bundle.ts` import full mdi(3MB)+material-symbols(7.6MB)+lucide(0.5MB) embed vào mỗi `.so`. Cả 3 set đang dùng (lucide 187, mdi 127, material-symbols 98 refs) → không bỏ set nào mà không vỡ icon. Hướng tương lai: client fetch icon từ Companion qua LAN + cache, hoặc subset + lazy. Ghi `_bmad-output/deferred-work.md`.
+* **Outcome đã verify build thật:** logo fix gỡ gần trọn 14MB/.so → **arm64 21MB, arm 20MB** (từ 35MB). arm ĐẠT ≤20MB; arm64 dư ~1MB, về <20MB khi làm icon.
+* **Complexity:** Medium · **Status:** review (logo done; icon deferred)
 
 ### 7.4 Cập nhật Phasing & Matrix
 
 Thêm vào Sprint 3 (release polish), trước version bump/tag:
 
-| Story | Feature / Bug Fix | Complexity | Front-end Only? |
-| :--- | :--- | :--- | :--- |
-| S-APK1 | Per-ABI split build + resource shrink | Medium | No (gradle/build) |
-| S-APK2 | Web asset diet dưới 20MB | Medium | Yes |
+| Story | Feature / Bug Fix | Complexity | Front-end Only? | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| S-APK1 | Per-ABI split build (bỏ x86/x86_64) | Medium | No (gradle/build) | done |
+| S-APK2 | Web asset diet (logo done, icon hoãn) | Medium | Yes | review |
 
-Dependency: S-APK1 và S-APK2 độc lập nhau nhưng cùng cần đo chung kết quả; chốt size cuối sau khi cả hai xong, gate trước `git tag v1.5.1`.
+Dependency: S-APK1 và S-APK2 độc lập nhau nhưng cùng đo chung; chốt size cuối sau khi cả hai xong, gate trước `git tag v1.5.1`.
+
+**Kết quả size thực (2026-06-04):** 131MB universal → split + logo diet = **arm64 21MB / arm 20MB**. arm ≤20MB đạt; arm64 dư ~1MB. Đưa cả hai về ~15MB cần làm nốt icon bundle 11MB (HOÃN version sau, xem `deferred-work.md`). `isShrinkResources` HOÃN.
