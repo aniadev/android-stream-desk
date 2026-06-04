@@ -198,7 +198,7 @@ const scanCompanionQr = async () => {
     showToast(`Đã đọc QR Companion. Đang kết nối ${connectionStore.attemptingEndpoint}...`);
     connectionStore.connect();
   } catch (e: any) {
-    const errmsg = String(e?.message || e).toLowerCase();
+    const errmsg = String(e?.message ?? e ?? '').toLowerCase();
     if (errmsg.includes('cancel') || errmsg.includes('dismiss')) {
       scanStatus.value = 'cancelled';
       showToast('Đã hủy quét QR.');
@@ -249,6 +249,13 @@ watch(
   next => {
     if (next === 'connected') {
       scanStatus.value = 'idle';
+    } else if (
+      (next === 'error' || next === 'disconnected') &&
+      scanStatus.value === 'success'
+    ) {
+      // Connect sau khi quét QR thất bại — xoá panel spinner "Đang kết nối"
+      // đang kẹt. Chỉ reset khi đang 'success' để không xoá panel lỗi quét.
+      scanStatus.value = 'idle';
     }
   }
 );
@@ -274,7 +281,10 @@ watch(
     } else {
       await releaseWakeLock();
     }
-  }
+  },
+  // immediate: mount khi đã connected + keepScreenOn=true (route re-entry /
+  // reconnect nhanh) sẽ không có thay đổi để watch fire — phải chạy ngay.
+  { immediate: true }
 );
 
 onMounted(async () => {
