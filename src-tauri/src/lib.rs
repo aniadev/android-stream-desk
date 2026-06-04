@@ -1047,10 +1047,8 @@ pub fn run() {
                     if let Some(window) = app.get_webview_window("main") {
                         let _ = window.hide();
                     }
-                } else {
-                    if let Some(window) = app.get_webview_window("main") {
-                        let _ = window.show();
-                    }
+                } else if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
                 }
             }
 
@@ -1147,6 +1145,15 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
 
     builder.build(app)?;
     Ok(())
+}
+
+#[cfg(desktop)]
+fn focus_main_window(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+    }
 }
 
 #[cfg(test)]
@@ -1250,14 +1257,5 @@ mod tests {
         assert!(permissions
             .iter()
             .any(|permission| permission == "process:default"));
-    }
-}
-
-#[cfg(desktop)]
-fn focus_main_window(app: &AppHandle) {
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.show();
-        let _ = window.unminimize();
-        let _ = window.set_focus();
     }
 }

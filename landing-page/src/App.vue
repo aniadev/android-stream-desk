@@ -113,7 +113,7 @@ const macDownload = ref(
   'https://github.com/aniadev/android-stream-desk/releases/download/v1.5.0/Android-Stream-Desk_1.5.0_x64.dmg',
 );
 const androidApk = ref(
-  'https://github.com/aniadev/android-stream-desk/releases/download/v1.5.0/app-universal-release-signed.apk',
+  'https://github.com/aniadev/android-stream-desk/releases/download/v1.5.0/android-stream-desk-v1_5_0.apk',
 );
 const repoUrl = 'https://github.com/aniadev/android-stream-desk';
 
@@ -130,7 +130,9 @@ onMounted(() => {
         currentVersion.value = tag;
         windowsDownload.value = `https://github.com/aniadev/android-stream-desk/releases/download/${tag}/Android-Stream-Desk_${cleanVer}_x64-setup.msi`;
         macDownload.value = `https://github.com/aniadev/android-stream-desk/releases/download/${tag}/Android-Stream-Desk_${cleanVer}_x64.dmg`;
-        androidApk.value = `https://github.com/aniadev/android-stream-desk/releases/download/${tag}/app-universal-release-signed.apk`;
+        
+        const underscoreTag = tag.replace(/\./g, '_');
+        androidApk.value = `https://github.com/aniadev/android-stream-desk/releases/download/${tag}/android-stream-desk-${underscoreTag}.apk`;
       }
     })
     .catch(err => console.warn('Failed to fetch version, using v1.5.0:', err));
