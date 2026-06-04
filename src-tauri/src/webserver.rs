@@ -87,8 +87,9 @@ fn emit_web_error(app_handle: &tauri::AppHandle, port: u16, error: String) {
         error,
         kind: "web",
     };
+    // Chỉ phát `server-web-error`. KHÔNG phát `server-error` — kênh đó dành
+    // riêng cho lỗi bind WS; phát chung sẽ khiến web bind fail báo nhầm WS chết.
     let _ = app_handle.emit("server-web-error", &payload);
-    let _ = app_handle.emit("server-error", &payload);
 }
 
 fn handle_request(request: Request, ws_port: u16) {

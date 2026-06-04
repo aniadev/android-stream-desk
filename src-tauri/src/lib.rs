@@ -1085,6 +1085,9 @@ fn validate_link_url(raw: &str) -> Result<String, String> {
     if trimmed.is_empty() {
         return Err("Link URL is empty".to_string());
     }
+    if trimmed.len() > 2048 {
+        return Err("Link URL too long".to_string());
+    }
     let lower = trimmed.to_ascii_lowercase();
     if !(lower.starts_with("http://") || lower.starts_with("https://")) {
         return Err(format!(
@@ -1105,7 +1108,11 @@ fn validate_link_url(raw: &str) -> Result<String, String> {
         let authority_end = after_scheme
             .find(['/', '?', '#'])
             .unwrap_or(after_scheme.len());
-        if after_scheme[..authority_end].contains('@') {
+        let authority = &after_scheme[..authority_end];
+        if authority.is_empty() {
+            return Err("Link URL is missing a host".to_string());
+        }
+        if authority.contains('@') {
             return Err("Link URL must not contain credentials (user:pass@)".to_string());
         }
     }
