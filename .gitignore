@@ -31,3 +31,5 @@ src-tauri/target
 *.keystore
 keystore.properties
 release.keystore.backup.key
+.vercel
+.env*

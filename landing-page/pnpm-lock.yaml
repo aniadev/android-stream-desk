@@ -17,6 +17,9 @@ importers:
       vue:
         specifier: ^3.5.13
         version: 3.5.35(typescript@5.6.3)
+      vue-router:
+        specifier: ^4.5.11
+        version: 4.6.4(vue@3.5.35(typescript@5.6.3))
     devDependencies:
       '@vitejs/plugin-vue':
         specifier: ^5.2.1
@@ -41,7 +44,7 @@ importers:
         version: 6.4.3(jiti@1.21.7)(terser@5.48.0)
       vite-ssg:
         specifier: ^0.24.3
-        version: 0.24.3(vite@6.4.3(jiti@1.21.7)(terser@5.48.0))(vue@3.5.35(typescript@5.6.3))
+        version: 0.24.3(vite@6.4.3(jiti@1.21.7)(terser@5.48.0))(vue-router@4.6.4(vue@3.5.35(typescript@5.6.3)))(vue@3.5.35(typescript@5.6.3))
       vue-tsc:
         specifier: ^2.1.10
         version: 2.2.12(typescript@5.6.3)
@@ -472,6 +475,9 @@ packages:
 
   '@vue/compiler-vue2@2.7.16':
     resolution: {integrity: sha512-qYC3Psj9S/mfu9uVi5WvNZIzq+xnXMhOwbTFKKDD7b1lhpnn71jXSFdTQ+WsIEk0ONCd7VV2IMm7ONl6tbQ86A==}
+
+  '@vue/devtools-api@6.6.4':
+    resolution: {integrity: sha512-sGhTPMuXqZ1rVOk32RylztWkfXTRhuS7vgAKv0zjqk8gbsHkJ7xfFf+jbySxt7tWObEJwyKaHMikV/WGDiQm8g==}
 
   '@vue/language-core@2.2.12':
     resolution: {integrity: sha512-IsGljWbKGU1MZpBPN+BvPAdr55YPkj2nB/TBNGNC32Vy2qLG25DYu/NBN2vNtZqdRbTRjaoYrahLrToim2NanA==}
@@ -1260,6 +1266,11 @@ packages:
   vscode-uri@3.1.0:
     resolution: {integrity: sha512-/BpdSx+yCQGnCvecbyXdxHDkuk55/G3xwnC0GqY4gmQ3j+A+g8kzzgB4Nk/SINjqn6+waqw3EgbVF2QKExkRxQ==}
 
+  vue-router@4.6.4:
+    resolution: {integrity: sha512-Hz9q5sa33Yhduglwz6g9skT8OBPii+4bFn88w6J+J4MfEo4KRRpmiNG/hHHkdbRFlLBOqxN8y8gf2Fb0MTUgVg==}
+    peerDependencies:
+      vue: ^3.5.0
+
   vue-tsc@2.2.12:
     resolution: {integrity: sha512-P7OP77b2h/Pmk+lZdJ0YWs+5tJ6J2+uOQPo7tlBnY44QqQSPYvS0qVT4wqDJgwrZaLe47etJLLQRFia71GYITw==}
     hasBin: true
@@ -1643,6 +1654,8 @@ snapshots:
     dependencies:
       de-indent: 1.0.2
       he: 1.2.0
+
+  '@vue/devtools-api@6.6.4': {}
 
   '@vue/language-core@2.2.12(typescript@5.6.3)':
     dependencies:
@@ -2405,7 +2418,7 @@ snapshots:
 
   util-deprecate@1.0.2: {}
 
-  vite-ssg@0.24.3(vite@6.4.3(jiti@1.21.7)(terser@5.48.0))(vue@3.5.35(typescript@5.6.3)):
+  vite-ssg@0.24.3(vite@6.4.3(jiti@1.21.7)(terser@5.48.0))(vue-router@4.6.4(vue@3.5.35(typescript@5.6.3)))(vue@3.5.35(typescript@5.6.3)):
     dependencies:
       '@unhead/dom': 1.11.20
       '@unhead/vue': 1.11.20(vue@3.5.35(typescript@5.6.3))
@@ -2418,6 +2431,8 @@ snapshots:
       vite: 6.4.3(jiti@1.21.7)(terser@5.48.0)
       vue: 3.5.35(typescript@5.6.3)
       yargs: 17.7.2
+    optionalDependencies:
+      vue-router: 4.6.4(vue@3.5.35(typescript@5.6.3))
     transitivePeerDependencies:
       - bufferutil
       - canvas
@@ -2438,6 +2453,11 @@ snapshots:
       terser: 5.48.0
 
   vscode-uri@3.1.0: {}
+
+  vue-router@4.6.4(vue@3.5.35(typescript@5.6.3)):
+    dependencies:
+      '@vue/devtools-api': 6.6.4
+      vue: 3.5.35(typescript@5.6.3)
 
   vue-tsc@2.2.12(typescript@5.6.3):
     dependencies:
