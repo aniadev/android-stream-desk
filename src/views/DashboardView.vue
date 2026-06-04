@@ -52,6 +52,21 @@ interface ServerConfigDraft {
   webPort: string;
 }
 
+type InputPermissionRecommendedAction =
+  | 'allow'
+  | 'remove_stale_entry'
+  | 'restart_app'
+  | 'open_settings';
+
+interface InputPermissionDiagnostics {
+  trusted: boolean;
+  bundleIdentifier: string;
+  executablePath: string | null;
+  appBundlePath: string | null;
+  isPackagedApp: boolean;
+  recommendedAction: InputPermissionRecommendedAction;
+}
+
 const layoutStore = useLayoutStore();
 const updaterStore = useUpdaterStore();
 
@@ -858,8 +873,12 @@ onUnmounted(() => {
 });
 
 // Accessibility / input permission state
-const hasInputPermission = ref<boolean>(true);
 const inputPermissionChecked = ref<boolean>(false);
+const inputPermissionDiagnostics = ref<InputPermissionDiagnostics | null>(null);
+const legacyInputPermission = ref<boolean>(true);
+const permissionCopyHint = ref<'executable' | 'bundle' | 'bundleId' | ''>('');
+const accessibilityRecoveryRequested = ref(false);
+const accessibilityRecoveryRef = ref<HTMLElement | null>(null);
 let permissionPollTimer: ReturnType<typeof setInterval> | null = null;
 
 const isMacPlatform = computed(
@@ -868,21 +887,105 @@ const isMacPlatform = computed(
     navigator.platform.toLowerCase().includes('mac'),
 );
 
+const hasInputPermission = computed(() => inputPermissionDiagnostics.value?.trusted ?? legacyInputPermission.value);
+
+const inputPermissionNeedsRecovery = computed(() => {
+  const diagnostics = inputPermissionDiagnostics.value;
+  if (!diagnostics) return !hasInputPermission.value;
+  return !diagnostics.trusted || diagnostics.recommendedAction !== 'allow';
+});
+
+const shortBundleIdentifier = computed(() => {
+  const bundleId = inputPermissionDiagnostics.value?.bundleIdentifier ?? '';
+  if (bundleId.length <= 34) return bundleId;
+  return `…${bundleId.slice(-31)}`;
+});
+
+const inputPermissionActionText = computed(() => {
+  switch (inputPermissionDiagnostics.value?.recommendedAction) {
+    case 'remove_stale_entry':
+      return 'Bản `.app` build lại đã đổi chữ ký nên entry Accessibility cũ vô dụng. Quit app, xoá entry Android Stream Desk cũ trong Accessibility, kéo đúng .app mới vào, bật lại rồi mở app.';
+    case 'restart_app':
+      return 'macOS đã trust process native, nhưng probe input vẫn lỗi. Hãy quit và mở lại Companion để TCC cache nạp lại quyền.';
+    case 'open_settings':
+      return 'Mở Accessibility Settings và bật Android Stream Desk cho binary đang chạy.';
+    case 'allow':
+      return 'Quyền Accessibility native đang hợp lệ.';
+    default:
+      return 'Kiểm tra Accessibility để biết app/path nào đang được macOS trust.';
+  }
+});
+
+const showAccessibilityRecovery = computed(
+  () =>
+    isMacPlatform.value &&
+    inputPermissionChecked.value &&
+    (inputPermissionNeedsRecovery.value || accessibilityRecoveryRequested.value),
+);
+
+const clearPermissionPollIfHealthy = () => {
+  if (!inputPermissionNeedsRecovery.value && permissionPollTimer !== null) {
+    clearInterval(permissionPollTimer);
+    permissionPollTimer = null;
+  }
+};
+
+const ensurePermissionPoll = () => {
+  if (inputPermissionNeedsRecovery.value && permissionPollTimer === null) {
+    permissionPollTimer = setInterval(probePermission, 3000);
+  }
+};
+
 const probePermission = async () => {
   try {
     // @ts-ignore
     if (!window.__TAURI_INTERNALS__) return;
     const { invoke } = await import('@tauri-apps/api/core');
-    const ok = await invoke<boolean>('probe_input_permission');
-    hasInputPermission.value = ok;
+    try {
+      inputPermissionDiagnostics.value = await invoke<InputPermissionDiagnostics>(
+        'get_input_permission_diagnostics',
+      );
+      legacyInputPermission.value = inputPermissionDiagnostics.value.trusted;
+    } catch (diagnosticsError) {
+      console.warn('get_input_permission_diagnostics failed, falling back:', diagnosticsError);
+      const ok = await invoke<boolean>('probe_input_permission');
+      inputPermissionDiagnostics.value = null;
+      legacyInputPermission.value = ok;
+    }
     inputPermissionChecked.value = true;
-    if (ok && permissionPollTimer !== null) {
-      clearInterval(permissionPollTimer);
-      permissionPollTimer = null;
+    clearPermissionPollIfHealthy();
+    ensurePermissionPoll();
+    // Quyền đã hợp lệ → bỏ cờ mở panel thủ công để panel có thể tự ẩn.
+    if (!inputPermissionNeedsRecovery.value) {
+      accessibilityRecoveryRequested.value = false;
     }
   } catch (e) {
     console.error('probe_input_permission failed:', e);
   }
+};
+
+const copyPermissionDetail = async (
+  value: string | null | undefined,
+  key: 'executable' | 'bundle' | 'bundleId',
+) => {
+  if (!value) return;
+  try {
+    await navigator.clipboard.writeText(value);
+    permissionCopyHint.value = key;
+    setTimeout(() => {
+      if (permissionCopyHint.value === key) permissionCopyHint.value = '';
+    }, 1500);
+  } catch (e) {
+    console.error('copy permission detail failed:', e);
+  }
+};
+
+const scrollToAccessibilityRecovery = async () => {
+  accessibilityRecoveryRequested.value = true;
+  await probePermission();
+  requestAnimationFrame(() => {
+    accessibilityRecoveryRef.value?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
 };
 
 onMounted(async () => {
@@ -928,12 +1031,23 @@ onMounted(async () => {
         webReady.value = false;
         webBindError.value = e.payload;
       });
+      const unlistenActionError = await listen<{ error?: string; message?: string }>(
+        'action-error',
+        (e) => {
+          const message = e.payload.error || e.payload.message || '';
+          if (/Accessibility/i.test(message)) {
+            accessibilityRecoveryRequested.value = true;
+            void probePermission();
+          }
+        },
+      );
       tauriUnlisteners.push(
         unlistenCount,
         unlistenError,
         unlistenReady,
         unlistenWebReady,
         unlistenWebError,
+        unlistenActionError,
       );
 
       const info = await invoke<ServerInfo>('get_server_info');
@@ -948,9 +1062,7 @@ onMounted(async () => {
 
       await probePermission();
       // Poll until granted — user may toggle Accessibility while app runs.
-      if (!hasInputPermission.value) {
-        permissionPollTimer = setInterval(probePermission, 3000);
-      }
+      ensurePermissionPoll();
       window.addEventListener('focus', probePermission);
     } else {
       const fallback = { wsPort: serverPort.value, webEnabled: false, webPort: 8090 };
@@ -1276,9 +1388,9 @@ const updateStatusText = computed(() => {
             <button
               type="button"
               class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1"
-              @click="openAccessibilitySettings"
+              @click="scrollToAccessibilityRecovery"
             >
-              Mở Accessibility Settings
+              Xem panel khôi phục
             </button>
           </div>
         </div>
@@ -1429,36 +1541,102 @@ const updateStatusText = computed(() => {
       </div>
     </div>
 
-    <!-- Accessibility permission banner (macOS) -->
+    <!-- Accessibility recovery panel (macOS) -->
     <div
-      v-if="isMacPlatform && inputPermissionChecked && !hasInputPermission"
-      class="cyber-panel flex items-center gap-3 px-4 py-2.5 border-rose-500/40"
+      v-if="showAccessibilityRecovery"
+      ref="accessibilityRecoveryRef"
+      class="cyber-panel flex flex-col gap-3 px-4 py-3 border-rose-500/40"
     >
-      <Icon icon="lucide:shield-alert" class="text-base text-rose-400 shrink-0" />
-      <div class="flex-1 flex flex-col leading-tight">
-        <span class="text-[11px] font-bold text-rose-300 uppercase tracking-wider">
-          Thiếu Accessibility permission
-        </span>
-        <span class="text-[10px] text-slate-400 mt-0.5 leading-relaxed">
-          Lệnh phím tắt và phím media sẽ không chạy. Sau khi build lại, hãy XOÁ entry cũ trong
-          Privacy → Accessibility rồi kéo app mới vào.
-        </span>
+      <div class="flex flex-col gap-3 xl:flex-row xl:items-start">
+        <Icon icon="lucide:shield-alert" class="text-base text-rose-400 shrink-0 mt-0.5" />
+        <div class="flex-1 flex flex-col gap-2 min-w-0">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-[11px] font-bold text-rose-300 uppercase tracking-wider">
+              Khôi phục Accessibility permission
+            </span>
+            <button
+              type="button"
+              class="font-mono text-[9px] text-cyan-300 hover:text-cyan-200 cursor-pointer underline decoration-dotted"
+              :title="inputPermissionDiagnostics?.bundleIdentifier || 'Bundle identifier'"
+              @click="
+                copyPermissionDetail(inputPermissionDiagnostics?.bundleIdentifier, 'bundleId')
+              "
+            >
+              {{
+                permissionCopyHint === 'bundleId'
+                  ? 'Đã copy bundle id'
+                  : shortBundleIdentifier || 'bundle id chưa rõ'
+              }}
+            </button>
+          </div>
+          <p class="text-[10px] text-slate-400 leading-relaxed">
+            {{ inputPermissionActionText }} Quy trình reset dev build: quit app → xoá entry cũ →
+            kéo đúng `.app` vào Accessibility → bật lại → mở app → kiểm tra lại.
+          </p>
+          <div class="grid gap-2 xl:grid-cols-2">
+            <button
+              type="button"
+              class="cyber-inset flex min-w-0 items-center justify-between gap-2 p-2 text-left cursor-pointer"
+              :disabled="!inputPermissionDiagnostics?.executablePath"
+              @click="copyPermissionDetail(inputPermissionDiagnostics?.executablePath, 'executable')"
+              title="Sao chép executablePath"
+            >
+              <span class="min-w-0">
+                <span class="block text-[8px] uppercase tracking-widest font-bold text-slate-500">
+                  executablePath
+                </span>
+                <span class="block font-mono text-[9px] text-slate-300 truncate select-text">
+                  {{ inputPermissionDiagnostics?.executablePath || 'Không resolve được' }}
+                </span>
+              </span>
+              <Icon
+                :icon="permissionCopyHint === 'executable' ? 'lucide:check' : 'lucide:copy'"
+                class="text-xs text-cyan-400 shrink-0"
+              />
+            </button>
+            <button
+              type="button"
+              class="cyber-inset flex min-w-0 items-center justify-between gap-2 p-2 text-left cursor-pointer"
+              :disabled="!inputPermissionDiagnostics?.appBundlePath"
+              @click="copyPermissionDetail(inputPermissionDiagnostics?.appBundlePath, 'bundle')"
+              title="Sao chép appBundlePath"
+            >
+              <span class="min-w-0">
+                <span class="block text-[8px] uppercase tracking-widest font-bold text-slate-500">
+                  appBundlePath
+                </span>
+                <span class="block font-mono text-[9px] text-slate-300 truncate select-text">
+                  {{
+                    inputPermissionDiagnostics?.appBundlePath ||
+                    (inputPermissionDiagnostics?.isPackagedApp ? 'Không resolve được' : 'Dev binary')
+                  }}
+                </span>
+              </span>
+              <Icon
+                :icon="permissionCopyHint === 'bundle' ? 'lucide:check' : 'lucide:copy'"
+                class="text-xs text-cyan-400 shrink-0"
+              />
+            </button>
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-2 xl:justify-end">
+          <button
+            class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5 flex items-center gap-1.5"
+            @click="openAccessibilitySettings"
+          >
+            <Icon icon="lucide:external-link" class="text-xs" />
+            <span>Mở Accessibility Settings</span>
+          </button>
+          <button
+            class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5 flex items-center gap-1.5"
+            @click="probePermission"
+            title="Kiểm tra lại quyền"
+          >
+            <Icon icon="lucide:refresh-cw" class="text-xs" />
+            <span>Kiểm tra lại</span>
+          </button>
+        </div>
       </div>
-      <button
-        class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5 flex items-center gap-1.5"
-        @click="openAccessibilitySettings"
-      >
-        <Icon icon="lucide:external-link" class="text-xs" />
-        <span>Mở Settings</span>
-      </button>
-      <button
-        class="cyber-action-btn font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5 flex items-center gap-1.5"
-        @click="probePermission"
-        title="Kiểm tra lại quyền"
-      >
-        <Icon icon="lucide:refresh-cw" class="text-xs" />
-        <span>Kiểm tra</span>
-      </button>
     </div>
 
     <!-- First-Run Checklist Card (AC: 1) -->

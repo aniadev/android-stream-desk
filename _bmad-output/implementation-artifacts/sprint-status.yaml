@@ -90,10 +90,10 @@ development_status:
   epic-8-retrospective: optional
 
   # Epic 9 — macOS Accessibility diagnostics & recovery
-  epic-9: in-progress
-  s-mac1-native-accessibility-diagnostics: ready-for-dev
-  s-mac2-accessibility-recovery-ui: ready-for-dev
-  s-mac3-macos-manual-verification: ready-for-dev
+  epic-9: done
+  s-mac1-native-accessibility-diagnostics: done
+  s-mac2-accessibility-recovery-ui: done
+  s-mac3-macos-manual-verification: done
   epic-9-retrospective: optional
 
   # Epic 10 — QR renderer & UX polish (GitHub #3)

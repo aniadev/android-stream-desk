@@ -114,6 +114,33 @@ Setup test:
 
 ---
 
+## 5A. macOS Accessibility reset & stale TCC entry
+
+Mục tiêu: xác nhận Dashboard phân biệt thiếu quyền thật, entry TCC cũ và dev build/path mismatch.
+
+Tiền đề:
+- Chạy trên macOS.
+- Có ít nhất 1 button shortcut đơn giản, ví dụ `A`, và 1 text editor đang focus để nhận input.
+- Có thể test cả dev build (`pnpm tauri dev`) và packaged `.app` sau `pnpm tauri build`.
+
+| Bước | Hành động | Kỳ vọng |
+|---|---|---|
+| 5A.1 | Quit Companion hoàn toàn. Mở System Settings → Privacy & Security → Accessibility. | Thấy danh sách app đã được cấp quyền Accessibility. |
+| 5A.2 | Xoá mọi entry Android Stream Desk / binary dev cũ / Terminal cũ liên quan tới Companion. | Không còn entry cũ có thể làm TCC trust nhầm path. |
+| 5A.3 | Mở packaged `.app`, vào Dashboard. | Recovery panel hiện nếu app chưa được allow; panel hiển thị `bundleIdentifier`, `executablePath`, `appBundlePath` copyable. |
+| 5A.4 | Bấm `Mở Accessibility Settings`, kéo đúng packaged `.app` vào danh sách và bật quyền. | macOS bật permission cho đúng app bundle. |
+| 5A.5 | Quit Companion rồi mở lại packaged `.app`. Bấm `Kiểm tra lại`. | Recovery panel biến mất hoặc báo trạng thái hợp lệ; shortcut test gửi được ký tự vào editor. |
+| 5A.6 | Tạo trạng thái allow nhầm dev binary: cấp quyền cho Terminal/dev runner nhưng không cấp packaged `.app`, hoặc giữ entry cũ rồi chạy packaged `.app` mới. | Recovery panel vẫn chỉ ra `executablePath`/`appBundlePath` hiện tại để QA thấy path đang cần allow. |
+| 5A.7 | Trigger shortcut/media khi chưa có quyền đúng. | Toast lỗi có nút `Xem panel khôi phục`; bấm nút sẽ scroll về recovery panel. |
+| 5A.8 | Sau khi bật/tắt quyền trong Settings mà UI chưa đổi ngay. | Quit/reopen Companion trước khi kết luận fail, vì TCC cache có thể giữ trạng thái process đang chạy. |
+
+Ghi chú TCC cache:
+- Nếu `AXIsProcessTrusted` đã true nhưng Enigo vẫn lỗi, ưu tiên quit/reopen Companion để process nạp lại TCC cache.
+- Nếu vừa build lại app, chữ ký/path có thể đổi; xoá entry cũ rồi kéo đúng `.app` mới vào Accessibility trước khi test lại.
+- Không đóng issue macOS Accessibility nếu chưa verify cả dev build path mismatch và packaged `.app`.
+
+---
+
 ## 6. Macro execution — media + app launcher
 
 | Bước | Cấu hình | Kỳ vọng |

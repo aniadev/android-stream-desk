@@ -10,6 +10,7 @@ use std::sync::Mutex;
 use tauri::Emitter;
 use tauri::{AppHandle, Listener, Manager};
 
+pub mod accessibility;
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub mod metrics;
 pub mod webserver;
@@ -878,6 +879,13 @@ fn probe_input_permission() -> bool {
     }
 }
 
+#[tauri::command]
+fn get_input_permission_diagnostics(
+    app_handle: AppHandle,
+) -> accessibility::InputPermissionDiagnostics {
+    accessibility::get_input_permission_diagnostics(&app_handle)
+}
+
 #[cfg(desktop)]
 fn simulate_shortcut(shortcut: &str) -> Result<(), String> {
     let (modifiers, base_keys) = parse_shortcut(shortcut)?;
@@ -1102,6 +1110,7 @@ pub fn run() {
             set_android_orientation,
             open_accessibility_settings,
             probe_input_permission,
+            get_input_permission_diagnostics,
             list_installed_apps,
             resolve_shortcut,
             read_clipboard_files
