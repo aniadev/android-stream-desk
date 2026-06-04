@@ -1133,20 +1133,26 @@ fn open_link(raw: &str) -> Result<(), String> {
         // a single argument with no shell involved, so it survives intact.
         use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x08000000;
-        Command::new("rundll32")
+        let mut child = Command::new("rundll32")
             .args(["url.dll,FileProtocolHandler", &url])
             .creation_flags(CREATE_NO_WINDOW)
             .spawn()
             .map_err(|e| format!("Failed to open link via rundll32: {}", e))?;
+        std::thread::spawn(move || {
+            let _ = child.wait();
+        });
     }
 
     #[cfg(target_os = "macos")]
     {
-        Command::new("open")
+        let mut child = Command::new("open")
             .arg("--")
             .arg(&url)
             .spawn()
             .map_err(|e| format!("Failed to open link via macOS open: {}", e))?;
+        std::thread::spawn(move || {
+            let _ = child.wait();
+        });
     }
 
     #[cfg(not(any(target_os = "windows", target_os = "macos")))]
@@ -1155,10 +1161,13 @@ fn open_link(raw: &str) -> Result<(), String> {
         // script and some openers choke on it). The URL is already validated to
         // start with http(s):// and contain no control chars, and it's a
         // discrete argv entry, so no separator is needed.
-        Command::new("xdg-open")
+        let mut child = Command::new("xdg-open")
             .arg(&url)
             .spawn()
             .map_err(|e| format!("Failed to open link via xdg-open: {}", e))?;
+        std::thread::spawn(move || {
+            let _ = child.wait();
+        });
     }
 
     Ok(())
