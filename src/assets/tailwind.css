@@ -61,6 +61,19 @@ body {
   user-select: none;
 }
 
+/* Barcode scanner: the native plugin makes the WebView transparent during a
+   scan so the camera preview shows behind it. The opaque body bg would cover
+   that preview, so while scanning we drop the bg and hide app chrome. Toggled
+   by ClientView via the `qr-scan-active` class and always removed in `finally`
+   so the connect screen is restored when the scan ends/cancels. */
+html.qr-scan-active,
+html.qr-scan-active body {
+  background: transparent !important;
+}
+html.qr-scan-active #app {
+  visibility: hidden;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

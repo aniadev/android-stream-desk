@@ -325,9 +325,10 @@ async fn get_server_info(app_handle: AppHandle) -> ServerInfo {
 }
 
 // Orientation is enforced via AndroidManifest `screenOrientation` at build time.
-// Runtime control through JNI requires a proper Tauri Android plugin (Kotlin
-// shim + plugin-handle Activity access). Until that lands, this stub keeps the
-// IPC surface stable so the frontend invoke does not throw.
+// Runtime control was attempted through ndk_context + JNI but panicked on the tao
+// event-loop thread, and with `panic = "abort"` that took the whole process down
+// (SIGABRT). Reverted to this no-op stub so the IPC surface stays stable; a proper
+// runtime toggle needs a native MainActivity/Kotlin plugin, not Rust-side JNI.
 #[tauri::command]
 fn set_android_orientation(_mode: i32) -> Result<(), String> {
     Ok(())

@@ -8,6 +8,8 @@ import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
+import android.webkit.JavascriptInterface
+import android.webkit.WebView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 
@@ -17,6 +19,25 @@ class MainActivity : TauriActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
+  }
+
+  // Expose a native orientation toggle to the WebView. Runtime orientation can't
+  // go through Rust JNI (it panicked on the tao event-loop thread and, with
+  // panic=abort, crashed the process), so the frontend calls
+  // window.AndroidOrientation.setOrientation(mode). `mode` is an
+  // ActivityInfo.SCREEN_ORIENTATION_* constant matching ANDROID_ORIENTATION in
+  // ClientView.vue (-1 unspecified, 0 landscape, 1 portrait, 8 reverse-landscape).
+  override fun onWebViewCreate(webView: WebView) {
+    webView.addJavascriptInterface(OrientationBridge(), "AndroidOrientation")
+  }
+
+  inner class OrientationBridge {
+    @JavascriptInterface
+    fun setOrientation(mode: Int) {
+      // @JavascriptInterface runs on a binder thread; setRequestedOrientation
+      // must touch the Activity on the UI thread.
+      runOnUiThread { requestedOrientation = mode }
+    }
   }
 
   override fun onResume() {

@@ -108,24 +108,40 @@ const setFitMode = (mode: FitModeLabel) => {
   displayFitMode.value = mode;
 };
 
-// Android ActivityInfo.SCREEN_ORIENTATION_* values — matches Rust set_android_orientation.
+// Android ActivityInfo.SCREEN_ORIENTATION_* values — passed to the native bridge.
+// `auto` uses SENSOR (4) not UNSPECIFIED (-1): several ROMs (LineageOS / POCO C40)
+// treat UNSPECIFIED as a static system default and never rotate, while SENSOR
+// follows the physical sensor regardless of the system auto-rotate lock.
 const ANDROID_ORIENTATION: Record<OrientationMode, number> = {
-  auto: -1, // UNSPECIFIED
+  auto: 4, // SENSOR
   landscape: 0, // LANDSCAPE
   portrait: 1, // PORTRAIT
   'landscape-reverse': 8, // REVERSE_LANDSCAPE
 };
 
 const applyOrientation = async (mode: OrientationMode) => {
+  // Native Android orientation goes through the MainActivity JS bridge
+  // (window.AndroidOrientation) — see MainActivity.kt. Rust-side JNI crashed the
+  // process, so the bridge is the supported path on Android.
+  const bridge = (window as any).AndroidOrientation;
+  if (bridge?.setOrientation) {
+    try {
+      bridge.setOrientation(ANDROID_ORIENTATION[mode]);
+    } catch (e: any) {
+      console.warn('AndroidOrientation.setOrientation failed:', e);
+    }
+    return;
+  }
+
   // @ts-ignore
   const isTauri = !!window.__TAURI_INTERNALS__;
   if (isTauri) {
+    // No bridge (older build) — invoke the stub so nothing throws.
     try {
       const { invoke } = await import('@tauri-apps/api/core');
       await invoke('set_android_orientation', { mode: ANDROID_ORIENTATION[mode] });
     } catch (e: any) {
       console.warn('set_android_orientation failed:', e);
-      showToast(`Xoay thất bại: ${e?.message || e}`);
     }
     return;
   }
@@ -183,7 +199,18 @@ const scanCompanionQr = async () => {
       return;
     }
 
-    const result = await scan({ cameraDirection: 'back', formats: [Format.QRCode] });
+    // The CameraX preview only composites correctly behind the transparent
+    // WebView when the Activity is in its natural (portrait) orientation. Under
+    // our default landscape lock it blows up to fullscreen and covers the app,
+    // so pin portrait for the scan and restore the user's mode afterwards.
+    await applyOrientation('portrait');
+    // Native plugin renders the camera behind a transparent WebView; hide the
+    // opaque app chrome so the preview is visible during the scan.
+    document.documentElement.classList.add('qr-scan-active');
+    // windowed: true makes the plugin keep the camera preview BEHIND the WebView
+    // (transparent + brought to front); without it the preview is added opaque on
+    // top and covers the whole app. Our overlay then paints on the transparent WebView.
+    const result = await scan({ cameraDirection: 'back', windowed: true, formats: [Format.QRCode] });
     const target = parseApkConnectPayload(result.content);
     if (!target) {
       scanStatus.value = 'invalid_qr';
@@ -207,6 +234,11 @@ const scanCompanionQr = async () => {
       showToast(`Quét QR thất bại: ${e?.message || e}`);
     }
   } finally {
+    // Always restore app chrome + the user's chosen orientation so the connect
+    // screen is visible again even if the scan was cancelled (hardware back) or
+    // threw.
+    document.documentElement.classList.remove('qr-scan-active');
+    void applyOrientation(orientationMode.value);
     isScanningQr.value = false;
   }
 };
@@ -218,15 +250,6 @@ const cancelScanQr = async () => {
     scanStatus.value = 'cancelled';
   } catch (e: any) {
     console.warn('Hủy quét QR thất bại:', e);
-  }
-};
-
-const handleOpenSettings = async () => {
-  try {
-    const { openAppSettings } = await import('@tauri-apps/plugin-barcode-scanner');
-    await openAppSettings();
-  } catch (e: any) {
-    showToast(`Mở cài đặt thất bại: ${e?.message || e}`);
   }
 };
 
@@ -351,8 +374,11 @@ onUnmounted(() => {
     <!-- Offline Glass Connection Modal Popup centered when not connected -->
     <div
       v-else-if="showConnectModal"
-      class="absolute inset-0 z-40 bg-slate-950/70 backdrop-blur-md flex flex-col items-center justify-center p-4 select-none"
+      class="absolute inset-0 z-40 bg-slate-950/70 backdrop-blur-md flex flex-col overflow-y-auto p-4 select-none"
     >
+      <!-- m-auto centers stack when it fits; collapses to top-scroll when content
+           overflows (landscape) so the Kết nối button stays reachable -->
+      <div class="m-auto w-full flex flex-col items-center">
       <!-- Offline banner if network is down altogether -->
       <div
         v-if="!connectionStore.isOnline"
@@ -413,99 +439,6 @@ onUnmounted(() => {
           <span v-if="connectionStore.attemptingEndpoint" class="font-mono opacity-80 mt-1">
             {{ connectionStore.attemptingEndpoint }}
           </span>
-        </div>
-      </div>
-
-      <!-- Prominent QR Scan Panel before Manual IP Form when not yet connected (AC-1) -->
-      <div
-        v-if="isAndroidTauriApp"
-        class="mb-6 w-[380px] max-w-full bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-2xl flex flex-col items-center gap-4 text-center relative overflow-hidden"
-      >
-        <span class="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-violet-600 to-indigo-650"></span>
-        <div class="h-10 w-10 rounded-xl bg-violet-600/30 flex items-center justify-center">
-          <Icon icon="mdi:qrcode-scan" class="text-xl text-violet-400" />
-        </div>
-        <div class="flex flex-col gap-1">
-          <h3 class="text-sm font-extrabold text-slate-100 uppercase tracking-wide">
-            Kết nối bằng QR
-          </h3>
-          <p class="text-[10px] text-slate-400 leading-normal px-2">
-            Mở Companion trên máy tính và quét mã QR hiển thị trên màn hình để kết nối nhanh.
-          </p>
-        </div>
-
-        <!-- Scanning and error states (AC-2) -->
-        <div class="w-full flex flex-col gap-2 mt-2">
-          <!-- Permission Denied State -->
-          <div
-            v-if="scanStatus === 'permission_denied'"
-            class="text-[10px] text-rose-400 bg-rose-950/30 border border-rose-900/40 rounded-xl p-2.5 flex flex-col gap-2 items-center"
-          >
-            <span class="font-bold flex items-center gap-1.5">
-              <Icon icon="mdi:camera-off" class="text-base" /> Camera bị chặn quyền truy cập.
-            </span>
-            <button
-              @click="handleOpenSettings"
-              class="w-full bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-[9px] uppercase tracking-wide py-1.5 px-3 rounded-lg transition"
-            >
-              Mở cài đặt quyền ứng dụng
-            </button>
-          </div>
-
-          <!-- Cancelled State -->
-          <div
-            v-else-if="scanStatus === 'cancelled'"
-            class="text-[10px] text-amber-400 bg-amber-950/30 border border-amber-900/40 rounded-xl p-2.5 flex items-center justify-center gap-1.5 font-bold"
-          >
-            <Icon icon="mdi:close-circle" class="text-base" /> Đã hủy lượt quét.
-          </div>
-
-          <!-- Invalid QR State -->
-          <div
-            v-else-if="scanStatus === 'invalid_qr'"
-            class="text-[10px] text-rose-400 bg-rose-950/30 border border-rose-900/40 rounded-xl p-2.5 flex items-center justify-center gap-1.5 font-bold"
-          >
-            <Icon icon="mdi:alert-circle" class="text-base" /> Mã QR không hợp lệ.
-          </div>
-
-          <!-- Scanning State -->
-          <div
-            v-else-if="scanStatus === 'scanning'"
-            class="text-[10px] text-indigo-400 bg-indigo-950/30 border border-indigo-900/40 rounded-xl p-2.5 flex items-center justify-center gap-2 font-bold"
-          >
-            <Icon icon="mdi:loading" class="animate-spin text-base" /> Đang sử dụng camera quét...
-            <button
-              @click="cancelScanQr"
-              class="ml-auto bg-slate-800 text-slate-350 hover:bg-slate-700 hover:text-white font-extrabold text-[8px] uppercase px-2 py-1 rounded"
-            >
-              Hủy
-            </button>
-          </div>
-
-          <!-- Success / connecting state -->
-          <div
-            v-else-if="scanStatus === 'success'"
-            class="text-[10px] text-emerald-400 bg-emerald-950/30 border border-emerald-900/40 rounded-xl p-2.5 flex flex-col items-center justify-center gap-1.5 font-bold"
-          >
-            <span class="flex items-center justify-center gap-1.5">
-              <Icon icon="mdi:loading" class="animate-spin text-base" />
-              Đang kết nối Companion
-            </span>
-            <span class="font-mono text-[9px] text-emerald-200 break-all">
-              {{ scannedEndpointLabel || connectionStore.attemptingEndpoint }}
-            </span>
-          </div>
-
-          <!-- Scan CTA Button -->
-          <button
-            type="button"
-            class="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-3 text-xs font-extrabold uppercase tracking-wider text-white shadow-lg transition duration-150 hover:brightness-110 active:scale-98"
-            :disabled="isScanningQr"
-            @click="scanCompanionQr"
-          >
-            <Icon icon="mdi:camera-iris" class="text-base" />
-            Bắt đầu quét QR
-          </button>
         </div>
       </div>
 
@@ -620,6 +553,7 @@ onUnmounted(() => {
             }}
           </button>
         </div>
+      </div>
       </div>
     </div>
 
@@ -890,5 +824,43 @@ onUnmounted(() => {
         {{ toastMessage }}
       </div>
     </transition>
+
+    <!-- In-app QR scanner overlay. Teleported to <body> so it survives the
+         #app visibility:hidden applied by `qr-scan-active`; its background is
+         transparent so the native camera preview (rendered behind the WebView)
+         shows through, with only the frame + controls painted on top. -->
+    <Teleport to="body">
+      <div
+        v-if="isScanningQr"
+        class="qr-scanner-overlay fixed inset-0 z-[100] flex flex-col items-center justify-between py-10 select-none pointer-events-none"
+      >
+        <!-- Instruction pill -->
+        <div
+          class="pointer-events-auto flex items-center gap-2 rounded-2xl bg-slate-950/75 backdrop-blur-sm px-4 py-2.5 text-xs font-extrabold uppercase tracking-wider text-slate-100 border border-white/10 shadow-xl"
+        >
+          <Icon icon="mdi:qrcode-scan" class="text-base text-violet-400" />
+          Đưa mã QR Companion vào khung
+        </div>
+
+        <!-- Framing window: transparent centre, animated corner brackets -->
+        <div class="relative h-60 w-60 max-w-[70vw] max-h-[70vw]">
+          <span class="absolute top-0 left-0 h-9 w-9 border-t-4 border-l-4 border-violet-400 rounded-tl-xl"></span>
+          <span class="absolute top-0 right-0 h-9 w-9 border-t-4 border-r-4 border-violet-400 rounded-tr-xl"></span>
+          <span class="absolute bottom-0 left-0 h-9 w-9 border-b-4 border-l-4 border-violet-400 rounded-bl-xl"></span>
+          <span class="absolute bottom-0 right-0 h-9 w-9 border-b-4 border-r-4 border-violet-400 rounded-br-xl"></span>
+          <span class="absolute inset-x-2 top-1/2 h-0.5 bg-violet-500/70 shadow-[0_0_12px_2px_rgba(139,92,246,0.6)] animate-pulse"></span>
+        </div>
+
+        <!-- Cancel control -->
+        <button
+          type="button"
+          class="pointer-events-auto flex items-center gap-2 rounded-2xl bg-rose-600/90 px-6 py-3 text-xs font-extrabold uppercase tracking-wider text-white shadow-2xl shadow-rose-950/40 transition duration-150 hover:brightness-110 active:scale-95"
+          @click="cancelScanQr"
+        >
+          <Icon icon="mdi:close" class="text-base" />
+          Hủy quét
+        </button>
+      </div>
+    </Teleport>
   </div>
 </template>
