@@ -88,12 +88,16 @@ android {
         val variant = this
         outputs.all {
             val out = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-            val ver = variant.versionName.replace('.', '_')
-            val isUnsigned = variant.buildType.name == "release" && variant.signingConfig == null
-            val suffix = if (variant.buildType.name == "debug") "-debug" else if (isUnsigned) "-unsigned" else ""
-            // Khi build --split-per-abi, flavorName là "arm64"/"arm"; thêm vào tên để các APK theo ABI không trùng tên.
-            val abi = if (variant.flavorName.isNotEmpty() && variant.flavorName != "universal") "-${variant.flavorName}" else ""
-            out.outputFileName = "android-stream-desk-v${ver}${abi}${suffix}.apk"
+            // Giữ tên mặc định cho debug (app-<abi>-debug.apk) để `tauri android dev` tìm đúng đường dẫn cài đặt.
+            // Chỉ đổi tên cho release để các APK phát hành có tên thân thiện.
+            if (variant.buildType.name != "debug") {
+                val ver = variant.versionName.replace('.', '_')
+                val isUnsigned = variant.signingConfig == null
+                val suffix = if (isUnsigned) "-unsigned" else ""
+                // Khi build --split-per-abi, flavorName là "arm64"/"arm"; thêm vào tên để các APK theo ABI không trùng tên.
+                val abi = if (variant.flavorName.isNotEmpty() && variant.flavorName != "universal") "-${variant.flavorName}" else ""
+                out.outputFileName = "android-stream-desk-v${ver}${abi}${suffix}.apk"
+            }
         }
     }
 }

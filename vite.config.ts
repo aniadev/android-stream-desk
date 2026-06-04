@@ -44,7 +44,7 @@ export default defineConfig(({ mode }) => {
       watch: {
         // 3. tell Vite to ignore watching `src-tauri`, layout JSONs and markdown files
         // saves from layout writes triggering dynamic loop reload
-        ignored: ['**/src-tauri/**', '**/*.json', '**/*.md'],
+        ignored: ['**/src-tauri/**', '**/*.json', '**/*.md', '**/dist/**', '**/dist-client/**'],
       },
     },
   };
