@@ -15,6 +15,7 @@ dist-ssr
 *.local
 target
 src-tauri/target
+.codegraph
 
 # Editor directories and files
 .vscode/*
