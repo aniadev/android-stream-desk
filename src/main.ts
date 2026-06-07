@@ -45,7 +45,9 @@ const router = createRouter({
 // Tự động điều hướng Dashboard trên Desktop Companion, Pad trên di động
 if (!isClientOnlyBuild) {
   router.beforeEach((to, _from, next) => {
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const ua = navigator.userAgent;
+    const isIpadOS = /Macintosh/i.test(ua) && navigator.maxTouchPoints > 1;
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua) || isIpadOS;
     if (to.path === '/' && !isMobile) {
       next('/dashboard');
     } else {

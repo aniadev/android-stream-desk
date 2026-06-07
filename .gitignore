@@ -32,5 +32,12 @@ src-tauri/target
 *.keystore
 keystore.properties
 release.keystore.backup.key
+
+# iOS signing — never commit certificates or export options
+*.mobileprovision
+*.p12
+*.cer
+src-tauri/gen/
+
 .vercel
 .env*

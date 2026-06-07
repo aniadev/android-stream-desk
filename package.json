@@ -20,7 +20,12 @@
     "tauri": "tauri",
     "dev:mac": "tauri dev",
     "build:mac": "tauri build",
-    "icons": "tauri icon branding/logo-source.png"
+    "icons": "tauri icon branding/logo-source.png",
+    "ios:dev": "tauri ios dev",
+    "ios:dev:device": "tauri ios dev --device",
+    "ios:build": "tauri ios build",
+    "ios:build:ipa": "tauri ios build --export-method app-store-connect",
+    "ios:open": "tauri ios open"
   },
   "dependencies": {
     "@iconify/vue": "^5.0.1",

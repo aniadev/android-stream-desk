@@ -1,0 +1,488 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		04FDFAD7ACF25115BEDF8AB2 /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D62C146569A91D78D3F070A4 /* WebKit.framework */; };
+		053B41459172026FF7CAA59F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = B536EBB748AAC90378CDEF2F /* LaunchScreen.storyboard */; };
+		1F667C8DB650FC95971CA8A2 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DDA98BB678E919CF713915E7 /* CoreGraphics.framework */; };
+		44BE1B71704D8EA6BA4719CE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3AD60F5D02C90729396C4F78 /* Assets.xcassets */; };
+		44EAFA4D0F7DDBCB2203F9E4 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A4D20055220673FA3EDCF47F /* QuartzCore.framework */; };
+		83308A20B1028F7F90F88583 /* assets in Resources */ = {isa = PBXBuildFile; fileRef = E3A37CC7FEF17026150F829A /* assets */; };
+		89A74D70DF54778BA6A666B0 /* libapp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 65D3E5D627C4AD8C7878DF6E /* libapp.a */; };
+		8C935E5C7780F8835DAA203D /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6A025D4FC3E94B4F73E4AA84 /* Security.framework */; };
+		A0BE48EA8F84D3A7E715A87B /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A81C55CECB61941C935698CC /* UIKit.framework */; };
+		C487216D4CDD9FB4DB95DBAF /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1E3EC79F7ACC956AB384B933 /* MetalKit.framework */; };
+		E844AE22E7B06FE5072A688F /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = D586F440ADF73D1CEF6B014E /* main.mm */; };
+		EF852982806D8EF7036BA1C0 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 08D2C59CEF3D42FBA732D826 /* Metal.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		08D2C59CEF3D42FBA732D826 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
+		1E3EC79F7ACC956AB384B933 /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
+		3AD60F5D02C90729396C4F78 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		3AE8B41CC18111B7191D5BA8 /* websocket.rs */ = {isa = PBXFileReference; lastKnownFileType = text; path = websocket.rs; sourceTree = "<group>"; };
+		3FA6D9EA70AFDAB6626702DC /* lib.rs */ = {isa = PBXFileReference; lastKnownFileType = text; path = lib.rs; sourceTree = "<group>"; };
+		62BDDC68BD27560B47AD287B /* android-stream-desk_iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "android-stream-desk_iOS.entitlements"; sourceTree = "<group>"; };
+		65D3E5D627C4AD8C7878DF6E /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
+		6A025D4FC3E94B4F73E4AA84 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
+		9649B3C8C7A4E7348A14EA64 /* accessibility.rs */ = {isa = PBXFileReference; lastKnownFileType = text; path = accessibility.rs; sourceTree = "<group>"; };
+		A4D20055220673FA3EDCF47F /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
+		A81C55CECB61941C935698CC /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
+		B536EBB748AAC90378CDEF2F /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		B8CAFE0B6209A28D7676ED18 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		BEEDD92836C3DD788CEBF85A /* bindings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bindings.h; sourceTree = "<group>"; };
+		CB947A4F44293A5C6E3648D4 /* main.rs */ = {isa = PBXFileReference; lastKnownFileType = text; path = main.rs; sourceTree = "<group>"; };
+		D586F440ADF73D1CEF6B014E /* main.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; };
+		D62C146569A91D78D3F070A4 /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
+		DB2EB69762B3D6652DD52F25 /* webserver.rs */ = {isa = PBXFileReference; lastKnownFileType = text; path = webserver.rs; sourceTree = "<group>"; };
+		DC995853153181B855A0D33A /* metrics.rs */ = {isa = PBXFileReference; lastKnownFileType = text; path = metrics.rs; sourceTree = "<group>"; };
+		DDA98BB678E919CF713915E7 /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
+		E3A37CC7FEF17026150F829A /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = assets; sourceTree = SOURCE_ROOT; };
+		EFAA7758DFA2CFB02C91C4D2 /* Android Stream Desk.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Android Stream Desk.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		F596780DC4034F3C6F5CD58A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				89A74D70DF54778BA6A666B0 /* libapp.a in Frameworks */,
+				1F667C8DB650FC95971CA8A2 /* CoreGraphics.framework in Frameworks */,
+				EF852982806D8EF7036BA1C0 /* Metal.framework in Frameworks */,
+				C487216D4CDD9FB4DB95DBAF /* MetalKit.framework in Frameworks */,
+				44EAFA4D0F7DDBCB2203F9E4 /* QuartzCore.framework in Frameworks */,
+				8C935E5C7780F8835DAA203D /* Security.framework in Frameworks */,
+				A0BE48EA8F84D3A7E715A87B /* UIKit.framework in Frameworks */,
+				04FDFAD7ACF25115BEDF8AB2 /* WebKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		10535A8D30FCA8E13B6EFE42 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				EFAA7758DFA2CFB02C91C4D2 /* Android Stream Desk.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		1F287AC828FDC05984A16358 /* Externals */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Externals;
+			sourceTree = "<group>";
+		};
+		468034086175392D6DEFE0BD /* src */ = {
+			isa = PBXGroup;
+			children = (
+				9649B3C8C7A4E7348A14EA64 /* accessibility.rs */,
+				3FA6D9EA70AFDAB6626702DC /* lib.rs */,
+				CB947A4F44293A5C6E3648D4 /* main.rs */,
+				DC995853153181B855A0D33A /* metrics.rs */,
+				DB2EB69762B3D6652DD52F25 /* webserver.rs */,
+				3AE8B41CC18111B7191D5BA8 /* websocket.rs */,
+			);
+			name = src;
+			path = ../../src;
+			sourceTree = "<group>";
+		};
+		69EF7F89A38B798563C9A0B0 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				ACB95B12F2551F7AD7D6903E /* android-stream-desk */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		6E3C64024A9AA35A48E218C8 /* android-stream-desk_iOS */ = {
+			isa = PBXGroup;
+			children = (
+				62BDDC68BD27560B47AD287B /* android-stream-desk_iOS.entitlements */,
+				B8CAFE0B6209A28D7676ED18 /* Info.plist */,
+			);
+			path = "android-stream-desk_iOS";
+			sourceTree = "<group>";
+		};
+		936CE9E86F27DD9CBC64D8CD /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				DDA98BB678E919CF713915E7 /* CoreGraphics.framework */,
+				65D3E5D627C4AD8C7878DF6E /* libapp.a */,
+				08D2C59CEF3D42FBA732D826 /* Metal.framework */,
+				1E3EC79F7ACC956AB384B933 /* MetalKit.framework */,
+				A4D20055220673FA3EDCF47F /* QuartzCore.framework */,
+				6A025D4FC3E94B4F73E4AA84 /* Security.framework */,
+				A81C55CECB61941C935698CC /* UIKit.framework */,
+				D62C146569A91D78D3F070A4 /* WebKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		944EF7EB1F6E3F372F0CAFF2 /* bindings */ = {
+			isa = PBXGroup;
+			children = (
+				BEEDD92836C3DD788CEBF85A /* bindings.h */,
+			);
+			path = bindings;
+			sourceTree = "<group>";
+		};
+		ACB95B12F2551F7AD7D6903E /* android-stream-desk */ = {
+			isa = PBXGroup;
+			children = (
+				D586F440ADF73D1CEF6B014E /* main.mm */,
+				944EF7EB1F6E3F372F0CAFF2 /* bindings */,
+			);
+			path = "android-stream-desk";
+			sourceTree = "<group>";
+		};
+		BDCF0C3A0F188FD51DE74386 = {
+			isa = PBXGroup;
+			children = (
+				E3A37CC7FEF17026150F829A /* assets */,
+				3AD60F5D02C90729396C4F78 /* Assets.xcassets */,
+				B536EBB748AAC90378CDEF2F /* LaunchScreen.storyboard */,
+				6E3C64024A9AA35A48E218C8 /* android-stream-desk_iOS */,
+				1F287AC828FDC05984A16358 /* Externals */,
+				69EF7F89A38B798563C9A0B0 /* Sources */,
+				468034086175392D6DEFE0BD /* src */,
+				936CE9E86F27DD9CBC64D8CD /* Frameworks */,
+				10535A8D30FCA8E13B6EFE42 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		FD988F8FB2AFDDA705572A91 /* android-stream-desk_iOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2A09F159722B17B0AFA8D8F2 /* Build configuration list for PBXNativeTarget "android-stream-desk_iOS" */;
+			buildPhases = (
+				C0FC4E43218284A82EB38A84 /* Build Rust Code */,
+				A8BD72FB5951CE012FC421B1 /* Sources */,
+				AA9B8858DA1A22362A067252 /* Resources */,
+				F596780DC4034F3C6F5CD58A /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "android-stream-desk_iOS";
+			packageProductDependencies = (
+			);
+			productName = "android-stream-desk_iOS";
+			productReference = EFAA7758DFA2CFB02C91C4D2 /* Android Stream Desk.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		31A5FBAF0BA19FD58198EEF9 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+			};
+			buildConfigurationList = 714D7CDBBBFC352AFCECE0E6 /* Build configuration list for PBXProject "android-stream-desk" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = BDCF0C3A0F188FD51DE74386;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 10535A8D30FCA8E13B6EFE42 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				FD988F8FB2AFDDA705572A91 /* android-stream-desk_iOS */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		AA9B8858DA1A22362A067252 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				44BE1B71704D8EA6BA4719CE /* Assets.xcassets in Resources */,
+				053B41459172026FF7CAA59F /* LaunchScreen.storyboard in Resources */,
+				83308A20B1028F7F90F88583 /* assets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		C0FC4E43218284A82EB38A84 /* Build Rust Code */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build Rust Code";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(SRCROOT)/Externals/x86_64/${CONFIGURATION}/libapp.a",
+				"$(SRCROOT)/Externals/arm64/${CONFIGURATION}/libapp.a",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "pnpm tauri ios xcode-script -v --platform ${PLATFORM_DISPLAY_NAME:?} --sdk-root ${SDKROOT:?} --framework-search-paths \"${FRAMEWORK_SEARCH_PATHS:?}\" --header-search-paths \"${HEADER_SEARCH_PATHS:?}\" --gcc-preprocessor-definitions \"${GCC_PREPROCESSOR_DEFINITIONS:-}\" --configuration ${CONFIGURATION:?} ${FORCE_COLOR} ${ARCHS:?}";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A8BD72FB5951CE012FC421B1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E844AE22E7B06FE5072A688F /* main.mm in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		0A30BE0C8FB4268754030DF8 /* release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				ARCHS = arm64;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = "android-stream-desk_iOS/android-stream-desk_iOS.entitlements";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = M494F4824Q;
+				ENABLE_BITCODE = NO;
+				"EXCLUDED_ARCHS[sdk=iphoneos*]" = x86_64;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\".\"",
+				);
+				INFOPLIST_FILE = "android-stream-desk_iOS/Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				"LIBRARY_SEARCH_PATHS[arch=arm64]" = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION)",
+					"$(SDKROOT)/usr/lib/swift",
+					"$(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME)",
+					"$(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)",
+				);
+				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION)",
+					"$(SDKROOT)/usr/lib/swift",
+					"$(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME)",
+					"$(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.ductran.streamdesk.app;
+				PRODUCT_NAME = "Android Stream Desk";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALID_ARCHS = arm64;
+			};
+			name = release;
+		};
+		6FE3C58AC312DC1A50E1BB92 /* release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = release;
+		};
+		B7C1D4874D4C133378E5B424 /* debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				ARCHS = arm64;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = "android-stream-desk_iOS/android-stream-desk_iOS.entitlements";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = M494F4824Q;
+				ENABLE_BITCODE = NO;
+				"EXCLUDED_ARCHS[sdk=iphoneos*]" = x86_64;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\".\"",
+				);
+				INFOPLIST_FILE = "android-stream-desk_iOS/Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				"LIBRARY_SEARCH_PATHS[arch=arm64]" = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION)",
+					"$(SDKROOT)/usr/lib/swift",
+					"$(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME)",
+					"$(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)",
+				);
+				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION)",
+					"$(SDKROOT)/usr/lib/swift",
+					"$(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME)",
+					"$(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.ductran.streamdesk.app;
+				PRODUCT_NAME = "Android Stream Desk";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALID_ARCHS = arm64;
+			};
+			name = debug;
+		};
+		D770B665FAA568F93A5640CC /* debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		2A09F159722B17B0AFA8D8F2 /* Build configuration list for PBXNativeTarget "android-stream-desk_iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B7C1D4874D4C133378E5B424 /* debug */,
+				0A30BE0C8FB4268754030DF8 /* release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = debug;
+		};
+		714D7CDBBBFC352AFCECE0E6 /* Build configuration list for PBXProject "android-stream-desk" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D770B665FAA568F93A5640CC /* debug */,
+				6FE3C58AC312DC1A50E1BB92 /* release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 31A5FBAF0BA19FD58198EEF9 /* Project object */;
+}

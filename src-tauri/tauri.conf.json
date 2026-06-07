@@ -1,7 +1,7 @@
 {
   "productName": "Android Stream Desk",
   "version": "1.5.2",
-  "identifier": "com.ania.android.stream.desk",
+  "identifier": "com.ductran.streamdesk.app",
   "bundle": {
     "active": true,
     "targets": "all",
