@@ -44,3 +44,4 @@ src-tauri/gen/
 
 # Release planning docs — local only
 docs/release/
+docs/release/ios-release-plan.md
