@@ -47,6 +47,7 @@ const isBrowserModeActive = isBrowserMode(window);
 const isAndroidTauriApp = computed(() => {
   return !!window.__TAURI_INTERNALS__ && /Android/i.test(navigator.userAgent);
 });
+const isIos = computed(() => /iPad|iPhone|iPod/.test(navigator.userAgent));
 const showScanAgainCta = computed(() =>
   shouldShowScanAgainCta({
     isAndroidTauriApp: isAndroidTauriApp.value,
@@ -370,6 +371,8 @@ onUnmounted(() => {
       backgroundColor: 'var(--theme-bg)',
       paddingTop: 'env(safe-area-inset-top)',
       paddingBottom: 'env(safe-area-inset-bottom)',
+      paddingLeft: isIos ? 'env(safe-area-inset-left)' : undefined,
+      paddingRight: isIos ? 'env(safe-area-inset-right)' : undefined,
     }"
   >
     <!-- Grid Area occupies 98% of the screen when connected -->
@@ -673,6 +676,7 @@ onUnmounted(() => {
 
             <!-- Orientation lock -->
             <div
+              v-if="!isIos"
               class="flex flex-col gap-2 rounded-xl bg-slate-950/60 p-3 border border-slate-850/60"
             >
               <span class="text-[9px] uppercase tracking-wider font-extrabold text-slate-450"

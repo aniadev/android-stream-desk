@@ -6,6 +6,8 @@ import { hexToRgb, rgbToHsl } from '../lib/color';
 import { currentAccentH } from '../lib/themes';
 import { useLayoutStore } from '../stores/layout';
 
+const isIos = computed(() => /iPad|iPhone|iPod/.test(navigator.userAgent));
+
 const layoutStore = useLayoutStore();
 
 const props = defineProps<{
@@ -64,27 +66,47 @@ const metricValue = computed(() => {
 function handleClick() {
   emit('press', props.button);
 }
+
+const buttonStyles = computed(() => {
+  if (isIos.value) {
+    return {
+      '--neon': neonColor.value,
+      '--neon-glow': neonGlow.value,
+      backgroundColor: 'rgba(255, 255, 255, 0.03)',
+      borderColor: 'rgba(255, 255, 255, 0.1)',
+      boxShadow: props.selected
+        ? `0 8px 32px 0 ${neonGlow.value.replace('0.5)', '0.3)')}, inset 0 0 0 1px ${neonColor.value}`
+        : `0 4px 16px 0 rgba(0, 0, 0, 0.2), inset 0 1px 0 0 rgba(255, 255, 255, 0.05)`,
+    };
+  }
+  return {
+    '--neon': neonColor.value,
+    '--neon-glow': neonGlow.value,
+    backgroundColor: 'var(--theme-btn-bg)',
+    borderColor: neonColor.value,
+    boxShadow: props.selected
+      ? `0 0 10px 2px ${neonGlow.value}, 0 0 25px 4px ${neonGlow.value.replace('0.5)', '0.25)')}`
+      : `0 0 5px 1px ${neonGlow.value}, 0 0 12px 1px ${neonGlow.value.replace('0.5)', '0.15)')}`,
+  };
+});
 </script>
 
 <template>
   <button
     @click="handleClick"
-    class="cyber-btn group relative w-full h-full min-w-0 min-h-0 flex flex-col items-center justify-center cursor-pointer select-none overflow-hidden transition-all duration-150 ease-out"
-    :class="{
-      'gap-1 p-1.5': !compact && !isMonitor,
-      'gap-0.5 p-1': compact && !isMonitor,
-      'cyber-btn--selected': selected,
-      'cyber-btn--monitor': isMonitor,
-    }"
-    :style="{
-      '--neon': neonColor,
-      '--neon-glow': neonGlow,
-      backgroundColor: 'var(--theme-btn-bg)',
-      borderColor: neonColor,
-      boxShadow: selected
-        ? `0 0 10px 2px ${neonGlow}, 0 0 25px 4px ${neonGlow.replace('0.5)', '0.25)')}`
-        : `0 0 5px 1px ${neonGlow}, 0 0 12px 1px ${neonGlow.replace('0.5)', '0.15)')}`,
-    }"
+    class="group relative w-full h-full min-w-0 min-h-0 flex flex-col items-center justify-center cursor-pointer select-none overflow-hidden transition-all ease-out"
+    :class="[
+      isIos ? 'glass-btn duration-300 rounded-2xl' : 'cyber-btn duration-150',
+      {
+        'gap-1 p-1.5': !compact && !isMonitor,
+        'gap-0.5 p-1': compact && !isMonitor,
+        'glass-btn--selected': isIos && selected,
+        'glass-btn--monitor': isIos && isMonitor,
+        'cyber-btn--selected': !isIos && selected,
+        'cyber-btn--monitor': !isIos && isMonitor,
+      }
+    ]"
+    :style="buttonStyles"
   >
     <!-- Monitor display -->
     <template v-if="isMonitor">
@@ -119,9 +141,27 @@ function handleClick() {
 
     <!-- Action button content -->
     <template v-else>
-      <!-- Selected ring indicator -->
+      <!-- Selected ring indicator (Glass) -->
       <span
-        v-if="selected"
+        v-if="isIos && selected"
+        class="absolute inset-0 pointer-events-none rounded-2xl"
+        :style="{
+          boxShadow: `inset 0 0 20px 2px ${neonGlow.replace('0.5)', '0.15)')}`,
+        }"
+      />
+
+      <!-- Subtle gradient overlay (Glass) -->
+      <span
+        v-if="isIos"
+        class="absolute inset-0 pointer-events-none opacity-20 transition-opacity duration-300 group-hover:opacity-40"
+        :style="{
+          background: `radial-gradient(circle at 50% 0%, ${neonColor}, transparent 70%)`,
+        }"
+      />
+
+      <!-- Selected ring indicator (Cyber) -->
+      <span
+        v-if="!isIos && selected"
         class="absolute inset-1 pointer-events-none border-2"
         :style="{
           borderColor: neonColor,
@@ -130,35 +170,38 @@ function handleClick() {
         }"
       />
 
-      <!-- Scanline overlay -->
+      <!-- Scanline overlay (Cyber) -->
       <span
+        v-if="!isIos"
         class="absolute inset-0 pointer-events-none opacity-[0.06]"
         :style="{
           background: `repeating-linear-gradient(0deg, transparent, transparent 2px, ${neonColor} 2px, ${neonColor} 3px)`,
         }"
       />
 
-      <!-- Corner accents -->
-      <span
-        class="absolute top-1.5 left-1.5 w-2 h-2 border-t-2 border-l-2 pointer-events-none"
-        :class="compact ? 'w-1.5 h-1.5' : 'w-2 h-2'"
-        :style="{ borderColor: neonColor }"
-      />
-      <span
-        class="absolute top-1.5 right-1.5 border-t-2 border-r-2 pointer-events-none"
-        :class="compact ? 'w-1.5 h-1.5' : 'w-2 h-2'"
-        :style="{ borderColor: neonColor }"
-      />
-      <span
-        class="absolute bottom-1.5 left-1.5 border-b-2 border-l-2 pointer-events-none"
-        :class="compact ? 'w-1.5 h-1.5' : 'w-2 h-2'"
-        :style="{ borderColor: neonColor }"
-      />
-      <span
-        class="absolute bottom-1.5 right-1.5 border-b-2 border-r-2 pointer-events-none"
-        :class="compact ? 'w-1.5 h-1.5' : 'w-2 h-2'"
-        :style="{ borderColor: neonColor }"
-      />
+      <!-- Corner accents (Cyber) -->
+      <template v-if="!isIos">
+        <span
+          class="absolute top-1.5 left-1.5 w-2 h-2 border-t-2 border-l-2 pointer-events-none"
+          :class="compact ? 'w-1.5 h-1.5' : 'w-2 h-2'"
+          :style="{ borderColor: neonColor }"
+        />
+        <span
+          class="absolute top-1.5 right-1.5 border-t-2 border-r-2 pointer-events-none"
+          :class="compact ? 'w-1.5 h-1.5' : 'w-2 h-2'"
+          :style="{ borderColor: neonColor }"
+        />
+        <span
+          class="absolute bottom-1.5 left-1.5 border-b-2 border-l-2 pointer-events-none"
+          :class="compact ? 'w-1.5 h-1.5' : 'w-2 h-2'"
+          :style="{ borderColor: neonColor }"
+        />
+        <span
+          class="absolute bottom-1.5 right-1.5 border-b-2 border-r-2 pointer-events-none"
+          :class="compact ? 'w-1.5 h-1.5' : 'w-2 h-2'"
+          :style="{ borderColor: neonColor }"
+        />
+      </template>
 
       <!-- Icon -->
       <img
@@ -257,6 +300,32 @@ function handleClick() {
 </template>
 
 <style scoped>
+.glass-btn {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+@media (hover: hover) {
+  .glass-btn:hover {
+    background-color: rgba(255, 255, 255, 0.08) !important;
+    box-shadow:
+      0 12px 40px 0 var(--neon-glow),
+      inset 0 0 0 1px var(--neon);
+  }
+}
+
+.glass-btn:active {
+  transform: scale(0.96);
+  background-color: rgba(255, 255, 255, 0.02) !important;
+  box-shadow:
+    0 4px 16px 0 rgba(0, 0, 0, 0.3),
+    inset 0 0 0 1px var(--neon);
+}
+
+.glass-btn--selected {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
 .cyber-btn {
   border: 1.5px solid var(--neon);
   clip-path: polygon(
@@ -325,6 +394,15 @@ function handleClick() {
 }
 .animate-scaleIn {
   animation: scaleIn 0.15s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.glass-btn--monitor {
+  cursor: default;
+  gap: 0.25rem;
+  padding: 0.375rem;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
 }
 
 .cyber-btn--monitor {

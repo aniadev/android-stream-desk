@@ -41,3 +41,6 @@ src-tauri/gen/
 
 .vercel
 .env*
+
+# Release planning docs — local only
+docs/release/

@@ -13,6 +13,7 @@ const settingsStore = useSettingsStore();
 const fitMode = computed<DisplayFitMode>(() => settingsStore.displayFitMode);
 const isFullscreen = computed(() => fitMode.value === 'fullscreen');
 const isCover = computed(() => fitMode.value === 'cover');
+const isIos = computed(() => /iPad|iPhone|iPod/.test(navigator.userAgent));
 // `contain` keeps the existing cap (max-w-2xl) so the deck never explodes on a
 // 4K monitor. `cover`/`fullscreen` let the grid fill the whole viewport.
 const applyContainMaxWidth = computed(() => fitMode.value === 'contain');
@@ -128,25 +129,34 @@ watch(fitMode, () => {
           : 'p-4 sm:p-0 sm:pt-4',
     ]"
   >
-    <!-- Stream Deck Cyberpunk Shell -->
+    <!-- Stream Deck Shell (Glass for iOS, Cyberpunk for others) -->
     <div
-      class="cyber-shell relative w-full h-full flex flex-col items-center justify-center overflow-hidden"
-      :class="{ 'max-w-2xl': applyContainMaxWidth, 'shell--fullscreen': isFullscreen }"
+      class="relative w-full h-full flex flex-col items-center justify-center overflow-hidden"
+      :class="[
+        isIos ? 'glass-shell rounded-3xl' : 'cyber-shell',
+        { 'max-w-2xl': applyContainMaxWidth, 'shell--fullscreen': isFullscreen }
+      ]"
     >
-      <!-- Scanline overlay (hidden in fullscreen) -->
+      <!-- Subtle frosted glow background (Glass only, hidden in fullscreen) -->
       <div
-        v-if="!isFullscreen"
+        v-if="isIos && !isFullscreen"
+        class="absolute inset-0 pointer-events-none opacity-30 mix-blend-overlay bg-gradient-to-br from-white/10 to-transparent"
+      />
+
+      <!-- Scanline overlay (Cyberpunk only, hidden in fullscreen) -->
+      <div
+        v-if="!isIos && !isFullscreen"
         class="scanline absolute inset-0 pointer-events-none opacity-[0.04]"
       />
 
-      <!-- Subtle animated grid bg (hidden in fullscreen) -->
+      <!-- Subtle animated grid bg (Cyberpunk only, hidden in fullscreen) -->
       <div
-        v-if="!isFullscreen"
+        v-if="!isIos && !isFullscreen"
         class="absolute inset-0 pointer-events-none opacity-[0.03] bg-grid-dot"
       />
 
-      <!-- Corner neon brackets (hidden in fullscreen) -->
-      <template v-if="!isFullscreen">
+      <!-- Corner neon brackets (Cyberpunk only, hidden in fullscreen) -->
+      <template v-if="!isIos && !isFullscreen">
         <span
           class="absolute top-3 left-3 w-5 h-5 border-t-[3px] border-l-[3px] pointer-events-none z-20"
           :style="{ borderColor: 'var(--theme-corner-a)' }"
@@ -236,6 +246,16 @@ watch(fitMode, () => {
 </template>
 
 <style scoped>
+.glass-shell {
+  background: rgba(10, 15, 30, 0.4);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 10px 40px -10px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+}
+
 .cyber-shell {
   background:
     radial-gradient(ellipse at 50% 0%, var(--theme-shell-top) 0%, transparent 60%),
@@ -270,13 +290,15 @@ watch(fitMode, () => {
   display: none;
 }
 
-/* Fullscreen: drop the rounded shell + clip-path so the grid reaches every edge
+/* Fullscreen: drop the rounded shell so the grid reaches every edge
    of the device viewport. Safe-area handled via env() on the parent. */
 .shell--fullscreen {
   border-radius: 0;
   border: none;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   box-shadow: none;
-  clip-path: none;
 }
 
 .snap-page {
