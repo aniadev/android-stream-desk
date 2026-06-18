@@ -1,0 +1,347 @@
+/* ========== CYBERPUNK DESIGN SYSTEM ========== */
+
+.cyber-dashboard {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(0, 240, 255, 0.02) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 100%, rgba(255, 0, 255, 0.015) 0%, transparent 50%),
+    linear-gradient(180deg, #020617 0%, #060b1a 50%, #030712 100%);
+  color: #e2e8f0;
+}
+
+/* --- Panels --- */
+.cyber-panel {
+  background: rgba(4, 10, 24, 0.75);
+  border: 1px solid rgba(0, 240, 255, 0.06);
+  box-shadow:
+    0 0 0 1px rgba(0, 240, 255, 0.02),
+    0 8px 32px -8px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.01);
+  border-radius: 16px;
+  backdrop-filter: blur(12px);
+}
+
+/* --- Inset containers --- */
+.cyber-inset {
+  background: rgba(2, 8, 20, 0.7);
+  border: 1px solid rgba(0, 240, 255, 0.06);
+  border-radius: 10px;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* --- Section labels --- */
+.cyber-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #e2e8f0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.cyber-section-desc {
+  font-size: 9px;
+  color: #64748b;
+  margin-top: 2px;
+}
+.cyber-input-label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #94a3b8;
+}
+
+/* --- S-UX1 typography tiers (min 9/10/11) --- */
+.cyber-text-2xs {
+  font-size: 9px;
+  line-height: 1.35;
+}
+.cyber-text-xs {
+  font-size: 10px;
+  line-height: 1.4;
+}
+.cyber-text-sm {
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+/* --- Dividers --- */
+.cyber-divider {
+  border-top: 1px solid rgba(0, 240, 255, 0.06);
+}
+
+/* --- HUD (IP box) --- */
+.cyber-hud {
+  background: rgba(2, 8, 20, 0.85);
+  border: 1px solid rgba(0, 240, 255, 0.1);
+  border-radius: 12px;
+}
+
+/* --- Stepper --- */
+.cyber-stepper {
+  background: rgba(2, 8, 20, 0.8);
+  border: 1px solid rgba(0, 240, 255, 0.08);
+  border-radius: 10px;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+.cyber-stepper-btn {
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  transition: all 0.15s;
+  cursor: pointer;
+}
+.cyber-stepper-btn:hover {
+  background: rgba(0, 240, 255, 0.08);
+  color: #22d3ee;
+}
+
+/* --- Tabs --- */
+.cyber-tab-group {
+  background: rgba(2, 8, 20, 0.8);
+  border: 1px solid rgba(0, 240, 255, 0.06);
+  border-radius: 10px;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+.cyber-tab-active {
+  background: rgba(0, 240, 255, 0.08);
+  color: #22d3ee;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 240, 255, 0.12);
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.06);
+}
+
+/* --- Hex icon bg --- */
+.cyber-hex {
+  background: linear-gradient(135deg, #06b6d4 0%, #8b5cf6 100%);
+  border-radius: 10px;
+  box-shadow: 0 0 16px rgba(6, 182, 212, 0.2);
+}
+
+/* --- Icon button --- */
+.cyber-icon-btn {
+  border: 1px solid rgba(0, 240, 255, 0.08);
+  border-radius: 10px;
+  background: rgba(2, 8, 20, 0.6);
+  transition: all 0.2s;
+}
+.cyber-icon-btn:hover {
+  border-color: rgba(0, 240, 255, 0.2);
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.08);
+  background: rgba(0, 240, 255, 0.04);
+}
+
+/* --- Action button --- */
+.cyber-action-btn {
+  background: rgba(0, 240, 255, 0.06);
+  border: 1px solid rgba(0, 240, 255, 0.15);
+  border-radius: 8px;
+  color: #22d3ee;
+  transition: all 0.2s;
+}
+.cyber-action-btn:hover {
+  background: rgba(0, 240, 255, 0.12);
+  box-shadow: 0 0 16px rgba(0, 240, 255, 0.1);
+}
+
+/* --- Record button --- */
+.cyber-record-btn {
+  background: rgba(2, 8, 20, 0.8);
+  border: none;
+  border-left: 1px solid rgba(0, 240, 255, 0.08);
+  color: #94a3b8;
+  transition: all 0.2s;
+}
+.cyber-record-btn:hover {
+  color: #22d3ee;
+}
+.cyber-record-btn--active {
+  background: rgba(192, 38, 211, 0.12);
+  color: #f0abfc;
+  box-shadow: inset 0 0 12px rgba(192, 38, 211, 0.12);
+}
+
+/* --- Record input group --- */
+.cyber-input-group {
+  background: rgba(2, 8, 20, 0.8);
+  border: 1px solid rgba(0, 240, 255, 0.08);
+  border-radius: 10px;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* --- Select dropdown --- */
+.cyber-select {
+  background: rgba(2, 8, 20, 0.9);
+  border: 1px solid rgba(0, 240, 255, 0.08);
+  border-radius: 10px;
+  color: #cbd5e1;
+  outline: none;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+.cyber-select:focus {
+  border-color: rgba(0, 240, 255, 0.2);
+  box-shadow:
+    0 0 0 1px rgba(0, 240, 255, 0.1),
+    inset 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* --- Preset buttons --- */
+.cyber-preset-btn {
+  background: rgba(0, 240, 255, 0.03);
+  border: 1px solid rgba(0, 240, 255, 0.06);
+  border-radius: 8px;
+  color: #94a3b8;
+  transition: all 0.15s;
+  cursor: pointer;
+}
+.cyber-preset-btn:hover {
+  background: rgba(0, 240, 255, 0.06);
+  border-color: rgba(0, 240, 255, 0.12);
+  color: #e2e8f0;
+}
+
+/* --- Icon cell --- */
+.cyber-icon-cell {
+  background: rgba(2, 8, 20, 0.8);
+  border: 1px solid rgba(0, 240, 255, 0.04);
+  border-radius: 8px;
+  color: #64748b;
+}
+.cyber-icon-cell:hover {
+  border-color: rgba(0, 240, 255, 0.1);
+  color: #e2e8f0;
+  background: rgba(0, 240, 255, 0.04);
+}
+.cyber-icon-cell--active {
+  border-color: #22d3ee !important;
+  color: #22d3ee !important;
+  background: rgba(0, 240, 255, 0.08) !important;
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.08);
+}
+
+/* --- Empty state --- */
+.cyber-empty {
+  border: 1px dashed rgba(0, 240, 255, 0.08);
+  border-radius: 14px;
+  background: rgba(0, 240, 255, 0.015);
+}
+
+/* --- Input small --- */
+.cyber-input-sm {
+  border: 1px solid rgba(0, 240, 255, 0.06) !important;
+  background: rgba(2, 8, 20, 0.7) !important;
+}
+
+/* --- Modal --- */
+.cyber-modal {
+  background: rgba(4, 10, 24, 0.95);
+  border: 1px solid rgba(0, 240, 255, 0.08);
+  border-radius: 20px;
+  box-shadow:
+    0 0 0 1px rgba(0, 240, 255, 0.03),
+    0 0 60px -8px rgba(0, 240, 255, 0.06),
+    0 20px 60px rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(20px);
+}
+
+/* --- Grid Stream Deck Shell (shared) --- */
+.cyber-shell {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(0, 240, 255, 0.04) 0%, transparent 60%),
+    radial-gradient(ellipse at 50% 100%, rgba(255, 0, 255, 0.03) 0%, transparent 60%),
+    linear-gradient(180deg, #050a14 0%, #02050c 50%, #050a14 100%);
+  border: 1px solid rgba(0, 240, 255, 0.08);
+  box-shadow:
+    0 0 0 1px rgba(0, 240, 255, 0.04),
+    0 4px 40px -8px rgba(0, 0, 0, 0.6),
+    0 0 80px -16px rgba(0, 240, 255, 0.04),
+    inset 0 0 40px -16px rgba(0, 240, 255, 0.02);
+  clip-path: polygon(
+    6px 0%,
+    calc(100% - 6px) 0%,
+    100% 6px,
+    100% calc(100% - 6px),
+    calc(100% - 6px) 100%,
+    6px 100%,
+    0% calc(100% - 6px),
+    0% 6px
+  );
+}
+
+.bg-grid-dot {
+  background-image: radial-gradient(circle, rgba(0, 240, 255, 0.2) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.scanline {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 240, 255, 0.03) 2px,
+    rgba(0, 240, 255, 0.03) 3px
+  );
+}
+
+/* Drag ghost placeholder */
+.cyber-ghost {
+  opacity: 0.25;
+  transition: opacity 0.15s;
+}
+
+/* Wrap each draggable grid cell so Sortable item is a plain div, not <button>.
+   Avoids native-button transform/clone quirks in production WebView. */
+.grid-item-wrap {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+}
+.grid-item-wrap:active {
+  cursor: grabbing;
+}
+
+/* Right preview section: no backdrop-filter — creates containing block
+   for position:fixed and breaks Sortable fallback ghost coords. */
+.cyber-panel--no-blur {
+  backdrop-filter: none !important;
+}
+
+/* Dashboard-wide scanline */
+.dashboard-scanline {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 240, 255, 0.02) 2px,
+    rgba(0, 240, 255, 0.02) 3px
+  );
+}
+
+/* Global cyberpunk scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 240, 255, 0.1) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 240, 255, 0.1);
+  border-radius: 3px;
+  border: 1px solid rgba(0, 240, 255, 0.04);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 240, 255, 0.2);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
