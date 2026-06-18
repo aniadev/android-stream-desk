@@ -1,6 +1,6 @@
 {
   "productName": "Android Stream Desk",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "identifier": "com.ania.android.stream.desk",
   "bundle": {
     "active": true,
@@ -11,7 +11,10 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "macOS": {
+      "signingIdentity": "-"
+    }
   },
   "app": {
     "security": {

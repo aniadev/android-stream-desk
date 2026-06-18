@@ -106,7 +106,7 @@ const webReady = ref(false);
 const webBindError = ref<ListenerBindError | null>(null);
 const serverIp = ref<string>('—');
 const serverPort = ref<number>(8089);
-const appVersion = ref<string>('1.6.0');
+const appVersion = ref<string>('1.6.1');
 let tauriUnlisteners: (() => void)[] = [];
 
 const clientDeviceSize = ref<{ width: number; height: number } | null>(null);

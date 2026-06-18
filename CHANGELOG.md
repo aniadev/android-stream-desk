@@ -4,6 +4,14 @@ All notable changes to the **Android Stream Desk** project will be documented in
 
 ---
 
+## [1.6.1] - 2026-06-18
+
+### Fixed
+- **Sửa lỗi macOS không nhận quyền Accessibility sau khi build**: Tích hợp cấu hình ký mã ad-hoc (`signingIdentity: "-"`) đồng bộ trong `tauri.conf.json` giúp file nhị phân trong bundle `.app` mang đúng bundle identifier `com.ania.android.stream.desk` tương thích với cơ sở dữ liệu bảo mật TCC của hệ thống.
+- **Khắc phục lỗi build Windows trên CI/CD**: Chuyển các đường dẫn MSVC compiler/linker bị hardcode trong `.cargo/config.toml` thành tên file thực thi động để tự động nạp từ `PATH` trên mọi môi trường biên dịch.
+
+---
+
 ## [1.6.0] - 2026-06-18
 
 ### Added
