@@ -79,10 +79,16 @@ const linuxDebDownload = ref(
 const linuxAppImageDownload = ref(
   `${releaseAssetBaseUrl(fallbackVersion)}/${linuxAppImageFileName(fallbackVersion)}`,
 );
+const androidArm64Download = ref(
+  `${releaseAssetBaseUrl(fallbackVersion)}/android-stream-desk-${apkVersionSlug(fallbackVersion)}-arm64.apk`,
+);
+const androidArmDownload = ref(
+  `${releaseAssetBaseUrl(fallbackVersion)}/android-stream-desk-${apkVersionSlug(fallbackVersion)}-arm.apk`,
+);
+const androidVersion = ref(fallbackVersion);
 
 const androidApkOptions = computed(() => {
-  const baseUrl = releaseAssetBaseUrl(currentVersion.value);
-  const versionSlug = apkVersionSlug(currentVersion.value);
+  const versionSlug = apkVersionSlug(androidVersion.value);
 
   return [
     {
@@ -90,7 +96,7 @@ const androidApkOptions = computed(() => {
       title: 'APK arm64',
       abi: 'arm64-v8a (64-bit)',
       fileName: `android-stream-desk-${versionSlug}-arm64.apk`,
-      href: `${baseUrl}/android-stream-desk-${versionSlug}-arm64.apk`,
+      href: androidArm64Download.value,
       recommendation: 'Khuyến nghị cho hầu hết điện thoại và tablet Android đời 2015 trở lại đây.',
       support:
         'Dành cho máy Android 64-bit hiện đại, hiệu năng tốt hơn và là lựa chọn nên thử trước.',
@@ -104,7 +110,7 @@ const androidApkOptions = computed(() => {
       title: 'APK arm',
       abi: 'armeabi-v7a (32-bit)',
       fileName: `android-stream-desk-${versionSlug}-arm.apk`,
-      href: `${baseUrl}/android-stream-desk-${versionSlug}-arm.apk`,
+      href: androidArmDownload.value,
       recommendation:
         'Chỉ dùng khi máy quá cũ hoặc đã thử arm64 nhưng Android báo ứng dụng không tương thích.',
       support:
@@ -118,35 +124,97 @@ const androidApkOptions = computed(() => {
 });
 
 onMounted(() => {
-  fetch('https://api.github.com/repos/aniadev/android-stream-desk/releases/latest')
+  fetch('https://api.github.com/repos/aniadev/android-stream-desk/releases')
     .then(res => res.json())
-    .then(data => {
-      if (data && data.tag_name) {
-        const tag = data.tag_name;
-        const baseUrl = releaseAssetBaseUrl(tag);
-        const msiFileName = windowsMsiFileName(tag);
-        const setupFileName = windowsSetupFileName(tag);
-        const dmgFileName = macDmgFileName(tag);
-        const debFileName = linuxDebFileName(tag);
-        const appImageFileName = linuxAppImageFileName(tag);
+    .then(releases => {
+      if (releases && Array.isArray(releases) && releases.length > 0) {
+        // The first release in the list is the latest overall version
+        const latestRelease = releases[0];
+        if (latestRelease && latestRelease.tag_name) {
+          currentVersion.value = latestRelease.tag_name;
+        }
 
-        currentVersion.value = tag;
-        windowsDownload.value =
-          findReleaseAssetUrl(data.assets, name => name === msiFileName) ??
-          findReleaseAssetUrl(data.assets, name => name === setupFileName) ??
-          `${baseUrl}/${msiFileName}`;
-        macDownload.value =
-          findReleaseAssetUrl(data.assets, name => name === dmgFileName) ??
-          `${baseUrl}/${dmgFileName}`;
-        linuxDebDownload.value =
-          findReleaseAssetUrl(data.assets, name => name === debFileName) ??
-          `${baseUrl}/${debFileName}`;
-        linuxAppImageDownload.value =
-          findReleaseAssetUrl(data.assets, name => name === appImageFileName) ??
-          `${baseUrl}/${appImageFileName}`;
+        // Find Windows asset
+        let winUrl = '';
+        for (const rel of releases) {
+          const tag = rel.tag_name;
+          const msi = windowsMsiFileName(tag);
+          const setup = windowsSetupFileName(tag);
+          const url = findReleaseAssetUrl(rel.assets, name => name === msi || name === setup);
+          if (url) {
+            winUrl = url;
+            break;
+          }
+        }
+
+        // Find macOS asset
+        let macUrl = '';
+        for (const rel of releases) {
+          const tag = rel.tag_name;
+          const dmg = macDmgFileName(tag);
+          const url = findReleaseAssetUrl(rel.assets, name => name === dmg);
+          if (url) {
+            macUrl = url;
+            break;
+          }
+        }
+
+        // Find Linux Deb asset
+        let debUrl = '';
+        for (const rel of releases) {
+          const tag = rel.tag_name;
+          const deb = linuxDebFileName(tag);
+          const url = findReleaseAssetUrl(rel.assets, name => name === deb);
+          if (url) {
+            debUrl = url;
+            break;
+          }
+        }
+
+        // Find Linux AppImage asset
+        let appImageUrl = '';
+        for (const rel of releases) {
+          const tag = rel.tag_name;
+          const appImage = linuxAppImageFileName(tag);
+          const url = findReleaseAssetUrl(rel.assets, name => name === appImage);
+          if (url) {
+            appImageUrl = url;
+            break;
+          }
+        }
+
+        // Find Android APK assets
+        let apkArm64Url = '';
+        let apkArmUrl = '';
+        let apkTag = '';
+        for (const rel of releases) {
+          const tag = rel.tag_name;
+          const versionSlug = apkVersionSlug(tag);
+          const arm64Name = `android-stream-desk-${versionSlug}-arm64.apk`;
+          const armName = `android-stream-desk-${versionSlug}-arm.apk`;
+          const u64 = findReleaseAssetUrl(rel.assets, name => name === arm64Name);
+          const uArm = findReleaseAssetUrl(rel.assets, name => name === armName);
+          if (u64 && uArm) {
+            apkArm64Url = u64;
+            apkArmUrl = uArm;
+            apkTag = tag;
+            break;
+          }
+        }
+
+        // Update refs if found
+        if (winUrl) windowsDownload.value = winUrl;
+        if (macUrl) macDownload.value = macUrl;
+        if (debUrl) linuxDebDownload.value = debUrl;
+        if (appImageUrl) linuxAppImageDownload.value = appImageUrl;
+        if (apkArm64Url && apkArmUrl) {
+          androidArm64Download.value = apkArm64Url;
+          androidArmDownload.value = apkArmUrl;
+          androidVersion.value = apkTag;
+        }
       }
     })
-    .catch(err => console.warn(`Failed to fetch version, using ${fallbackVersion}:`, err));
+    .catch(err => console.warn(`Failed to fetch version, using fallback ${fallbackVersion}:`, err));
 });
 </script>
 
@@ -252,7 +320,7 @@ onMounted(() => {
   <AndroidApkModal
     v-if="isAndroidApkModalOpen"
     :options="androidApkOptions"
-    :version="currentVersion"
+    :version="androidVersion"
     :accent-color="accentColor"
     @close="isAndroidApkModalOpen = false"
   />
