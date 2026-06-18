@@ -10,6 +10,8 @@ All notable changes to the **Android Stream Desk** project will be documented in
 - Bổ sung Pastel Soft Anime Theme với tông màu hồng phấn/oải hương, font hệ thống tròn và họa tiết chấm tròn tinh tế.
 - Thêm tính năng Copy, Paste và Duplicate cấu hình nút bấm trực tiếp trên Companion Dashboard.
 - Nâng cấp UX nút Monitor (RAM/CPU) hiển thị progress indicator và cảnh báo màu sắc theo ngưỡng sử dụng.
+- Tự động nhận diện thiết bị Client (iPad, Android, Windows, Mac) và điều chỉnh tỷ lệ khung hình (Aspect Ratio) của khung Preview trên Companion theo thời gian thực.
+- Đồng bộ hóa hình nền và hiệu ứng theme (như theme Genshin) từ Client lên Preview Companion.
 
 ### Fixed
 - Sửa lỗi hiển thị méo hoặc tràn nút bấm khi Android/Web Client thay đổi chiều xoay màn hình.

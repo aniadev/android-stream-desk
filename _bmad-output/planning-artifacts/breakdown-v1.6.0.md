@@ -33,6 +33,8 @@ Trước khi chạy `bmad-sprint-planning` hoặc tạo story v1.6.0, Epic 11, E
 * Sửa layout Client khi thiết bị xoay orientation, bao gồm Android WebView height fallback.
 * Thêm copy/paste/duplicate button config trên Companion Dashboard với clipboard in-memory.
 * Nâng cấp monitor button bằng threshold state và visual progress indicator.
+* Tự động nhận diện thiết bị Client (kích thước viewport, tên thân thiện) qua WebSocket và điều chỉnh tỷ lệ khung hình (Aspect Ratio) của khung Preview trên Companion theo thời gian thực.
+* Đồng bộ hóa hình nền và hiệu ứng theme (như theme Genshin) từ Client lên Preview Companion.
 * Cập nhật manual test, changelog, release version metadata và release gates.
 
 ### 0.4 Out of scope
@@ -255,7 +257,40 @@ Trước khi chạy `bmad-sprint-planning` hoặc tạo story v1.6.0, Epic 11, E
 
 ---
 
-## 5. Risks & Mitigations
+## 5. FEATURE 4: Nhận diện Thiết bị Client & Tự động Căn chỉnh Tỉ lệ Preview
+
+### 5.1 Root Cause / Technical Analysis
+* Trước đây, khung xem trước (Preview) trên Companion sử dụng tỷ lệ cứng mặc định (1.6) và background mặc định của theme Cyber, không thay đổi theo thiết bị thực tế đang kết nối.
+* Khi người dùng kết nối bằng iPad, máy tính bảng hoặc xoay ngang/dọc thiết bị client, tỷ lệ thực tế của client không khớp với preview trên Companion, gây khó khăn cho việc căn chỉnh phím bấm trực quan.
+* Hình nền đặc thù của các theme (như theme Genshin) được đặt ở root `:root` toàn cục khiến giao diện của Companion bị tràn hình nền không mong muốn.
+
+### 5.2 Proposed Solution & Architecture Design
+* **WebSocket Message**: Thêm tin nhắn `'device_info'` trong WebSocket payload gửi kích thước viewport thực tế và tên thiết bị client (qua User Agent) lên Companion.
+* **Tauri Event**: Rust backend chuyển tiếp tin nhắn `'device_info'` thành sự kiện Tauri `"client-device-info"` gửi lên Frontend Companion.
+* **Aspect-ratio & Theme styling**:
+  - `DashboardView.vue` lắng nghe sự kiện, lưu kích thước/tên thiết bị, reset về fallback tỷ lệ `1.6` khi ngắt toàn bộ kết nối.
+  - `MainPreview.vue` tính toán tỷ lệ `aspectRatio` động và áp dụng CSS `:style="{ aspectRatio }"` cùng class động `theme-genshin-shell` lên `.cyber-shell`.
+  - Cập nhật `dashboard.css` sử dụng các CSS variable tokens của theme để `.cyber-shell` tự động cập nhật background, border, clip-path theo theme đang chọn.
+  - Di chuyển background-image của theme Genshin ra khỏi root tailwind.css và cấu hình cục bộ trong `ClientView.vue` wrapper container để tách biệt giao diện.
+
+### 5.3 Stories
+
+#### S-PREV1 — Client Device Info Protocol & Rust Bridge
+* **Goal**: Thiết lập giao thức WebSocket truyền tải thông tin thiết bị từ Client về Companion thông qua Rust Event.
+* **Acceptance Criteria**:
+  - Gửi kích thước viewport và tên thiết bị thành công qua WebSocket ngay khi kết nối hoặc khi thay đổi kích thước.
+  - Rust backend nhận diện và phát sự kiện Tauri `'client-device-info'` chính xác.
+
+#### S-PREV2 — Companion Preview Ratio Sizing & Theme Background Sync
+* **Goal**: Căn chỉnh tỉ lệ preview động theo thiết bị client và đồng bộ hóa background theo theme đã chọn.
+* **Acceptance Criteria**:
+  - Khung `.cyber-shell` co giãn tự nhiên trong giới hạn `max-w-2xl` và `max-h-[80%]` theo tỉ lệ màn hình client.
+  - Preview fallback về tỷ lệ `1.6` khi không có client kết nối.
+  - Hình nền Genshin chỉ hiển thị trên client view, companion hiển thị background riêng biệt sạch sẽ.
+
+---
+
+## 6. Risks & Mitigations
 
 | Risk | Mitigation | Verification |
 | :--- | :--- | :--- |
@@ -267,7 +302,7 @@ Trước khi chạy `bmad-sprint-planning` hoặc tạo story v1.6.0, Epic 11, E
 
 ---
 
-## 6. Summary & Deployment Plan v1.6.0
+## 7. Summary & Deployment Plan v1.6.0
 
 ### Dependency Graph
 
@@ -277,11 +312,13 @@ graph TD
     S_ROT1[S-ROT1 Orientation & Viewport State] --> S_ROT2[S-ROT2 Responsive Grid Rotation Fix]
     S_CPY1[S-CPY1 Store Clipboard API] --> S_CPY2[S-CPY2 Dashboard Copy/Paste UI]
     S_MON1[S-MON1 Threshold Logic & Dynamic Colors] --> S_MON2[S-MON2 Progress Indicator & Animation]
+    S_PREV1[S-PREV1 Device Info Protocol] --> S_PREV2[S-PREV2 Preview Ratio & Sync]
 
     S_THM2 --> S_RELEASE[v1.6.0 Release Gate]
     S_ROT2 --> S_RELEASE
     S_CPY2 --> S_RELEASE
     S_MON2 --> S_RELEASE
+    S_PREV2 --> S_RELEASE
 ```
 
 ### Complexity & Impact Matrix
@@ -296,6 +333,8 @@ graph TD
 | S-CPY2 | UI actions for Copy/Paste/Duplicate | Medium | Companion Dashboard UI, no Rust |
 | S-MON1 | CPU/RAM dynamic styling thresholds | Low | Client + Companion grid rendering, no Rust |
 | S-MON2 | SVG progress indicator & animation | Medium | Client + Companion grid rendering, no Rust |
+| S-PREV1 | Client device info protocol & rust bridge | Medium | WebSocket + Rust Event, Tauri |
+| S-PREV2 | Companion preview ratio & theme sync | Medium | Companion Dashboard UI, CSS Variables |
 
 ### New Files Expected
 
@@ -305,15 +344,19 @@ Không có source file mới bắt buộc trong batch này. Nếu trong quá tr�
 
 ```text
 src/lib/themes.ts                               (S-THM1) - Thêm ThemeName anime, THEMES entry, preview/accent metadata
-src/assets/tailwind.css                         (S-THM1, S-THM2) - Thêm default tokens, anime variables, radius/font/background texture
-src/views/DashboardView.vue                     (S-THM2, S-CPY2, Release) - Theme picker tự nhận anime, Copy/Paste/Duplicate UI, appVersion 1.6.0
-src/views/ClientView.vue                        (S-ROT1) - Viewport/orientation listeners, --vh fallback, cleanup listeners
+src/assets/tailwind.css                         (S-THM1, S-THM2, S-PREV2) - Thêm default tokens, anime variables, radius/font, remove genshin root bg
+src/views/DashboardView.vue                     (S-THM2, S-CPY2, S-PREV2, Release) - Theme picker tự nhận anime, Copy/Paste/Duplicate UI, client-device-info listener, appVersion 1.6.0
+src/views/ClientView.vue                        (S-ROT1, S-PREV1) - Viewport/orientation listeners, sendDeviceInfo helper, --vh fallback, cleanup listeners, local genshin bg
 src/components/GridArea.vue                     (S-THM2, S-ROT2) - Anime shell/background treatment, viewport-triggered snap realign, responsive grid sizing
 src/components/GridButton.vue                   (S-THM2, S-MON1, S-MON2) - Radius/font variables, monitor threshold styling, progress indicator
+src/components/dashboard/MainPreview.vue        (S-PREV2) - Nhận size/name props, tính aspectRatio, áp dụng style/class động cho cyber-shell
+src/assets/dashboard.css                        (S-PREV2) - Cấu hình cyber-shell, bg-grid-dot và scanline dùng CSS theme variables, thêm theme-genshin-shell
+src-tauri/src/websocket.rs                      (S-PREV1) - Nhận tin nhắn device_info và phát event client-device-info lên frontend
+src/types/index.ts                              (S-PREV1) - Thêm device_info vào WSMessage types
 src/stores/layout.ts                            (S-CPY1) - copiedButton state, copy/paste/duplicate APIs, broadcast/update integration
 landing-page/src/types/landing.ts               (S-THM1) - Đồng bộ ThemeName anime cho landing page
 landing-page/src/App.vue                        (S-THM1, candidate) - Thêm anime theme map nếu type update yêu cầu compile/runtime option
-docs/manual-test.md                             (S-ROT2, S-CPY2, S-MON2) - Thêm kịch bản xoay thiết bị, copy/paste button, monitor threshold/progress
+docs/manual-test.md                             (S-ROT2, S-CPY2, S-MON2, S-PREV2) - Thêm kịch bản xoay thiết bị, copy/paste button, monitor progress, device-info preview
 CHANGELOG.md                                    (Release) - Ghi chú bản phát hành v1.6.0
 package.json                                    (Release) - Version 1.6.0
 src-tauri/Cargo.toml                            (Release) - Version 1.6.0
@@ -370,6 +413,8 @@ Thêm nội dung sau vào `CHANGELOG.md`:
 - Bổ sung Pastel Soft Anime Theme với tông màu hồng phấn/oải hương, font hệ thống tròn và họa tiết chấm tròn tinh tế.
 - Thêm tính năng Copy, Paste và Duplicate cấu hình nút bấm trực tiếp trên Companion Dashboard.
 - Nâng cấp UX nút Monitor (RAM/CPU) hiển thị progress indicator và cảnh báo màu sắc theo ngưỡng sử dụng.
+- Tự động nhận diện thiết bị Client (iPad, Android, Windows, Mac) và điều chỉnh tỷ lệ khung hình (Aspect Ratio) của khung Preview trên Companion theo thời gian thực.
+- Đồng bộ hóa hình nền và hiệu ứng theme (như theme Genshin) từ Client lên Preview Companion.
 
 ### Fixed
 - Sửa lỗi hiển thị méo hoặc tràn nút bấm khi Android/Web Client thay đổi chiều xoay màn hình.

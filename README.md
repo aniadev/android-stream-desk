@@ -8,6 +8,18 @@ Buy me a coffee: https://ko-fi.com/ania9
 
 ---
 
+### 📸 Ảnh Chụp Giao Diện (Screenshots)
+
+| Giao diện Companion Dashboard | Giao diện Android/Web Client |
+| :---: | :---: |
+| ![Companion Dashboard](public/screenshots/companion-macos.png) | ![Client Layout Grid](public/screenshots/client-view.png) |
+| **Cấu hình Cài đặt (Companion)** | **Cài đặt & Xoay màn hình (Client)** |
+| ![Companion Settings](public/screenshots/companion-settings.png) | ![Client Settings](public/screenshots/client-settings.png) |
+| **Đồng bộ Theme Genshin (Companion)** | **Đồng bộ Theme Genshin (Client)** |
+| ![Companion Theme Genshin](public/screenshots/companion-theme-genshin-01.png) | ![Client Theme Genshin](public/screenshots/client-theme-genshin-01.png) |
+
+---
+
 ## 🛠️ Kiến trúc Hệ thống
 
 Hệ thống được phát triển cùng trên **một codebase** bằng công nghệ **Tauri v2** giúp tối thiểu hóa tài nguyên CPU/RAM sử dụng, bao gồm 2 thành phần chính:
