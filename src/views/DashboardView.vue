@@ -620,8 +620,6 @@ const copyZoomModalPayload = async () => {
 // --- Clipboard & Key listeners ---
 const copyHint = ref<string>('');
 const webCopyHint = ref<string>('');
-const apkCopyHint = ref<string>('');
-const colorCopyHint = ref<string>('');
 const syncHint = ref<string>('');
 let syncTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -645,17 +643,6 @@ const copyWebClientUrl = async () => {
     setTimeout(() => (webCopyHint.value = ''), 1500);
   } catch (_) {
     webCopyHint.value = 'Failed';
-  }
-};
-
-const copyColor = async () => {
-  if (!selectedButton.value?.backgroundColor) return;
-  try {
-    await navigator.clipboard.writeText(selectedButton.value.backgroundColor);
-    colorCopyHint.value = 'Copied!';
-    setTimeout(() => (colorCopyHint.value = ''), 1500);
-  } catch (_) {
-    colorCopyHint.value = 'Failed';
   }
 };
 
