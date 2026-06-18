@@ -1,11 +1,14 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { useLayoutStore } from '../../stores/layout';
 import { vDraggable } from 'vue-draggable-plus';
 import GridButton from '../GridButton.vue';
 import { Icon } from '@iconify/vue';
 
-defineProps<{
+const props = defineProps<{
   selectedButtonId: string | null;
+  clientDeviceSize?: { width: number; height: number } | null;
+  clientDeviceName?: string;
 }>();
 
 const emit = defineEmits<{
@@ -17,6 +20,17 @@ const layoutStore = useLayoutStore();
 function onUpdate() {
   layoutStore.broadcastSync();
 }
+
+const aspectRatio = computed(() => {
+  if (
+    props.clientDeviceSize &&
+    props.clientDeviceSize.width > 0 &&
+    props.clientDeviceSize.height > 0
+  ) {
+    return props.clientDeviceSize.width / props.clientDeviceSize.height;
+  }
+  return 1.6;
+});
 </script>
 
 <template>
@@ -27,10 +41,16 @@ function onUpdate() {
       class="absolute top-6 left-8 text-[10px] font-bold uppercase tracking-widest text-cyan-400/50 select-none"
     >
       Mô hình Stream Desk cảm ứng thực tế
+      {{ props.clientDeviceName ? `(${props.clientDeviceName})` : '' }}
     </span>
 
     <!-- Cyberpunk Stream Deck Shell -->
-    <div class="cyber-shell max-w-2xl w-full h-[80%] flex flex-col p-4 relative">
+    <div
+      class="cyber-shell max-w-2xl w-full max-h-[80%] flex flex-col p-4 relative"
+      :class="{
+        'theme-genshin-shell': layoutStore.layout.theme === 'genshin-01',
+      }"
+    >
       <div class="scanline absolute inset-0 pointer-events-none opacity-[0.03]" />
       <div class="absolute inset-0 pointer-events-none opacity-[0.025] bg-grid-dot" />
 
@@ -110,10 +130,18 @@ function onUpdate() {
             onUpdate,
           },
         ]"
-        class="grid gap-3 w-full h-[calc(100%-40px)] max-w-full max-h-full items-stretch justify-items-stretch relative z-10 min-h-0 min-w-0"
+        class="preview-grid grid p-1 gap-3 w-full h-[calc(100%-40px)] max-w-full max-h-full items-stretch justify-items-stretch relative z-10 min-h-0 min-w-0"
         :style="{
           gridTemplateColumns: `repeat(${layoutStore.layout.cols}, minmax(0, 1fr))`,
           gridTemplateRows: `repeat(${layoutStore.layout.rows}, minmax(0, 1fr))`,
+          ...(layoutStore.layout.theme === 'genshin-01'
+            ? {
+                backgroundImage: 'url(/themes/genshin/bg-01.jpg) !important',
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+              }
+            : {}),
+          aspectRatio,
         }"
       >
         <div
@@ -132,3 +160,17 @@ function onUpdate() {
     </div>
   </section>
 </template>
+
+<style scoped>
+.preview-grid {
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 50% 0%, var(--theme-shell-top) 0%, transparent 60%),
+      radial-gradient(ellipse at 50% 100%, var(--theme-shell-bottom) 0%, transparent 60%),
+      var(--theme-shell-bg);
+  }
+}
+</style>

@@ -211,6 +211,11 @@ async fn handle_connection(
                                         let _ = app_handle.emit("trigger-macro", payload_val);
                                     }
                                 }
+                                "device_info" => {
+                                    if let Some(payload_val) = parsed_msg.payload {
+                                        let _ = app_handle.emit("client-device-info", payload_val);
+                                    }
+                                }
                                 _ => {}
                             }
                         }

@@ -111,6 +111,9 @@ const serverPort = ref<number>(8089);
 const appVersion = ref<string>('1.6.0');
 let tauriUnlisteners: (() => void)[] = [];
 
+const clientDeviceSize = ref<{ width: number; height: number } | null>(null);
+const clientDeviceName = ref<string>('');
+
 const isMac = computed(() => {
   return (
     navigator.userAgent.toLowerCase().includes('mac') ||
@@ -131,6 +134,13 @@ const setTheme = (name: ThemeName) => {
 // --- Autostart ---
 const autostartOn = ref(false);
 const autostartLoading = ref(false);
+
+watch(activeConnectionsCount, next => {
+  if (next === 0) {
+    clientDeviceSize.value = null;
+    clientDeviceName.value = '';
+  }
+});
 
 watch(settingsOpen, async open => {
   if (open) {
@@ -824,6 +834,14 @@ onMounted(async () => {
           }
         },
       );
+      const unlistenDeviceInfo = await listen<{
+        width: number;
+        height: number;
+        deviceName: string;
+      }>('client-device-info', e => {
+        clientDeviceSize.value = { width: e.payload.width, height: e.payload.height };
+        clientDeviceName.value = e.payload.deviceName;
+      });
       tauriUnlisteners.push(
         unlistenCount,
         unlistenError,
@@ -831,6 +849,7 @@ onMounted(async () => {
         unlistenWebReady,
         unlistenWebError,
         unlistenActionError,
+        unlistenDeviceInfo,
       );
 
       const info = await invoke<ServerInfo>('get_server_info');
@@ -867,6 +886,21 @@ onMounted(async () => {
   }
 });
 
+const containerStyle = computed(() => {
+  const isGenshin = layoutStore.layout.theme === 'genshin-01';
+  return {
+    // paddingTop: 'env(safe-area-inset-top)',
+    // paddingBottom: 'env(safe-area-inset-bottom)',
+    // height: 'calc(var(--vh, 1vh) * 100)',
+    backgroundColor: isGenshin ? 'transparent' : 'var(--theme-bg)',
+    backgroundImage: isGenshin ? "url('/themes/genshin/bg-02.jpg')" : 'none',
+    backgroundSize: isGenshin ? 'cover' : 'auto',
+    backgroundPosition: isGenshin ? 'center' : 'unset',
+    backgroundRepeat: isGenshin ? 'no-repeat' : 'unset',
+    backgroundAttachment: isGenshin ? 'fixed' : 'unset',
+  };
+});
+
 onUnmounted(() => {
   window.removeEventListener('keydown', handleEscKey);
   window.removeEventListener('keydown', handleClipboardShortcuts);
@@ -884,6 +918,7 @@ onUnmounted(() => {
 <template>
   <div
     class="cyber-dashboard h-screen w-screen flex flex-col p-6 overflow-hidden gap-6 antialiased select-none relative"
+    :style="containerStyle"
   >
     <!-- Ambient background glows -->
     <div
@@ -962,7 +997,12 @@ onUnmounted(() => {
       />
 
       <!-- Right Preview -->
-      <MainPreview :selected-button-id="selectedButtonId" @select-button="selectButton" />
+      <MainPreview
+        :selected-button-id="selectedButtonId"
+        :client-device-size="clientDeviceSize"
+        :client-device-name="clientDeviceName"
+        @select-button="selectButton"
+      />
     </div>
 
     <!-- Settings Modal -->

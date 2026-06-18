@@ -70,6 +70,21 @@ const showScanAgainCta = computed(() =>
   }),
 );
 
+const containerStyle = computed(() => {
+  const isGenshin = layoutStore.layout.theme === 'genshin-01';
+  return {
+    paddingTop: 'env(safe-area-inset-top)',
+    paddingBottom: 'env(safe-area-inset-bottom)',
+    height: 'calc(var(--vh, 1vh) * 100)',
+    backgroundColor: isGenshin ? 'transparent' : 'var(--theme-bg)',
+    backgroundImage: isGenshin ? "url('/themes/genshin/bg-01.jpg')" : 'none',
+    backgroundSize: isGenshin ? 'cover' : 'auto',
+    backgroundPosition: isGenshin ? 'center' : 'unset',
+    backgroundRepeat: isGenshin ? 'no-repeat' : 'unset',
+    backgroundAttachment: isGenshin ? 'fixed' : 'unset',
+  };
+});
+
 const bootstrapBrowserConnection = async () => {
   try {
     const info = await fetchBrowserServerInfo(window.location);
@@ -290,11 +305,53 @@ watch(
   { deep: true },
 );
 
+const sendDeviceInfo = () => {
+  const width = window.visualViewport ? window.visualViewport.width : window.innerWidth;
+  const height = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+
+  let deviceName = 'Web Client';
+  const ua = navigator.userAgent;
+  if (/iPad/i.test(ua)) {
+    deviceName = 'iPad';
+  } else if (/iPhone/i.test(ua)) {
+    deviceName = 'iPhone';
+  } else if (/Android/i.test(ua)) {
+    deviceName = 'Android Device';
+  } else if (/Macintosh/i.test(ua)) {
+    deviceName = 'Mac';
+  } else if (/Windows/i.test(ua)) {
+    deviceName = 'Windows PC';
+  }
+
+  if (isAndroidTauriApp.value) {
+    deviceName += ' (App)';
+  }
+
+  connectionStore.send({
+    type: 'device_info',
+    payload: {
+      width,
+      height,
+      deviceName,
+    },
+  });
+};
+
+watch(
+  viewportKey,
+  () => {
+    if (connectionStore.status === 'connected') {
+      sendDeviceInfo();
+    }
+  }
+);
+
 watch(
   () => connectionStore.status,
   next => {
     if (next === 'connected') {
       scanStatus.value = 'idle';
+      sendDeviceInfo();
     } else if (
       (next === 'error' || next === 'disconnected') &&
       scanStatus.value === 'success'
@@ -393,12 +450,7 @@ onUnmounted(() => {
 <template>
   <div
     class="w-screen flex flex-col overflow-hidden relative"
-    :style="{
-      backgroundColor: layoutStore.layout.theme === 'genshin-01' ? 'transparent' : 'var(--theme-bg)',
-      paddingTop: 'env(safe-area-inset-top)',
-      paddingBottom: 'env(safe-area-inset-bottom)',
-      height: 'calc(var(--vh, 1vh) * 100)',
-    }"
+    :style="containerStyle"
   >
     <!-- Grid Area occupies 98% of the screen when connected -->
     <div

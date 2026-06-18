@@ -54,6 +54,6 @@ export interface InstalledApp {
 }
 
 export interface WSMessage {
-  type: 'auth' | 'ping' | 'pong' | 'press' | 'sync_layout' | 'toast' | 'metric_update';
+  type: 'auth' | 'ping' | 'pong' | 'press' | 'sync_layout' | 'toast' | 'metric_update' | 'device_info';
   payload?: any;
 }

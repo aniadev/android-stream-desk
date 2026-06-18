@@ -23,30 +23,30 @@ const emit = defineEmits<{
           : 'border-slate-800 bg-slate-950/40 hover:border-slate-700'
       "
       :style="{
-        '--theme-accent': meta.previewColor
+        '--theme-accent': meta.previewColor,
       }"
     >
       <!-- Theme Visual Demo Area -->
-      <div 
+      <div
         class="flex-1 flex items-center justify-center p-2 relative overflow-hidden"
         :class="{
           'bg-gradient-to-b from-[#050a14] to-[#02050c]': name === 'cyber',
           'bg-gradient-to-b from-[#0a0012] to-[#10041c]': name === 'midnight',
           'bg-gradient-to-b from-[#100804] to-[#1a0c06]': name === 'ember',
-          'bg-slate-900': name === 'genshin-01'
+          'bg-slate-900': name === 'genshin-01',
         }"
       >
         <!-- For Genshin: show a mini background image thumbnail -->
-        <div 
-          v-if="name === 'genshin-01'" 
-          class="absolute inset-0 bg-cover bg-center opacity-60 pointer-events-none" 
-          style="background-image: url('/themes/genshin/bg.jpg')" 
+        <div
+          v-if="name === 'genshin-01'"
+          class="absolute inset-0 bg-cover bg-center opacity-60 pointer-events-none"
+          style="background-image: url('/themes/genshin/bg-01.jpg')"
         />
-        
+
         <!-- Mini Button Mockups -->
         <div class="relative z-10 grid grid-cols-3 gap-1">
-          <div 
-            v-for="i in 3" 
+          <div
+            v-for="i in 3"
             :key="i"
             class="w-4 h-4 rounded-sm transition-all duration-150"
             :class="{
@@ -54,23 +54,35 @@ const emit = defineEmits<{
               'border border-purple-500 shadow-[0_0_3px_rgba(168,85,247,0.4)]': name === 'midnight',
               'border border-orange-500 shadow-[0_0_3px_rgba(249,115,22,0.4)]': name === 'ember',
             }"
-            :style="name === 'genshin-01' ? {
-              border: '2px solid transparent',
-              borderImageSource: 'url(\'/themes/genshin/frame-01.png\')',
-              borderImageSlice: '160 fill',
-              borderImageRepeat: 'stretch'
-            } : {}"
+            :style="
+              name === 'genshin-01'
+                ? {
+                    border: '2px solid transparent',
+                    borderImageSource: 'url(\'/themes/genshin/frame-01.png\')',
+                    borderImageSlice: '160 fill',
+                    borderImageRepeat: 'stretch',
+                  }
+                : {}
+            "
           />
         </div>
       </div>
-      
+
       <!-- Theme Label Bar -->
-      <div class="h-6 flex items-center justify-between px-2.5 bg-slate-950/90 border-t border-slate-900">
-        <span class="text-[9px] font-bold uppercase tracking-wider text-slate-300">{{ meta.label }}</span>
+      <div
+        class="h-6 flex items-center justify-between px-2.5 bg-slate-950/90 border-t border-slate-900"
+      >
+        <span class="text-[9px] font-bold uppercase tracking-wider text-slate-300">{{
+          meta.label
+        }}</span>
         <!-- Radio selection dot -->
-        <span 
+        <span
           class="w-2 h-2 rounded-full border transition-all duration-150"
-          :class="activeTheme === name ? 'bg-[var(--theme-accent)] border-transparent' : 'border-slate-700'"
+          :class="
+            activeTheme === name
+              ? 'bg-[var(--theme-accent)] border-transparent'
+              : 'border-slate-700'
+          "
         />
       </div>
     </button>

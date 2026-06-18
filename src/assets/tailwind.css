@@ -166,20 +166,6 @@
   --theme-clip-path: none;
   --theme-shell-clip-path: none;
   --theme-shell-bg: rgba(20, 24, 30, 0.45);
-
-  /* Set background image on root */
-  background-image: url('/themes/genshin/bg.jpg') !important;
-  background-size: cover !important;
-  background-position: center !important;
-  background-repeat: no-repeat !important;
-  background-attachment: fixed !important;
-}
-
-/* Set body and cyber-dashboard backgrounds to transparent for genshin theme */
-:root[data-theme='genshin-01'] body,
-:root[data-theme='genshin-01'] main,
-:root[data-theme='genshin-01'] .cyber-dashboard {
-  background: transparent !important;
 }
 
 :root[data-theme='genshin-01'] .cyber-panel {
