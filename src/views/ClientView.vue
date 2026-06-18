@@ -34,6 +34,20 @@ const scanStatus = ref<'idle' | 'scanning' | 'permission_denied' | 'cancelled' |
 const scannedEndpointLabel = ref('');
 let toastTimer: number | null = null;
 
+const viewportKey = ref(0);
+let viewportTimeout: any = null;
+const updateViewportHeight = () => {
+  const vh = (window.visualViewport ? window.visualViewport.height : window.innerHeight) * 0.01;
+  document.documentElement.style.setProperty('--vh', `${vh}px`);
+  viewportKey.value++;
+};
+const debouncedUpdateViewport = () => {
+  if (viewportTimeout) clearTimeout(viewportTimeout);
+  viewportTimeout = setTimeout(() => {
+    updateViewportHeight();
+  }, 150);
+};
+
 const showToast = (msg: string, ms = 3500) => {
   toastMessage.value = msg;
   if (toastTimer !== null) clearTimeout(toastTimer);
@@ -321,6 +335,13 @@ watch(
 
 onMounted(async () => {
   applyOrientation(orientationMode.value);
+  updateViewportHeight();
+
+  window.addEventListener('resize', debouncedUpdateViewport);
+  window.addEventListener('orientationchange', debouncedUpdateViewport);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', debouncedUpdateViewport);
+  }
 
   const unlock = () => {
     unlockAudio();
@@ -356,6 +377,12 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (toastTimer !== null) clearTimeout(toastTimer);
+  if (viewportTimeout) clearTimeout(viewportTimeout);
+  window.removeEventListener('resize', debouncedUpdateViewport);
+  window.removeEventListener('orientationchange', debouncedUpdateViewport);
+  if (window.visualViewport) {
+    window.visualViewport.removeEventListener('resize', debouncedUpdateViewport);
+  }
   if (isScanningQr.value) void cancelScanQr();
   releaseWakeLock().catch(() => {});
   document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -365,11 +392,12 @@ onUnmounted(() => {
 
 <template>
   <div
-    class="w-screen flex flex-col overflow-hidden relative h-dvh"
+    class="w-screen flex flex-col overflow-hidden relative"
     :style="{
-      backgroundColor: 'var(--theme-bg)',
+      backgroundColor: layoutStore.layout.theme === 'genshin-01' ? 'transparent' : 'var(--theme-bg)',
       paddingTop: 'env(safe-area-inset-top)',
       paddingBottom: 'env(safe-area-inset-bottom)',
+      height: 'calc(var(--vh, 1vh) * 100)',
     }"
   >
     <!-- Grid Area occupies 98% of the screen when connected -->
@@ -377,7 +405,7 @@ onUnmounted(() => {
       v-if="connectionStore.status === 'connected' || (connectionStore.hasConnectedOnce && !showConnectModal)"
       class="flex-1 w-full h-full flex items-center justify-center"
     >
-      <GridArea class="w-full h-full origin-center" />
+      <GridArea :viewport-key="viewportKey" class="w-full h-full origin-center" />
     </div>
 
     <!-- Offline Glass Connection Modal Popup centered when not connected -->

@@ -4,6 +4,18 @@ All notable changes to the **Android Stream Desk** project will be documented in
 
 ---
 
+## [1.6.0] - 2026-06-18
+
+### Added
+- Bổ sung Pastel Soft Anime Theme với tông màu hồng phấn/oải hương, font hệ thống tròn và họa tiết chấm tròn tinh tế.
+- Thêm tính năng Copy, Paste và Duplicate cấu hình nút bấm trực tiếp trên Companion Dashboard.
+- Nâng cấp UX nút Monitor (RAM/CPU) hiển thị progress indicator và cảnh báo màu sắc theo ngưỡng sử dụng.
+
+### Fixed
+- Sửa lỗi hiển thị méo hoặc tràn nút bấm khi Android/Web Client thay đổi chiều xoay màn hình.
+
+---
+
 ## [1.5.2] - 2026-06-05
 
 ### Fixed

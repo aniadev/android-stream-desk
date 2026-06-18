@@ -1,4 +1,4 @@
-export type ThemeName = 'cyber' | 'midnight' | 'ember';
+export type ThemeName = 'cyber' | 'midnight' | 'ember' | 'genshin-01';
 
 export interface ThemeConfig {
   name: string;

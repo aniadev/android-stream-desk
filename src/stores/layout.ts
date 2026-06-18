@@ -50,6 +50,7 @@ const sanitizeButton = (b: any, i: number): ButtonConfig => ({
   commandValue: typeof b?.commandValue === 'string' ? b.commandValue : undefined,
   linkUrl: sanitizeLinkUrl(b?.linkUrl),
   iconSizing: ['normal', 'cover', 'contain', 'fill'].includes(b?.iconSizing) ? b.iconSizing : undefined,
+  genshinFrame: [1, 2, 3, 4].includes(b?.genshinFrame) ? b.genshinFrame : undefined,
 });
 
 const migrateLayout = (raw: any): Layout => {
@@ -188,6 +189,55 @@ export const useLayoutStore = defineStore('layout', () => {
     ram_percent: 0,
     cpu_percent: 0,
   });
+
+  // Clipboard state for buttons
+  const copiedButton = ref<Omit<ButtonConfig, 'id'> | null>(null);
+  const hasCopiedButton = computed(() => copiedButton.value !== null);
+
+  const copyButtonConfig = (button: ButtonConfig) => {
+    const { id, ...rest } = button;
+    copiedButton.value = JSON.parse(JSON.stringify(rest));
+  };
+
+  const pasteButtonConfig = (targetId: string) => {
+    if (!copiedButton.value) return;
+    const pages = layout.value.pages || [];
+    const page = pages[currentPageIndex.value];
+    if (!page) return;
+    const targetIdx = page.buttons.findIndex(b => b.id === targetId);
+    if (targetIdx === -1) return;
+
+    const newId = `btn_${Date.now()}_${targetId}`;
+    const pasted: ButtonConfig = {
+      ...JSON.parse(JSON.stringify(copiedButton.value)),
+      id: newId,
+    };
+    page.buttons[targetIdx] = pasted;
+    updateLayout({ ...layout.value });
+  };
+
+  const duplicateButtonConfig = (sourceId: string): boolean => {
+    const pages = layout.value.pages || [];
+    const page = pages[currentPageIndex.value];
+    if (!page) return false;
+    const sourceBtn = page.buttons.find(b => b.id === sourceId);
+    if (!sourceBtn) return false;
+
+    // Find first empty slot (a button that has icon 'mdi:button' and default styling)
+    const targetIdx = page.buttons.findIndex(
+      b => b.icon === 'mdi:button' && b.backgroundColor === '#1e293b' && b.id !== sourceId
+    );
+    if (targetIdx === -1) return false;
+
+    const newId = `btn_${Date.now()}_dup_${sourceId}`;
+    const pasted: ButtonConfig = {
+      ...JSON.parse(JSON.stringify(sourceBtn)),
+      id: newId,
+    };
+    page.buttons[targetIdx] = pasted;
+    updateLayout({ ...layout.value });
+    return true;
+  };
 
   const currentPage = computed(() => {
     const pages = layout.value.pages || [];
@@ -470,5 +520,10 @@ export const useLayoutStore = defineStore('layout', () => {
     setPage,
     exportLayout,
     importLayout,
+    copiedButton,
+    hasCopiedButton,
+    copyButtonConfig,
+    pasteButtonConfig,
+    duplicateButtonConfig,
   };
 });

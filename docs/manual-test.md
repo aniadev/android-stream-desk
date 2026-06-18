@@ -109,6 +109,8 @@ Setup test:
 | 5.3 | shortcut = `Alt+Tab` | Trigger | Cửa sổ switch. |
 | 5.4 | shortcut = `bogus_key_xxx` | Trigger | Toast đỏ hiện trên Client: "Unrecognized key token: ...". Modifiers KHÔNG kẹt (verify: gõ phím thường, không bị stuck Ctrl). |
 | 5.5 | shortcut = `Ctrl+Shift` (chỉ modifier) | Trigger | Toast lỗi "has only modifiers and no base key". |
+| 5.6 | Sao chép/dán phím | Chọn phím A, nhấn Ctrl+C, chọn phím B, nhấn Ctrl+V | Phím B nhận toàn bộ cấu hình của phím A (nhãn, màu, action/monitor). |
+| 5.7 | Nhân bản phím | Chọn phím A, nhấn Dup | Cấu hình phím A được dán vào ô trống đầu tiên trên trang hiện tại. |
 
 **Critical test — modifier release:** Gõ 5 lần shortcut `Ctrl+Tab` liên tục nhanh. Sau đó gõ chữ thường vào editor. Không được có `Ctrl` kẹt (chữ không bị command-mode).
 

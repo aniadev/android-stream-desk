@@ -148,6 +148,8 @@ pub struct ButtonConfig {
     monitor_config: Option<serde_json::Value>,
     #[serde(rename = "iconSizing")]
     icon_sizing: Option<String>,
+    #[serde(rename = "genshinFrame")]
+    genshin_frame: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -1599,6 +1601,7 @@ mod tests {
             button_kind: Some("action".to_string()),
             monitor_config: None,
             icon_sizing: None,
+            genshin_frame: None,
         };
         let json = serde_json::to_value(&original).unwrap();
         assert_eq!(json["linkUrl"], "https://example.com/x");

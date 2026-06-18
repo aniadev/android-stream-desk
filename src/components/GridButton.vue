@@ -61,6 +61,41 @@ const metricValue = computed(() => {
   return Math.round(val);
 });
 
+const monitorLoadState = computed<'normal' | 'warning' | 'critical'>(() => {
+  const val = metricValue.value;
+  if (typeof val !== 'number' || isNaN(val)) return 'normal';
+  if (val >= 90) return 'critical';
+  if (val >= 70) return 'warning';
+  return 'normal';
+});
+
+const monitorColor = computed(() => {
+  if (!isMonitor.value) return neonColor.value;
+  if (monitorLoadState.value === 'critical') return '#ef4444';
+  if (monitorLoadState.value === 'warning') return '#f59e0b';
+  return neonColor.value;
+});
+
+const monitorGlow = computed(() => {
+  if (!isMonitor.value) return neonGlow.value;
+  if (monitorLoadState.value === 'critical') return 'rgba(239, 68, 68, 0.5)';
+  if (monitorLoadState.value === 'warning') return 'rgba(245, 158, 11, 0.5)';
+  return neonGlow.value;
+});
+
+const circleRadius = computed(() => (props.compact ? 13 : 15));
+const dashArray = computed(() => 2 * Math.PI * circleRadius.value);
+const dashOffset = computed(() => {
+  const val = typeof metricValue.value === 'number' ? metricValue.value : 0;
+  const clamped = Math.max(0, Math.min(100, val));
+  return dashArray.value - (clamped / 100) * dashArray.value;
+});
+
+const genshinFrameClass = computed(() => {
+  const frame = props.button.genshinFrame || 1;
+  return `genshin-frame-${frame}`;
+});
+
 function handleClick() {
   emit('press', props.button);
 }
@@ -75,41 +110,85 @@ function handleClick() {
       'gap-0.5 p-1': compact && !isMonitor,
       'cyber-btn--selected': selected,
       'cyber-btn--monitor': isMonitor,
+      'theme-genshin-btn': layoutStore.layout.theme === 'genshin-01',
+      [genshinFrameClass]: layoutStore.layout.theme === 'genshin-01',
     }"
     :style="{
       '--neon': neonColor,
       '--neon-glow': neonGlow,
-      backgroundColor: 'var(--theme-btn-bg)',
-      borderColor: neonColor,
-      boxShadow: selected
-        ? `0 0 10px 2px ${neonGlow}, 0 0 25px 4px ${neonGlow.replace('0.5)', '0.25)')}`
-        : `0 0 5px 1px ${neonGlow}, 0 0 12px 1px ${neonGlow.replace('0.5)', '0.15)')}`,
+      backgroundColor:
+        layoutStore.layout.theme === 'genshin-01' ? 'transparent' : 'var(--theme-btn-bg)',
+      borderColor: layoutStore.layout.theme === 'genshin-01' ? 'transparent' : neonColor,
+      boxShadow:
+        layoutStore.layout.theme === 'genshin-01'
+          ? 'none'
+          : selected
+            ? `0 0 10px 2px ${neonGlow}, 0 0 25px 4px ${neonGlow.replace('0.5)', '0.25)')}`
+            : `0 0 5px 1px ${neonGlow}, 0 0 12px 1px ${neonGlow.replace('0.5)', '0.15)')}`,
     }"
   >
     <!-- Monitor display -->
     <template v-if="isMonitor">
-      <Icon
-        :icon="monitorIcon"
-        class="transition-all duration-150"
-        :style="{
-          color: neonColor,
-          fontSize: compact ? '1.1rem' : '1.4rem',
-          filter: `drop-shadow(0 0 4px ${neonGlow})`,
-        }"
-      />
+      <div
+        class="relative flex items-center justify-center"
+        :style="{ width: compact ? '2.5rem' : '3.5rem', height: compact ? '2.5rem' : '3.5rem' }"
+      >
+        <!-- Circular Progress Ring Background -->
+        <svg class="absolute transform -rotate-90 w-full h-full" viewBox="0 0 36 36">
+          <circle
+            cx="18"
+            cy="18"
+            :r="circleRadius"
+            fill="transparent"
+            stroke="rgba(255, 255, 255, 0.05)"
+            stroke-width="2.5"
+          />
+          <!-- Foreground Ring -->
+          <circle
+            cx="18"
+            cy="18"
+            :r="circleRadius"
+            fill="transparent"
+            :stroke="monitorColor"
+            stroke-width="2.5"
+            :stroke-dasharray="dashArray"
+            :stroke-dashoffset="dashOffset"
+            stroke-linecap="round"
+            class="transition-all duration-300 ease-out"
+            :style="{
+              filter: `drop-shadow(0 0 3px ${monitorGlow})`,
+            }"
+          />
+        </svg>
+
+        <Icon
+          :icon="monitorIcon"
+          class="transition-all duration-150 relative z-10"
+          :class="{
+            'animate-pulse-slow': monitorLoadState === 'warning',
+            'animate-pulse-fast': monitorLoadState === 'critical',
+          }"
+          :style="{
+            color: monitorColor,
+            fontSize: compact ? '1rem' : '1.25rem',
+            filter: `drop-shadow(0 0 4px ${monitorGlow})`,
+          }"
+        />
+      </div>
+
       <span
-        class="font-bold font-mono leading-none"
+        class="font-bold font-mono leading-none mt-1 z-10"
         :style="{
-          color: neonColor,
-          fontSize: compact ? '0.85rem' : '1.1rem',
-          textShadow: `0 0 8px ${neonGlow}`,
+          color: monitorColor,
+          fontSize: compact ? '0.8rem' : '1rem',
+          textShadow: `0 0 8px ${monitorGlow}`,
         }"
         >{{ metricValue }}%</span
       >
       <span
-        class="text-center leading-tight px-0.5 select-none uppercase tracking-wider"
+        class="text-center leading-tight px-0.5 select-none uppercase tracking-wider mt-0.5 z-10"
         :style="{
-          color: neonColor,
+          color: monitorColor,
           fontSize: compact ? '0.45rem' : '0.5rem',
           opacity: 0.7,
         }"
@@ -121,17 +200,30 @@ function handleClick() {
     <template v-else>
       <!-- Selected ring indicator -->
       <span
-        v-if="selected"
+        v-if="selected && layoutStore.layout.theme !== 'genshin-01'"
         class="absolute inset-1 pointer-events-none border-2"
         :style="{
           borderColor: neonColor,
           boxShadow: `inset 0 0 12px 2px ${neonGlow}, 0 0 8px 1px ${neonGlow}`,
+          borderRadius: undefined,
           clipPath: `polygon(3px 0%, calc(100% - 3px) 0%, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 0% calc(100% - 3px), 0% 3px)`,
         }"
       />
+      <!-- Selected checkmark -->
+      <!-- <span
+        v-if="selected"
+        class="absolute top-0 right-0 h-4 w-4 rounded-full flex items-center justify-center text-[8px] font-bold text-black pointer-events-none animate-scaleIn"
+        :style="{
+          backgroundColor: neonColor,
+          boxShadow: `0 0 8px ${neonGlow}`,
+        }"
+      >
+        ✓
+      </span> -->
 
       <!-- Scanline overlay -->
       <span
+        v-if="layoutStore.layout.theme !== 'genshin-01'"
         class="absolute inset-0 pointer-events-none opacity-[0.06]"
         :style="{
           background: `repeating-linear-gradient(0deg, transparent, transparent 2px, ${neonColor} 2px, ${neonColor} 3px)`,
@@ -140,21 +232,25 @@ function handleClick() {
 
       <!-- Corner accents -->
       <span
+        v-if="layoutStore.layout.theme !== 'genshin-01'"
         class="absolute top-1.5 left-1.5 w-2 h-2 border-t-2 border-l-2 pointer-events-none"
         :class="compact ? 'w-1.5 h-1.5' : 'w-2 h-2'"
         :style="{ borderColor: neonColor }"
       />
       <span
+        v-if="layoutStore.layout.theme !== 'genshin-01'"
         class="absolute top-1.5 right-1.5 border-t-2 border-r-2 pointer-events-none"
         :class="compact ? 'w-1.5 h-1.5' : 'w-2 h-2'"
         :style="{ borderColor: neonColor }"
       />
       <span
+        v-if="layoutStore.layout.theme !== 'genshin-01'"
         class="absolute bottom-1.5 left-1.5 border-b-2 border-l-2 pointer-events-none"
         :class="compact ? 'w-1.5 h-1.5' : 'w-2 h-2'"
         :style="{ borderColor: neonColor }"
       />
       <span
+        v-if="layoutStore.layout.theme !== 'genshin-01'"
         class="absolute bottom-1.5 right-1.5 border-b-2 border-r-2 pointer-events-none"
         :class="compact ? 'w-1.5 h-1.5' : 'w-2 h-2'"
         :style="{ borderColor: neonColor }"
@@ -240,18 +336,6 @@ function handleClick() {
       >
         {{ button.label }}
       </span>
-
-      <!-- Selected checkmark -->
-      <span
-        v-if="selected"
-        class="absolute top-1 right-1 h-4 w-4 rounded-full flex items-center justify-center text-[8px] font-bold text-black pointer-events-none animate-scaleIn"
-        :style="{
-          backgroundColor: neonColor,
-          boxShadow: `0 0 8px ${neonGlow}`,
-        }"
-      >
-        ✓
-      </span>
     </template>
   </button>
 </template>
@@ -259,16 +343,9 @@ function handleClick() {
 <style scoped>
 .cyber-btn {
   border: 1.5px solid var(--neon);
-  clip-path: polygon(
-    4px 0%,
-    calc(100% - 4px) 0%,
-    100% 4px,
-    100% calc(100% - 4px),
-    calc(100% - 4px) 100%,
-    4px 100%,
-    0% calc(100% - 4px),
-    0% 4px
-  );
+  border-radius: var(--theme-btn-radius);
+  clip-path: var(--theme-clip-path);
+  font-family: var(--theme-font-family);
 }
 
 @media (hover: hover) {
@@ -334,5 +411,35 @@ function handleClick() {
   flex-direction: column;
   justify-content: center;
   align-items: center;
+}
+
+@keyframes pulse-slow {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@keyframes pulse-fast {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.2;
+    transform: scale(0.92);
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-pulse-fast {
+  animation: pulse-fast 0.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 </style>

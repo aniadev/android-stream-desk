@@ -7,6 +7,10 @@ import { useSettingsStore } from '../stores/settings';
 import { playClick } from '../lib/clicksound';
 import type { DisplayFitMode } from '../stores/settings';
 
+const props = defineProps<{
+  viewportKey?: number;
+}>();
+
 const layoutStore = useLayoutStore();
 const settingsStore = useSettingsStore();
 
@@ -18,6 +22,12 @@ const isCover = computed(() => fitMode.value === 'cover');
 const applyContainMaxWidth = computed(() => fitMode.value === 'contain');
 
 const scrollerRef = ref<HTMLElement | null>(null);
+
+watch(() => props.viewportKey, () => {
+  nextTick(() => {
+    scrollToIndex(layoutStore.currentPageIndex);
+  });
+});
 
 function handlePress(button: Parameters<typeof layoutStore.pressButton>[0]) {
   if (button.buttonKind === 'monitor') return;
@@ -131,7 +141,11 @@ watch(fitMode, () => {
     <!-- Stream Deck Cyberpunk Shell -->
     <div
       class="cyber-shell relative w-full h-full flex flex-col items-center justify-center overflow-hidden"
-      :class="{ 'max-w-2xl': applyContainMaxWidth, 'shell--fullscreen': isFullscreen }"
+      :class="{
+        'max-w-2xl': applyContainMaxWidth,
+        'shell--fullscreen': isFullscreen,
+        'theme-genshin-shell': layoutStore.layout.theme === 'genshin-01'
+      }"
     >
       <!-- Scanline overlay (hidden in fullscreen) -->
       <div
@@ -146,7 +160,7 @@ watch(fitMode, () => {
       />
 
       <!-- Corner neon brackets (hidden in fullscreen) -->
-      <template v-if="!isFullscreen">
+      <template v-if="!isFullscreen && layoutStore.layout.theme !== 'genshin-01'">
         <span
           class="absolute top-3 left-3 w-5 h-5 border-t-[3px] border-l-[3px] pointer-events-none z-20"
           :style="{ borderColor: 'var(--theme-corner-a)' }"
@@ -240,23 +254,15 @@ watch(fitMode, () => {
   background:
     radial-gradient(ellipse at 50% 0%, var(--theme-shell-top) 0%, transparent 60%),
     radial-gradient(ellipse at 50% 100%, var(--theme-shell-bottom) 0%, transparent 60%),
-    linear-gradient(180deg, #050a14 0%, #02050c 50%, #050a14 100%);
+    var(--theme-shell-bg);
   border: 1px solid var(--theme-shell-border);
+  border-radius: var(--theme-btn-radius);
   box-shadow:
     0 0 0 1px var(--theme-shell-border),
     0 4px 40px -8px rgba(0, 0, 0, 0.6),
     0 0 80px -16px var(--theme-shell-top),
     inset 0 0 40px -16px var(--theme-shell-top);
-  clip-path: polygon(
-    6px 0%,
-    calc(100% - 6px) 0%,
-    100% 6px,
-    100% calc(100% - 6px),
-    calc(100% - 6px) 100%,
-    6px 100%,
-    0% calc(100% - 6px),
-    0% 6px
-  );
+  clip-path: var(--theme-shell-clip-path);
 }
 
 .scroller {
@@ -302,5 +308,11 @@ watch(fitMode, () => {
 :deep(.cyber-ghost) {
   opacity: 0.25;
   transition: opacity 0.15s;
+}
+
+.theme-genshin-shell {
+  box-shadow:
+    0 10px 30px -10px rgba(0, 0, 0, 0.7),
+    inset 0 0 0 1px rgba(211, 188, 142, 0.1) !important;
 }
 </style>

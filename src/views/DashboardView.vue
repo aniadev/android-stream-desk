@@ -99,7 +99,7 @@ const apkCopyHint = ref<string>('');
 const colorCopyHint = ref<string>('');
 const syncHint = ref<string>('');
 let syncTimer: ReturnType<typeof setTimeout> | null = null;
-const appVersion = ref<string>('1.5.2');
+const appVersion = ref<string>('1.6.0');
 
 const isMac = computed(() => {
   return (
@@ -146,12 +146,12 @@ const settingsGroups: Array<{ id: SettingsGroupId; label: string; icon: string }
 
 const typographyClass = FONT_TIER_CLASS;
 const visibleSettingsGroups = computed(() =>
-  settingsGroups.filter((group) => group.id !== 'permissions' || isMac.value),
+  settingsGroups.filter(group => group.id !== 'permissions' || isMac.value),
 );
 const activeSettingsGroup = ref<SettingsGroupId>('general');
 
 const scrollToSettingsGroup = (id: SettingsGroupId) => {
-  if (!visibleSettingsGroups.value.some((group) => group.id === id)) return;
+  if (!visibleSettingsGroups.value.some(group => group.id === id)) return;
   activeSettingsGroup.value = id;
   const el = document.getElementById(`settings-group-${id}`);
   if (el) {
@@ -162,7 +162,7 @@ const scrollToSettingsGroup = (id: SettingsGroupId) => {
 const onSettingsScroll = (e: Event) => {
   const container = e.target as HTMLElement;
   if (!container) return;
-  const groups: SettingsGroupId[] = visibleSettingsGroups.value.map((g) => g.id);
+  const groups: SettingsGroupId[] = visibleSettingsGroups.value.map(g => g.id);
   let current: SettingsGroupId = groups[0];
   for (const id of groups) {
     const el = document.getElementById(`settings-group-${id}`);
@@ -240,6 +240,61 @@ const handleEscKey = (e: KeyboardEvent) => {
   }
 };
 
+const duplicateSelected = () => {
+  if (!selectedButton.value) return;
+  const ok = layoutStore.duplicateButtonConfig(selectedButton.value.id);
+  if (ok) {
+    layoutStore.lastToast = {
+      kind: 'info',
+      message: 'Đã nhân bản phím sang ô trống đầu tiên!',
+      at: Date.now(),
+    };
+  } else {
+    layoutStore.lastToast = {
+      kind: 'error',
+      message: 'Không còn ô trống trên trang này để nhân bản.',
+      at: Date.now(),
+    };
+  }
+};
+
+const handleClipboardShortcuts = (e: KeyboardEvent) => {
+  const target = e.target as HTMLElement;
+  if (
+    target &&
+    (target.tagName === 'INPUT' ||
+      target.tagName === 'TEXTAREA' ||
+      target.tagName === 'SELECT' ||
+      target.isContentEditable)
+  ) {
+    return;
+  }
+
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+    if (selectedButton.value) {
+      e.preventDefault();
+      layoutStore.copyButtonConfig(selectedButton.value);
+      layoutStore.lastToast = {
+        kind: 'info',
+        message: `Đã sao chép cấu hình nút "${selectedButton.value.label || 'Không tên'}"`,
+        at: Date.now(),
+      };
+    }
+  }
+
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
+    if (selectedButton.value && layoutStore.hasCopiedButton) {
+      e.preventDefault();
+      layoutStore.pasteButtonConfig(selectedButton.value.id);
+      layoutStore.lastToast = {
+        kind: 'info',
+        message: 'Đã dán cấu hình thành công!',
+        at: Date.now(),
+      };
+    }
+  }
+};
+
 const openGuide = (topic?: 'browser' | 'shortcut' | 'firewall') => {
   if (topic) {
     guideTopic.value = topic;
@@ -249,7 +304,7 @@ const openGuide = (topic?: 'browser' | 'shortcut' | 'firewall') => {
 const autostartOn = ref(false);
 const autostartLoading = ref(false);
 
-watch(settingsOpen, async (open) => {
+watch(settingsOpen, async open => {
   if (open) {
     autostartLoading.value = true;
     try {
@@ -356,7 +411,9 @@ const listenerHealthBadge = computed(() => {
 
   const webConfigured = savedServerConfig.value?.webEnabled ?? false;
   const restartPending =
-    !wsReady.value || runningWsPort.value !== serverPort.value || (webConfigured && !webReady.value);
+    !wsReady.value ||
+    runningWsPort.value !== serverPort.value ||
+    (webConfigured && !webReady.value);
 
   if (restartPending) {
     return {
@@ -391,7 +448,9 @@ const webClientUrl = computed(() => {
   });
 });
 
-const webClientQrSvg = computed(() => (webClientUrl.value ? safeCreateQrSvg(webClientUrl.value) : ''));
+const webClientQrSvg = computed(() =>
+  webClientUrl.value ? safeCreateQrSvg(webClientUrl.value) : '',
+);
 
 const apkConnectPayload = computed(() => {
   return buildApkEndpointPayload({
@@ -436,7 +495,9 @@ const buildServerConfigPayload = (): ServerConfig | null => {
   };
 };
 
-const loadServerConfig = async (invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>) => {
+const loadServerConfig = async (
+  invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>,
+) => {
   const config = await invoke<ServerConfig>('get_server_config');
   savedServerConfig.value = config;
   serverConfigDraft.value = toServerConfigDraft(config);
@@ -466,7 +527,8 @@ const saveNetworkSettingsAndRelaunch = async () => {
     savedServerConfig.value = payload;
     restartDialogOpen.value = true;
     restartDialogFailed.value = false;
-    restartDialogMessage.value = 'Đã lưu cấu hình. Companion đang khởi động lại để áp dụng cổng mới...';
+    restartDialogMessage.value =
+      'Đã lưu cấu hình. Companion đang khởi động lại để áp dụng cổng mới...';
 
     if (isDevBuild) {
       restartDialogFailed.value = true;
@@ -523,7 +585,7 @@ const toggleAutostart = async () => {
     layoutStore.lastToast = {
       kind: 'error',
       message: `Lỗi thiết lập khởi động: ${err?.message || err}. Hãy chạy ứng dụng với quyền Administrator hoặc kiểm tra danh sách Startup.`,
-      at: Date.now()
+      at: Date.now(),
     };
   } finally {
     autostartLoading.value = false;
@@ -690,13 +752,18 @@ const handleAppPathPaste = async (e: ClipboardEvent) => {
   }
 
   // Fallback: If clipboard has no valid text path but might contain a copied file (CF_HDROP)
-  if (!text || (!text.toLowerCase().endsWith('.lnk') && !text.includes('\\') && !text.includes('/'))) {
+  if (
+    !text ||
+    (!text.toLowerCase().endsWith('.lnk') && !text.includes('\\') && !text.includes('/'))
+  ) {
     e.preventDefault();
     try {
       const { invoke } = await import('@tauri-apps/api/core');
       const files = await invoke<string[]>('read_clipboard_files');
-      
-      const file = files.find(f => f.toLowerCase().endsWith('.lnk') || f.toLowerCase().endsWith('.exe'));
+
+      const file = files.find(
+        f => f.toLowerCase().endsWith('.lnk') || f.toLowerCase().endsWith('.exe'),
+      );
       if (file) {
         if (file.toLowerCase().endsWith('.lnk')) {
           const resolved = await invoke<string>('resolve_shortcut', { lnkPath: file });
@@ -726,13 +793,13 @@ const handleCustomIconUpload = (e: Event) => {
     layoutStore.lastToast = {
       kind: 'error',
       message: 'Vui lòng chọn tệp ảnh PNG hoặc JPG!',
-      at: Date.now()
+      at: Date.now(),
     };
     return;
   }
 
   const reader = new FileReader();
-  reader.onload = (event) => {
+  reader.onload = event => {
     const img = new Image();
     img.onload = () => {
       // Create canvas for downscaling
@@ -756,14 +823,14 @@ const handleCustomIconUpload = (e: Event) => {
 
         // Export to highly compressed webp/png data URL
         const dataURL = canvas.toDataURL('image/png'); // Standard format
-        
+
         // Base64 size overhead check: ~1.37 times raw binary size.
         // Cap is 20KB = 20480 bytes * 1.37 = ~28057 chars.
         if (dataURL.length > 28057) {
           layoutStore.lastToast = {
             kind: 'info',
             message: 'Ảnh đã được nén nhưng vượt 20KB. Payload tải có thể phình to.',
-            at: Date.now()
+            at: Date.now(),
           };
         }
 
@@ -1031,6 +1098,7 @@ const toggleRecording = () => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleEscKey);
+  window.removeEventListener('keydown', handleClipboardShortcuts);
   window.removeEventListener('keydown', handleKeyDown, true);
   window.removeEventListener('keyup', handleKeyUp, true);
   window.removeEventListener('blur', handleWindowBlur);
@@ -1061,7 +1129,9 @@ const isMacPlatform = computed(
     navigator.platform.toLowerCase().includes('mac'),
 );
 
-const hasInputPermission = computed(() => inputPermissionDiagnostics.value?.trusted ?? legacyInputPermission.value);
+const hasInputPermission = computed(
+  () => inputPermissionDiagnostics.value?.trusted ?? legacyInputPermission.value,
+);
 
 const inputPermissionNeedsRecovery = computed(() => {
   const diagnostics = inputPermissionDiagnostics.value;
@@ -1164,6 +1234,7 @@ const scrollToAccessibilityRecovery = async () => {
 
 onMounted(async () => {
   window.addEventListener('keydown', handleEscKey);
+  window.addEventListener('keydown', handleClipboardShortcuts);
   try {
     // @ts-ignore
     if (window.__TAURI_INTERNALS__) {
@@ -1183,17 +1254,17 @@ onMounted(async () => {
       // (re)bind event firing during init isn't lost — otherwise runningWsPort/
       // webReady could stay stale until the next mount.
       const { listen } = await import('@tauri-apps/api/event');
-      const unlistenCount = await listen<{ count: number }>('client-count-changed', (e) => {
+      const unlistenCount = await listen<{ count: number }>('client-count-changed', e => {
         activeConnectionsCount.value = e.payload.count;
       });
       // WS bind errors only — web bind errors arrive on the separate
       // `server-web-error` event (WsServerErrorPayload carries no `kind`).
-      const unlistenError = await listen<ListenerBindError>('server-error', (e) => {
+      const unlistenError = await listen<ListenerBindError>('server-error', e => {
         wsReady.value = false;
         runningWsPort.value = null;
         wsBindError.value = e.payload;
       });
-      const unlistenReady = await listen<{ port: number }>('server-ready', (e) => {
+      const unlistenReady = await listen<{ port: number }>('server-ready', e => {
         wsReady.value = true;
         runningWsPort.value = e.payload.port;
         wsBindError.value = null;
@@ -1202,13 +1273,13 @@ onMounted(async () => {
         webReady.value = true;
         webBindError.value = null;
       });
-      const unlistenWebError = await listen<ListenerBindError>('server-web-error', (e) => {
+      const unlistenWebError = await listen<ListenerBindError>('server-web-error', e => {
         webReady.value = false;
         webBindError.value = e.payload;
       });
       const unlistenActionError = await listen<{ error?: string; message?: string }>(
         'action-error',
-        (e) => {
+        e => {
           const message = e.payload.error || e.payload.message || '';
           if (/Accessibility/i.test(message)) {
             accessibilityRecoveryRequested.value = true;
@@ -1581,7 +1652,9 @@ const updateStatusText = computed(() => {
     </transition>
 
     <!-- Top Nav HUD Header -->
-    <div class="cyber-panel flex flex-col md:flex-row gap-3 md:items-center md:justify-between px-4 py-2.5 shadow-xl">
+    <div
+      class="cyber-panel flex flex-col md:flex-row gap-3 md:items-center md:justify-between px-4 py-2.5 shadow-xl"
+    >
       <div class="flex items-center gap-2">
         <!-- <div
           class="h-8 w-8 cyber-hex flex items-center justify-center"
@@ -1628,8 +1701,13 @@ const updateStatusText = computed(() => {
             :class="activeConnectionsCount > 0 ? 'text-emerald-400' : 'text-slate-500'"
           />
           <div class="flex flex-col">
-            <label class="text-[9px] uppercase tracking-widest font-bold text-slate-500">Đang kết nối</label>
-            <span class="font-mono text-xs font-bold" :class="activeConnectionsCount > 0 ? 'text-emerald-300' : 'text-slate-500'">
+            <label class="text-[9px] uppercase tracking-widest font-bold text-slate-500"
+              >Đang kết nối</label
+            >
+            <span
+              class="font-mono text-xs font-bold"
+              :class="activeConnectionsCount > 0 ? 'text-emerald-300' : 'text-slate-500'"
+            >
               {{ activeConnectionsCount }} thiết bị
             </span>
           </div>
@@ -1745,15 +1823,17 @@ const updateStatusText = computed(() => {
             </button>
           </div>
           <p class="text-[10px] text-slate-400 leading-relaxed">
-            {{ inputPermissionActionText }} Quy trình reset dev build: quit app → xoá entry cũ →
-            kéo đúng `.app` vào Accessibility → bật lại → mở app → kiểm tra lại.
+            {{ inputPermissionActionText }} Quy trình reset dev build: quit app → xoá entry cũ → kéo
+            đúng `.app` vào Accessibility → bật lại → mở app → kiểm tra lại.
           </p>
           <div class="grid gap-2 xl:grid-cols-2">
             <button
               type="button"
               class="cyber-inset flex min-w-0 items-center justify-between gap-2 p-2 text-left cursor-pointer"
               :disabled="!inputPermissionDiagnostics?.executablePath"
-              @click="copyPermissionDetail(inputPermissionDiagnostics?.executablePath, 'executable')"
+              @click="
+                copyPermissionDetail(inputPermissionDiagnostics?.executablePath, 'executable')
+              "
               title="Sao chép executablePath"
             >
               <span class="min-w-0">
@@ -1783,7 +1863,9 @@ const updateStatusText = computed(() => {
                 <span class="block font-mono text-[9px] text-slate-300 truncate select-text">
                   {{
                     inputPermissionDiagnostics?.appBundlePath ||
-                    (inputPermissionDiagnostics?.isPackagedApp ? 'Không resolve được' : 'Dev binary')
+                    (inputPermissionDiagnostics?.isPackagedApp
+                      ? 'Không resolve được'
+                      : 'Dev binary')
                   }}
                 </span>
               </span>
@@ -1823,7 +1905,9 @@ const updateStatusText = computed(() => {
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
             <Icon icon="lucide:clipboard-list" class="text-base text-cyan-400 shrink-0" />
-            <span class="text-[11px] font-bold text-cyan-300 uppercase tracking-wider">Checklist cài đặt Companion</span>
+            <span class="text-[11px] font-bold text-cyan-300 uppercase tracking-wider"
+              >Checklist cài đặt Companion</span
+            >
           </div>
           <button
             type="button"
@@ -1840,28 +1924,36 @@ const updateStatusText = computed(() => {
             <Icon icon="lucide:power" class="text-sm text-cyan-400 shrink-0 mt-0.5" />
             <div class="flex flex-col gap-0.5">
               <span class="text-[10px] font-bold text-slate-200">Khởi động cùng hệ thống</span>
-              <span class="text-[9px] text-slate-500 leading-relaxed">Bật toggle tự động khởi động trong Settings → General</span>
+              <span class="text-[9px] text-slate-500 leading-relaxed"
+                >Bật toggle tự động khởi động trong Settings → General</span
+              >
             </div>
           </div>
           <div class="cyber-inset flex items-start gap-2 p-3">
             <Icon icon="lucide:shield" class="text-sm text-amber-400 shrink-0 mt-0.5" />
             <div class="flex flex-col gap-0.5">
               <span class="text-[10px] font-bold text-slate-200">Firewall / Port Rule</span>
-              <span class="text-[9px] text-slate-500 leading-relaxed">Cho phép cổng WebSocket qua Windows Defender Firewall</span>
+              <span class="text-[9px] text-slate-500 leading-relaxed"
+                >Cho phép cổng WebSocket qua Windows Defender Firewall</span
+              >
             </div>
           </div>
           <div class="cyber-inset flex items-start gap-2 p-3">
             <Icon icon="lucide:globe" class="text-sm text-fuchsia-400 shrink-0 mt-0.5" />
             <div class="flex flex-col gap-0.5">
               <span class="text-[10px] font-bold text-slate-200">Web Client (iPad)</span>
-              <span class="text-[9px] text-slate-500 leading-relaxed">Bật Web Client trong Settings nếu dùng trình duyệt trên iPad</span>
+              <span class="text-[9px] text-slate-500 leading-relaxed"
+                >Bật Web Client trong Settings nếu dùng trình duyệt trên iPad</span
+              >
             </div>
           </div>
           <div class="cyber-inset flex items-start gap-2 p-3">
             <Icon icon="lucide:qr-code" class="text-sm text-emerald-400 shrink-0 mt-0.5" />
             <div class="flex flex-col gap-0.5">
               <span class="text-[10px] font-bold text-slate-200">Quét QR tải APK</span>
-              <span class="text-[9px] text-slate-500 leading-relaxed">Quét QR bên dưới để tải APK hoặc mở Web URL trên thiết bị Android</span>
+              <span class="text-[9px] text-slate-500 leading-relaxed"
+                >Quét QR bên dưới để tải APK hoặc mở Web URL trên thiết bị Android</span
+              >
             </div>
           </div>
         </div>
@@ -1946,7 +2038,11 @@ const updateStatusText = computed(() => {
               <button
                 type="button"
                 class="px-2 py-0.5 text-[8.5px] uppercase font-bold tracking-wider rounded border transition-colors cursor-pointer"
-                :class="activeQrTab === 'apk' ? 'border-cyan-400/50 text-cyan-300 bg-cyan-950/40' : 'border-slate-800 text-slate-500 hover:text-slate-350'"
+                :class="
+                  activeQrTab === 'apk'
+                    ? 'border-cyan-400/50 text-cyan-300 bg-cyan-950/40'
+                    : 'border-slate-800 text-slate-500 hover:text-slate-350'
+                "
                 @click="activeQrTab = 'apk'"
               >
                 APK
@@ -1954,114 +2050,202 @@ const updateStatusText = computed(() => {
               <button
                 type="button"
                 class="px-2 py-0.5 text-[8.5px] uppercase font-bold tracking-wider rounded border transition-colors cursor-pointer"
-                :class="activeQrTab === 'web' ? 'border-cyan-400/50 text-cyan-300 bg-cyan-950/40' : 'border-slate-800 text-slate-500 hover:text-slate-350'"
+                :class="
+                  activeQrTab === 'web'
+                    ? 'border-cyan-400/50 text-cyan-300 bg-cyan-950/40'
+                    : 'border-slate-800 text-slate-500 hover:text-slate-350'
+                "
                 @click="activeQrTab = 'web'"
               >
                 Web
               </button>
             </div>
 
-          <!-- APK Tab Content -->
-          <div v-show="activeQrTab === 'apk'" class="flex flex-col gap-2.5">
-            <div class="flex justify-between items-center gap-1">
-              <p class="cyber-section-desc">LAN IP cho Android app</p>
-              <button
-                type="button"
-                class="cyber-action-btn font-bold cursor-pointer text-[9px] uppercase tracking-wider px-2 py-1 flex items-center gap-1"
-                @click="copyApkConnectPayload"
-                :disabled="!apkConnectPayload"
-                title="Sao chép payload kết nối APK"
-              >
-                <Icon :icon="apkCopyHint ? 'lucide:check' : 'lucide:copy'" class="text-[10px]" />
-                <span>{{ apkCopyHint || 'Copy' }}</span>
-              </button>
-            </div>
-
-            <div class="flex flex-col items-center justify-center p-3 cyber-inset relative min-h-[224px]">
-              <div v-if="!apkConnectPayload || wsBindError" class="absolute inset-0 bg-slate-950/90 rounded-lg flex flex-col items-center justify-center p-4 text-center z-10 leading-normal gap-2 border border-rose-500/20">
-                <Icon :icon="wsBindError ? 'lucide:wifi-off' : 'lucide:loader-2'" class="text-lg animate-pulse text-rose-400" />
-                <span class="text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                  {{ wsBindError ? 'Bind Error' : 'Chưa sẵn sàng' }}
-                </span>
-                <p class="text-[8.5px] text-slate-500">
-                  {{ wsBindError ? 'Cổng WebSocket lỗi Firewall hoặc xung đột.' : 'Companion server đang khởi động.' }}
-                </p>
+            <!-- APK Tab Content -->
+            <div v-show="activeQrTab === 'apk'" class="flex flex-col gap-2.5">
+              <div class="flex justify-between items-center gap-1">
+                <p class="cyber-section-desc">LAN IP cho Android app</p>
+                <button
+                  type="button"
+                  class="cyber-action-btn font-bold cursor-pointer text-[9px] uppercase tracking-wider px-2 py-1 flex items-center gap-1"
+                  @click="copyApkConnectPayload"
+                  :disabled="!apkConnectPayload"
+                  title="Sao chép payload kết nối APK"
+                >
+                  <Icon :icon="apkCopyHint ? 'lucide:check' : 'lucide:copy'" class="text-[10px]" />
+                  <span>{{ apkCopyHint || 'Copy' }}</span>
+                </button>
               </div>
 
-              <button
-                v-if="apkConnectQrSvg"
-                type="button"
-                class="w-48 h-48 rounded-lg overflow-hidden bg-white p-1 cursor-zoom-in shadow-[0_0_18px_rgba(34,211,238,0.08)] transition-all focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 outline-none hover:scale-[1.02]"
-                @click="openZoomModal('Kết nối APK', apkConnectPayload, apkConnectQrSvg)"
-                @keydown.enter="openZoomModal('Kết nối APK', apkConnectPayload, apkConnectQrSvg)"
-                @keydown.space.prevent="openZoomModal('Kết nối APK', apkConnectPayload, apkConnectQrSvg)"
-                title="Click để phóng to mã QR"
-                aria-label="Mã QR APK. Nhấn Enter hoặc Space để phóng to."
+              <div
+                class="flex flex-col items-center justify-center p-3 cyber-inset relative min-h-[224px]"
               >
-                <div v-html="apkConnectQrSvg" class="w-full h-full"></div>
-              </button>
-            </div>
+                <div
+                  v-if="!apkConnectPayload || wsBindError"
+                  class="absolute inset-0 bg-slate-950/90 rounded-lg flex flex-col items-center justify-center p-4 text-center z-10 leading-normal gap-2 border border-rose-500/20"
+                >
+                  <Icon
+                    :icon="wsBindError ? 'lucide:wifi-off' : 'lucide:loader-2'"
+                    class="text-lg animate-pulse text-rose-400"
+                  />
+                  <span class="text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                    {{ wsBindError ? 'Bind Error' : 'Chưa sẵn sàng' }}
+                  </span>
+                  <p class="text-[8.5px] text-slate-500">
+                    {{
+                      wsBindError
+                        ? 'Cổng WebSocket lỗi Firewall hoặc xung đột.'
+                        : 'Companion server đang khởi động.'
+                    }}
+                  </p>
+                </div>
 
-            <div class="px-1 text-[8.5px] text-slate-500 flex flex-col gap-0.5 leading-relaxed">
-              <span class="font-bold text-[8px] uppercase tracking-wider text-slate-450">Payload:</span>
-              <span class="font-mono break-all line-clamp-2 select-text selection:bg-cyan-550/30">{{ apkConnectPayload || '—' }}</span>
-            </div>
-          </div>
-
-          <!-- Web Client Tab Content -->
-          <div v-show="activeQrTab === 'web'" class="flex flex-col gap-2.5">
-            <div class="flex justify-between items-center gap-1">
-              <p class="cyber-section-desc">Mở Web client trên iPad / Browser</p>
-              <button
-                type="button"
-                class="cyber-action-btn font-bold cursor-pointer text-[9px] uppercase tracking-wider px-2 py-1 flex items-center gap-1"
-                @click="copyWebClientUrl"
-                :disabled="!webClientUrl"
-                title="Sao chép địa chỉ Web Client"
-              >
-                <Icon :icon="webCopyHint ? 'lucide:check' : 'lucide:copy'" class="text-[10px]" />
-                <span>{{ webCopyHint || 'Copy' }}</span>
-              </button>
-            </div>
-
-            <div class="flex flex-col items-center justify-center p-3 cyber-inset relative min-h-[224px]">
-              <div v-if="!webClientUrl || webBindError || !savedServerConfig?.webEnabled" class="absolute inset-0 bg-slate-950/90 rounded-lg flex flex-col items-center justify-center p-4 text-center z-10 leading-normal gap-2 border border-amber-500/20">
-                <Icon :icon="webBindError ? 'lucide:wifi-off' : !savedServerConfig?.webEnabled ? 'lucide:settings-2' : 'lucide:loader-2'" class="text-lg animate-pulse text-amber-400" />
-                <span class="text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                  {{ webBindError ? 'Bind Error' : !savedServerConfig?.webEnabled ? 'Chưa bật Web Client' : 'Chưa sẵn sàng' }}
-                </span>
-                <p class="text-[8.5px] text-slate-500">
-                  {{ webBindError ? 'Cổng Web Server bị xung đột.' : !savedServerConfig?.webEnabled ? 'Hãy bật Web Client trong Cài đặt phía dưới.' : 'Companion HTTP đang khởi chạy.' }}
-                </p>
+                <button
+                  v-if="apkConnectQrSvg"
+                  type="button"
+                  class="w-48 h-48 rounded-lg overflow-hidden bg-white p-1 cursor-zoom-in shadow-[0_0_18px_rgba(34,211,238,0.08)] transition-all focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 outline-none hover:scale-[1.02]"
+                  @click="openZoomModal('Kết nối APK', apkConnectPayload, apkConnectQrSvg)"
+                  @keydown.enter="openZoomModal('Kết nối APK', apkConnectPayload, apkConnectQrSvg)"
+                  @keydown.space.prevent="
+                    openZoomModal('Kết nối APK', apkConnectPayload, apkConnectQrSvg)
+                  "
+                  title="Click để phóng to mã QR"
+                  aria-label="Mã QR APK. Nhấn Enter hoặc Space để phóng to."
+                >
+                  <div v-html="apkConnectQrSvg" class="w-full h-full"></div>
+                </button>
               </div>
 
-              <button
-                v-if="webClientQrSvg"
-                type="button"
-                class="w-48 h-48 rounded-lg overflow-hidden bg-white p-1 cursor-zoom-in shadow-[0_0_18px_rgba(34,211,238,0.08)] transition-all focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 outline-none hover:scale-[1.02]"
-                @click="openZoomModal('Web Client LAN', webClientUrl, webClientQrSvg)"
-                @keydown.enter="openZoomModal('Web Client LAN', webClientUrl, webClientQrSvg)"
-                @keydown.space.prevent="openZoomModal('Web Client LAN', webClientUrl, webClientQrSvg)"
-                title="Click để phóng to mã QR"
-                aria-label="Mã QR Web Client. Nhấn Enter hoặc Space để phóng to."
-              >
-                <div v-html="webClientQrSvg" class="w-full h-full"></div>
-              </button>
+              <div class="px-1 text-[8.5px] text-slate-500 flex flex-col gap-0.5 leading-relaxed">
+                <span class="font-bold text-[8px] uppercase tracking-wider text-slate-450"
+                  >Payload:</span
+                >
+                <span
+                  class="font-mono break-all line-clamp-2 select-text selection:bg-cyan-550/30"
+                  >{{ apkConnectPayload || '—' }}</span
+                >
+              </div>
             </div>
 
-            <div class="px-1 text-[8.5px] text-slate-500 flex flex-col gap-0.5 leading-relaxed">
-              <span class="font-bold text-[8px] uppercase tracking-wider text-slate-450">Địa chỉ URL:</span>
-              <span class="font-mono break-all line-clamp-2 select-text selection:bg-cyan-550/30">{{ webClientUrl || '—' }}</span>
+            <!-- Web Client Tab Content -->
+            <div v-show="activeQrTab === 'web'" class="flex flex-col gap-2.5">
+              <div class="flex justify-between items-center gap-1">
+                <p class="cyber-section-desc">Mở Web client trên iPad / Browser</p>
+                <button
+                  type="button"
+                  class="cyber-action-btn font-bold cursor-pointer text-[9px] uppercase tracking-wider px-2 py-1 flex items-center gap-1"
+                  @click="copyWebClientUrl"
+                  :disabled="!webClientUrl"
+                  title="Sao chép địa chỉ Web Client"
+                >
+                  <Icon :icon="webCopyHint ? 'lucide:check' : 'lucide:copy'" class="text-[10px]" />
+                  <span>{{ webCopyHint || 'Copy' }}</span>
+                </button>
+              </div>
+
+              <div
+                class="flex flex-col items-center justify-center p-3 cyber-inset relative min-h-[224px]"
+              >
+                <div
+                  v-if="!webClientUrl || webBindError || !savedServerConfig?.webEnabled"
+                  class="absolute inset-0 bg-slate-950/90 rounded-lg flex flex-col items-center justify-center p-4 text-center z-10 leading-normal gap-2 border border-amber-500/20"
+                >
+                  <Icon
+                    :icon="
+                      webBindError
+                        ? 'lucide:wifi-off'
+                        : !savedServerConfig?.webEnabled
+                          ? 'lucide:settings-2'
+                          : 'lucide:loader-2'
+                    "
+                    class="text-lg animate-pulse text-amber-400"
+                  />
+                  <span class="text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                    {{
+                      webBindError
+                        ? 'Bind Error'
+                        : !savedServerConfig?.webEnabled
+                          ? 'Chưa bật Web Client'
+                          : 'Chưa sẵn sàng'
+                    }}
+                  </span>
+                  <p class="text-[8.5px] text-slate-500">
+                    {{
+                      webBindError
+                        ? 'Cổng Web Server bị xung đột.'
+                        : !savedServerConfig?.webEnabled
+                          ? 'Hãy bật Web Client trong Cài đặt phía dưới.'
+                          : 'Companion HTTP đang khởi chạy.'
+                    }}
+                  </p>
+                </div>
+
+                <button
+                  v-if="webClientQrSvg"
+                  type="button"
+                  class="w-48 h-48 rounded-lg overflow-hidden bg-white p-1 cursor-zoom-in shadow-[0_0_18px_rgba(34,211,238,0.08)] transition-all focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 outline-none hover:scale-[1.02]"
+                  @click="openZoomModal('Web Client LAN', webClientUrl, webClientQrSvg)"
+                  @keydown.enter="openZoomModal('Web Client LAN', webClientUrl, webClientQrSvg)"
+                  @keydown.space.prevent="
+                    openZoomModal('Web Client LAN', webClientUrl, webClientQrSvg)
+                  "
+                  title="Click để phóng to mã QR"
+                  aria-label="Mã QR Web Client. Nhấn Enter hoặc Space để phóng to."
+                >
+                  <div v-html="webClientQrSvg" class="w-full h-full"></div>
+                </button>
+              </div>
+
+              <div class="px-1 text-[8.5px] text-slate-500 flex flex-col gap-0.5 leading-relaxed">
+                <span class="font-bold text-[8px] uppercase tracking-wider text-slate-450"
+                  >Địa chỉ URL:</span
+                >
+                <span
+                  class="font-mono break-all line-clamp-2 select-text selection:bg-cyan-550/30"
+                  >{{ webClientUrl || '—' }}</span
+                >
+              </div>
             </div>
-          </div>
           </div>
         </div>
 
         <!-- Button Config -->
         <div class="flex-1 flex flex-col cyber-divider pt-4 gap-4">
-          <div>
-            <h2 class="cyber-section-title">Cấu hình phím</h2>
-            <p class="cyber-section-desc">Biên tập chi tiết nhãn, biểu tượng, sự kiện</p>
+          <div class="flex justify-between flex-col">
+            <div>
+              <h2 class="cyber-section-title">Cấu hình phím</h2>
+              <p class="cyber-section-desc">Biên tập chi tiết nhãn, biểu tượng, sự kiện</p>
+            </div>
+            <div v-if="selectedButton" class="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                @click="layoutStore.copyButtonConfig(selectedButton)"
+                class="text-[8px] uppercase tracking-widest font-extrabold px-1.5 py-1 rounded border border-cyan-500/30 hover:border-cyan-400 bg-cyan-950/10 text-cyan-400 hover:bg-cyan-500/20 transition-all cursor-pointer flex items-center gap-0.5"
+                title="Sao chép cấu hình phím (Ctrl+C)"
+              >
+                <Icon icon="lucide:copy" class="text-[9px]" />
+                <span>Copy</span>
+              </button>
+              <button
+                type="button"
+                @click="layoutStore.pasteButtonConfig(selectedButton.id)"
+                :disabled="!layoutStore.hasCopiedButton"
+                class="text-[8px] uppercase tracking-widest font-extrabold px-1.5 py-1 rounded border border-cyan-500/30 hover:border-cyan-400 bg-cyan-950/10 text-cyan-400 hover:bg-cyan-500/20 transition-all cursor-pointer flex items-center gap-0.5 disabled:opacity-45 disabled:cursor-not-allowed"
+                title="Dán cấu hình phím (Ctrl+V)"
+              >
+                <Icon icon="lucide:clipboard" class="text-[9px]" />
+                <span>Paste</span>
+              </button>
+              <button
+                type="button"
+                @click="duplicateSelected"
+                class="text-[8px] uppercase tracking-widest font-extrabold px-1.5 py-1 rounded border border-cyan-500/30 hover:border-cyan-400 bg-cyan-950/10 text-cyan-400 hover:bg-cyan-500/20 transition-all cursor-pointer flex items-center gap-0.5"
+                title="Nhân bản phím vào ô trống"
+              >
+                <Icon icon="lucide:copy-plus" class="text-[9px]" />
+                <span>Dup</span>
+              </button>
+            </div>
           </div>
 
           <div v-if="selectedButton" class="flex flex-col gap-4">
@@ -2081,7 +2265,9 @@ const updateStatusText = computed(() => {
               <label class="cyber-input-label">Biểu tượng & Màu sắc</label>
               <div class="flex flex-col gap-3">
                 <div class="flex gap-2">
-                  <div class="h-10 w-12 cyber-inset flex items-center justify-center overflow-hidden">
+                  <div
+                    class="h-10 w-12 cyber-inset flex items-center justify-center overflow-hidden"
+                  >
                     <img
                       v-if="selectedButton.icon?.startsWith('data:')"
                       :src="selectedButton.icon"
@@ -2142,7 +2328,7 @@ const updateStatusText = computed(() => {
                   </div>
                 </div>
 
-                 <!-- Icon Picker -->
+                <!-- Icon Picker -->
                 <div class="cyber-inset p-2.5 flex flex-col gap-2">
                   <div class="flex flex-col gap-1.5 cyber-divider pb-2">
                     <div class="flex flex-wrap items-center justify-between gap-1.5 min-w-0">
@@ -2162,7 +2348,7 @@ const updateStatusText = computed(() => {
                           {{ group === 'si' ? 'brands' : group }}
                         </button>
                       </div>
-                      
+
                       <!-- Upload Custom Icon Button (S-IMG1) -->
                       <div class="shrink-0 flex items-center gap-1.5">
                         <input
@@ -2260,6 +2446,29 @@ const updateStatusText = computed(() => {
               </div>
             </div>
 
+            <!-- Genshin Frame Selector (only shown when current theme is genshin-01) -->
+            <div v-if="layoutStore.layout.theme === 'genshin-01'" class="flex flex-col gap-2">
+              <label class="cyber-input-label">Khung viền Genshin</label>
+              <div class="cyber-tab-group grid grid-cols-4 gap-1 p-1 text-[10px]">
+                <button
+                  v-for="frame in [1, 2, 3, 4]"
+                  :key="frame"
+                  @click="
+                    selectedButton.genshinFrame = frame;
+                    saveButtonSettings();
+                  "
+                  class="text-center py-1.5 font-bold uppercase tracking-wider transition-all duration-150 h-auto cursor-pointer"
+                  :class="
+                    (selectedButton.genshinFrame ?? 1) === frame
+                      ? 'cyber-tab-active'
+                      : 'text-slate-500 hover:text-slate-300'
+                  "
+                >
+                  Khung {{ frame }}
+                </button>
+              </div>
+            </div>
+
             <!-- Monitor Config -->
             <div
               v-if="selectedButton.buttonKind === 'monitor' && selectedButton.monitorConfig"
@@ -2311,7 +2520,9 @@ const updateStatusText = computed(() => {
                     "
                     class="text-center py-2 px-1 rounded-md font-bold uppercase tracking-wider transition-all duration-150 cursor-pointer"
                     :class="
-                      activeTab === tab ? 'cyber-tab-active' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/40'
+                      activeTab === tab
+                        ? 'cyber-tab-active'
+                        : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/40'
                     "
                   >
                     {{ tab }}
@@ -2347,7 +2558,8 @@ const updateStatusText = computed(() => {
                       class="text-[9px] text-fuchsia-400 font-semibold select-none leading-relaxed animate-pulse"
                       v-if="isRecording"
                     >
-                      ⚠️ Nhấp tổ hợp phím bất kỳ trên bàn phím của bạn để ghi nhận... (Đang giữ: {{ currentRecordingPreview }})
+                      ⚠️ Nhấp tổ hợp phím bất kỳ trên bàn phím của bạn để ghi nhận... (Đang giữ:
+                      {{ currentRecordingPreview }})
                     </p>
                   </div>
 
@@ -2449,7 +2661,7 @@ const updateStatusText = computed(() => {
                   </select>
                 </div>
 
-                 <!-- App -->
+                <!-- App -->
                 <div v-else-if="activeTab === 'app'" class="flex flex-col gap-3">
                   <div class="flex flex-col gap-1.5">
                     <div class="flex items-center justify-between">
@@ -2467,7 +2679,9 @@ const updateStatusText = computed(() => {
                         @click="openGuide('shortcut')"
                       >
                         <Icon icon="lucide:help-circle" class="text-xs" />
-                        <span class="text-[8.5px] uppercase tracking-wider font-semibold">Trợ giúp</span>
+                        <span class="text-[8.5px] uppercase tracking-wider font-semibold"
+                          >Trợ giúp</span
+                        >
                       </button>
                     </div>
                     <Input
@@ -2566,7 +2780,8 @@ const updateStatusText = computed(() => {
                     class="text-[9px] font-bold text-green-400 flex items-center gap-1"
                   >
                     <Icon icon="lucide:check-circle" class="text-xs" />
-                    Mở <span class="font-mono">{{ linkUrlValidation.domain }}</span> bằng trình duyệt mặc định.
+                    Mở <span class="font-mono">{{ linkUrlValidation.domain }}</span> bằng trình
+                    duyệt mặc định.
                   </p>
                   <div v-if="linkUrlValidation.ok" class="flex justify-end">
                     <button
@@ -2784,10 +2999,7 @@ const updateStatusText = computed(() => {
               @scroll.passive="onSettingsScroll"
             >
               <!-- ===== Group: General ===== -->
-              <section
-                id="settings-group-general"
-                class="flex flex-col gap-3 scroll-mt-4"
-              >
+              <section id="settings-group-general" class="flex flex-col gap-3 scroll-mt-4">
                 <div class="flex items-center gap-2">
                   <Icon icon="lucide:sliders-horizontal" class="text-sm text-cyan-400" />
                   <h3 class="cyber-section-title">General</h3>
@@ -2798,25 +3010,69 @@ const updateStatusText = computed(() => {
                   <span class="text-[9px] font-bold uppercase tracking-wider text-slate-500"
                     >Giao diện</span
                   >
-                  <div class="flex gap-2">
+                  <!-- Theme Selector Grid -->
+                  <div class="grid grid-cols-2 gap-3">
                     <button
                       v-for="(meta, name) in THEMES"
                       :key="name"
                       @click="setTheme(name as ThemeName)"
-                      class="flex-1 flex flex-col items-center gap-1.5 py-2 px-1 rounded-xl border transition-all duration-150 cursor-pointer"
+                      class="flex flex-col items-stretch rounded-xl border-2 overflow-hidden transition-all duration-200 cursor-pointer relative h-24"
                       :class="
                         activeTheme === name
-                          ? 'border-cyan-400/70 bg-slate-800/60 shadow shadow-cyan-900/20'
-                          : 'border-slate-700 bg-slate-900/40 hover:border-slate-600'
+                          ? 'border-[var(--theme-accent)] shadow-[0_0_12px_var(--theme-accent)] bg-slate-900/60'
+                          : 'border-slate-800 bg-slate-950/40 hover:border-slate-700'
                       "
+                      :style="{
+                        '--theme-accent': meta.previewColor
+                      }"
                     >
-                      <span
-                        class="w-5 h-5 rounded-full border-2 border-black/20"
-                        :style="{ backgroundColor: meta.previewColor }"
-                      />
-                      <span class="text-[9px] font-bold uppercase tracking-wider text-slate-300">{{
-                        meta.label
-                      }}</span>
+                      <!-- Theme Visual Demo Area -->
+                      <div 
+                        class="flex-1 flex items-center justify-center p-2 relative overflow-hidden"
+                        :class="{
+                          'bg-gradient-to-b from-[#050a14] to-[#02050c]': name === 'cyber',
+                          'bg-gradient-to-b from-[#0a0012] to-[#10041c]': name === 'midnight',
+                          'bg-gradient-to-b from-[#100804] to-[#1a0c06]': name === 'ember',
+                          'bg-slate-900': name === 'genshin-01'
+                        }"
+                      >
+                        <!-- For Genshin: show a mini background image thumbnail -->
+                        <div 
+                          v-if="name === 'genshin-01'" 
+                          class="absolute inset-0 bg-cover bg-center opacity-60 pointer-events-none" 
+                          style="background-image: url('/themes/genshin/bg.jpg')" 
+                        />
+                        
+                        <!-- Mini Button Mockups -->
+                        <div class="relative z-10 grid grid-cols-3 gap-1">
+                          <div 
+                            v-for="i in 3" 
+                            :key="i"
+                            class="w-4 h-4 rounded-sm transition-all duration-150"
+                            :class="{
+                              'border border-cyan-400 shadow-[0_0_3px_rgba(0,212,255,0.4)]': name === 'cyber',
+                              'border border-purple-500 shadow-[0_0_3px_rgba(168,85,247,0.4)]': name === 'midnight',
+                              'border border-orange-500 shadow-[0_0_3px_rgba(249,115,22,0.4)]': name === 'ember',
+                            }"
+                            :style="name === 'genshin-01' ? {
+                              border: '2px solid transparent',
+                              borderImageSource: 'url(\'/themes/genshin/frame-01.png\')',
+                              borderImageSlice: '160 fill',
+                              borderImageRepeat: 'stretch'
+                            } : {}"
+                          />
+                        </div>
+                      </div>
+                      
+                      <!-- Theme Label Bar -->
+                      <div class="h-6 flex items-center justify-between px-2.5 bg-slate-950/90 border-t border-slate-900">
+                        <span class="text-[9px] font-bold uppercase tracking-wider text-slate-300">{{ meta.label }}</span>
+                        <!-- Radio selection dot -->
+                        <span 
+                          class="w-2 h-2 rounded-full border transition-all duration-150"
+                          :class="activeTheme === name ? 'bg-[var(--theme-accent)] border-transparent' : 'border-slate-700'"
+                        />
+                      </div>
                     </button>
                   </div>
                 </div>
@@ -2855,10 +3111,7 @@ const updateStatusText = computed(() => {
               </section>
 
               <!-- ===== Group: Network ===== -->
-              <section
-                id="settings-group-network"
-                class="flex flex-col gap-3 scroll-mt-4"
-              >
+              <section id="settings-group-network" class="flex flex-col gap-3 scroll-mt-4">
                 <div class="flex items-center justify-between gap-3">
                   <div class="flex items-center gap-2">
                     <Icon icon="lucide:wifi" class="text-sm text-cyan-400" />
@@ -2931,7 +3184,11 @@ const updateStatusText = computed(() => {
                       @click="serverConfigDraft.webEnabled = !serverConfigDraft.webEnabled"
                     >
                       <Icon
-                        :icon="serverConfigDraft.webEnabled ? 'lucide:toggle-right' : 'lucide:toggle-left'"
+                        :icon="
+                          serverConfigDraft.webEnabled
+                            ? 'lucide:toggle-right'
+                            : 'lucide:toggle-left'
+                        "
                         class="text-sm"
                       />
                       {{ serverConfigDraft.webEnabled ? 'Web bật' : 'Web tắt' }}
@@ -2992,10 +3249,7 @@ const updateStatusText = computed(() => {
               </section>
 
               <!-- ===== Group: Client & QR ===== -->
-              <section
-                id="settings-group-client-qr"
-                class="flex flex-col gap-3 scroll-mt-4"
-              >
+              <section id="settings-group-client-qr" class="flex flex-col gap-3 scroll-mt-4">
                 <div class="flex items-center gap-2">
                   <Icon icon="lucide:qr-code" class="text-sm text-cyan-400" />
                   <h3 class="cyber-section-title">Client & QR</h3>
@@ -3036,7 +3290,9 @@ const updateStatusText = computed(() => {
                       class="w-48 h-48 rounded-lg overflow-hidden bg-white p-1 cursor-zoom-in transition-all focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 outline-none hover:scale-[1.02]"
                       @click="openZoomModal('Web Client LAN', webClientUrl, webClientQrSvg)"
                       @keydown.enter="openZoomModal('Web Client LAN', webClientUrl, webClientQrSvg)"
-                      @keydown.space.prevent="openZoomModal('Web Client LAN', webClientUrl, webClientQrSvg)"
+                      @keydown.space.prevent="
+                        openZoomModal('Web Client LAN', webClientUrl, webClientQrSvg)
+                      "
                       title="Click để phóng to mã QR"
                       aria-label="Mã QR Web Client. Nhấn Enter hoặc Space để phóng to."
                     >
@@ -3070,8 +3326,8 @@ const updateStatusText = computed(() => {
                   <div class="flex flex-col gap-0.5 min-w-0">
                     <span class="font-medium text-slate-300">Accessibility (macOS):</span>
                     <span class="text-[9px] text-slate-500">
-                      Cần thiết để gửi phím tắt vào app đang focus. Nếu chưa bật, mở
-                      System Settings và bật cho binary đang chạy.
+                      Cần thiết để gửi phím tắt vào app đang focus. Nếu chưa bật, mở System Settings
+                      và bật cho binary đang chạy.
                     </span>
                   </div>
                   <button
@@ -3093,10 +3349,7 @@ const updateStatusText = computed(() => {
               </section>
 
               <!-- ===== Group: Updates ===== -->
-              <section
-                id="settings-group-updates"
-                class="flex flex-col gap-3 scroll-mt-4"
-              >
+              <section id="settings-group-updates" class="flex flex-col gap-3 scroll-mt-4">
                 <div class="flex items-center gap-2">
                   <Icon icon="lucide:refresh-cw" class="text-sm text-cyan-400" />
                   <h3 class="cyber-section-title">Updates</h3>
@@ -3160,10 +3413,7 @@ const updateStatusText = computed(() => {
               </section>
 
               <!-- ===== Group: Import/Export ===== -->
-              <section
-                id="settings-group-import-export"
-                class="flex flex-col gap-3 scroll-mt-4"
-              >
+              <section id="settings-group-import-export" class="flex flex-col gap-3 scroll-mt-4">
                 <div class="flex items-center gap-2">
                   <Icon icon="lucide:database" class="text-sm text-cyan-400" />
                   <h3 class="cyber-section-title">Import/Export</h3>
@@ -3200,10 +3450,7 @@ const updateStatusText = computed(() => {
               </section>
 
               <!-- ===== Group: About/Support ===== -->
-              <section
-                id="settings-group-about"
-                class="flex flex-col gap-3 scroll-mt-4"
-              >
+              <section id="settings-group-about" class="flex flex-col gap-3 scroll-mt-4">
                 <div class="flex items-center gap-2">
                   <Icon icon="lucide:info" class="text-sm text-cyan-400" />
                   <h3 class="cyber-section-title">About/Support</h3>
@@ -3211,38 +3458,47 @@ const updateStatusText = computed(() => {
 
                 <div class="flex flex-col gap-3">
                   <div class="cyber-inset p-3">
-                  <div class="grid grid-cols-2 gap-y-2">
-                    <span class="text-slate-400 font-medium">Tên phần mềm:</span>
-                    <span class="text-slate-200 font-bold justify-self-end">Android Stream Desk</span>
-                    <span class="text-slate-400 font-medium">Phiên bản hiện tại:</span>
-                    <span class="font-mono text-cyan-300 justify-self-end">v{{ appVersion }}</span>
-                    <span class="text-slate-400 font-medium">Tác giả:</span>
-                    <span class="text-slate-200 justify-self-end font-semibold">aniadev</span>
-                    <span class="text-slate-400 font-medium">Giấy phép:</span>
-                    <span class="font-mono text-slate-200 justify-self-end">MIT License</span>
-                    <span class="text-slate-400 font-medium">Mã nguồn:</span>
-                    <span class="justify-self-end">
-                      <a
-                        href="https://github.com/aniadev/android-stream-desk"
-                        @click.prevent="openExternalLink('https://github.com/aniadev/android-stream-desk')"
-                        class="text-cyan-400 hover:underline flex items-center gap-1 cursor-pointer"
+                    <div class="grid grid-cols-2 gap-y-2">
+                      <span class="text-slate-400 font-medium">Tên phần mềm:</span>
+                      <span class="text-slate-200 font-bold justify-self-end"
+                        >Android Stream Desk</span
                       >
-                        GitHub Repo <Icon icon="lucide:external-link" class="text-[10px]" />
-                      </a>
-                    </span>
-                  </div>
+                      <span class="text-slate-400 font-medium">Phiên bản hiện tại:</span>
+                      <span class="font-mono text-cyan-300 justify-self-end"
+                        >v{{ appVersion }}</span
+                      >
+                      <span class="text-slate-400 font-medium">Tác giả:</span>
+                      <span class="text-slate-200 justify-self-end font-semibold">aniadev</span>
+                      <span class="text-slate-400 font-medium">Giấy phép:</span>
+                      <span class="font-mono text-slate-200 justify-self-end">MIT License</span>
+                      <span class="text-slate-400 font-medium">Mã nguồn:</span>
+                      <span class="justify-self-end">
+                        <a
+                          href="https://github.com/aniadev/android-stream-desk"
+                          @click.prevent="
+                            openExternalLink('https://github.com/aniadev/android-stream-desk')
+                          "
+                          class="text-cyan-400 hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          GitHub Repo <Icon icon="lucide:external-link" class="text-[10px]" />
+                        </a>
+                      </span>
+                    </div>
                   </div>
 
                   <div
                     class="p-3 bg-gradient-to-r from-fuchsia-950/20 via-violet-950/30 to-cyan-950/20 rounded-xl border border-violet-500/20 flex flex-col sm:flex-row gap-4 items-center justify-between shadow-[0_0_24px_rgba(139,92,246,0.05)]"
                   >
-                    <div class="flex-1 flex flex-col gap-1 items-center sm:items-start text-center sm:text-left">
+                    <div
+                      class="flex-1 flex flex-col gap-1 items-center sm:items-start text-center sm:text-left"
+                    >
                       <div class="flex items-center gap-1.5 text-xs font-bold text-fuchsia-300">
                         <Icon icon="mdi:coffee" class="text-sm shrink-0 animate-bounce" />
                         <span>Ủng hộ nhà phát triển</span>
                       </div>
                       <p class="text-[9px] text-slate-400 max-w-[280px] leading-relaxed">
-                        Dự án hoàn toàn miễn phí & mã nguồn mở. Hãy mời tác giả một ly cà phê nếu bạn thấy ứng dụng này hữu ích!
+                        Dự án hoàn toàn miễn phí & mã nguồn mở. Hãy mời tác giả một ly cà phê nếu
+                        bạn thấy ứng dụng này hữu ích!
                       </p>
                       <a
                         href="https://ko-fi.com/ania9"
@@ -3267,7 +3523,10 @@ const updateStatusText = computed(() => {
                           class="w-full aspect-square object-cover rounded"
                         />
                       </button>
-                      <span class="text-[8px] font-extrabold tracking-wider uppercase text-cyan-300/80">Quét MoMo</span>
+                      <span
+                        class="text-[8px] font-extrabold tracking-wider uppercase text-cyan-300/80"
+                        >Quét MoMo</span
+                      >
                     </div>
                   </div>
                 </div>
@@ -3298,7 +3557,9 @@ const updateStatusText = computed(() => {
             </div>
             <div class="flex flex-col">
               <h3 class="text-xs font-bold text-slate-50 uppercase tracking-wider">
-                {{ restartDialogFailed ? 'Chưa tự khởi động lại được' : 'Đang áp dụng cấu hình mạng' }}
+                {{
+                  restartDialogFailed ? 'Chưa tự khởi động lại được' : 'Đang áp dụng cấu hình mạng'
+                }}
               </h3>
               <p class="text-[9px] text-slate-500 mt-0.5">
                 {{
@@ -3316,7 +3577,9 @@ const updateStatusText = computed(() => {
             v-if="restartDialogFailed"
             class="rounded-lg border border-amber-300/20 bg-amber-400/10 px-3 py-2.5 text-[10px] leading-relaxed text-amber-100/90"
           >
-            <div class="font-bold uppercase tracking-wider text-amber-200">Checklist restart thủ công</div>
+            <div class="font-bold uppercase tracking-wider text-amber-200">
+              Checklist restart thủ công
+            </div>
             <ul class="mt-2 flex flex-col gap-1.5 text-slate-300">
               <li class="flex gap-2">
                 <Icon icon="lucide:check" class="mt-0.5 text-xs text-amber-300 shrink-0" />
@@ -3379,7 +3642,7 @@ const updateStatusText = computed(() => {
         class="fixed inset-0 z-[70] flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 cursor-default"
         @click.self="zoomModalOpen = false"
       >
-        <div 
+        <div
           class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full flex flex-col p-6 gap-5 shadow-2xl relative overflow-hidden"
           role="dialog"
           aria-modal="true"
@@ -3388,8 +3651,16 @@ const updateStatusText = computed(() => {
           <!-- Header -->
           <div class="flex items-center justify-between">
             <div class="flex flex-col gap-0.5">
-              <h3 class="text-xs font-bold text-slate-100 uppercase tracking-widest">{{ zoomModalTitle }}</h3>
-              <p class="text-[9.5px] text-slate-450">{{ zoomModalImageSrc ? 'Quét mã bằng app ngân hàng / ví điện tử' : 'Quét mã QR từ camera điện thoại hoặc iPad' }}</p>
+              <h3 class="text-xs font-bold text-slate-100 uppercase tracking-widest">
+                {{ zoomModalTitle }}
+              </h3>
+              <p class="text-[9.5px] text-slate-450">
+                {{
+                  zoomModalImageSrc
+                    ? 'Quét mã bằng app ngân hàng / ví điện tử'
+                    : 'Quét mã QR từ camera điện thoại hoặc iPad'
+                }}
+              </p>
             </div>
             <button
               type="button"
@@ -3402,8 +3673,10 @@ const updateStatusText = computed(() => {
           </div>
 
           <!-- Plain White QR Container (no glow/filter) -->
-          <div class="flex justify-center py-2 bg-slate-950/40 rounded-xl p-4 border border-slate-850">
-            <div 
+          <div
+            class="flex justify-center py-2 bg-slate-950/40 rounded-xl p-4 border border-slate-850"
+          >
+            <div
               class="w-full max-w-96 aspect-square bg-white p-2.5 rounded-xl shadow-[0_4px_24px_rgba(0,0,0,0.4)] transition-transform overflow-hidden"
             >
               <img
@@ -3418,18 +3691,23 @@ const updateStatusText = computed(() => {
 
           <!-- Payload copy & detail -->
           <div v-if="!zoomModalImageSrc" class="flex flex-col gap-2">
-            <div class="flex items-center justify-between text-[9px] uppercase tracking-wider text-slate-450 font-bold px-1">
+            <div
+              class="flex items-center justify-between text-[9px] uppercase tracking-wider text-slate-450 font-bold px-1"
+            >
               <span>Đường dẫn kết nối</span>
               <button
                 type="button"
                 class="hover:text-cyan-400 flex items-center gap-1 cursor-pointer transition-colors"
                 @click="copyZoomModalPayload"
               >
-                <Icon :icon="zoomModalCopyHint ? 'lucide:check' : 'lucide:copy'" class="text-[10px]" />
+                <Icon
+                  :icon="zoomModalCopyHint ? 'lucide:check' : 'lucide:copy'"
+                  class="text-[10px]"
+                />
                 <span>{{ zoomModalCopyHint || 'Sao chép' }}</span>
               </button>
             </div>
-            <div 
+            <div
               class="rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 font-mono text-[10.5px] text-slate-350 shadow-inner break-all max-h-24 overflow-y-auto selection:bg-cyan-550/30 select-text"
             >
               {{ zoomModalPayload }}
@@ -3494,9 +3772,18 @@ const updateStatusText = computed(() => {
 }
 
 /* --- S-UX1 typography tiers (min 9/10/11) --- */
-.cyber-text-2xs { font-size: 9px; line-height: 1.35; }
-.cyber-text-xs  { font-size: 10px; line-height: 1.4; }
-.cyber-text-sm  { font-size: 11px; line-height: 1.45; }
+.cyber-text-2xs {
+  font-size: 9px;
+  line-height: 1.35;
+}
+.cyber-text-xs {
+  font-size: 10px;
+  line-height: 1.4;
+}
+.cyber-text-sm {
+  font-size: 11px;
+  line-height: 1.45;
+}
 
 /* --- Dividers --- */
 .cyber-divider {

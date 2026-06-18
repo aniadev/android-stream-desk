@@ -27,6 +27,7 @@ export interface ButtonConfig {
   linkUrl?: string;
   // Cho custom icon rendering configuration (cover, contain, fill, normal)
   iconSizing?: 'normal' | 'cover' | 'contain' | 'fill';
+  genshinFrame?: number;
 }
 
 export interface Page {

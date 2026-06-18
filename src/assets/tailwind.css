@@ -4,51 +4,269 @@
 
 /* ─── Theme tokens (cyber defaults, applied before data-theme is set) ─── */
 :root {
-  --theme-bg:           #0f172a;
-  --theme-btn-bg:       rgba(2, 6, 14, 0.92);
-  --theme-btn-hover:    rgba(4, 12, 24, 0.96);
-  --theme-accent:       #00d4ff;
-  --theme-corner-a:     rgba(0, 200, 255, 0.6);
-  --theme-corner-b:     rgba(200, 0, 255, 0.6);
-  --theme-shell-top:    rgba(0, 240, 255, 0.04);
+  --theme-bg: #0f172a;
+  --theme-btn-bg: rgba(2, 6, 14, 0.92);
+  --theme-btn-hover: rgba(4, 12, 24, 0.96);
+  --theme-accent: #00d4ff;
+  --theme-corner-a: rgba(0, 200, 255, 0.6);
+  --theme-corner-b: rgba(200, 0, 255, 0.6);
+  --theme-shell-top: rgba(0, 240, 255, 0.04);
   --theme-shell-bottom: rgba(255, 0, 255, 0.03);
   --theme-shell-border: rgba(0, 240, 255, 0.08);
+  --theme-btn-radius: 0px;
+  --theme-font-family:
+    system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell,
+    sans-serif;
+  --theme-clip-path: polygon(
+    4px 0%,
+    calc(100% - 4px) 0%,
+    100% 4px,
+    100% calc(100% - 4px),
+    calc(100% - 4px) 100%,
+    4px 100%,
+    0% calc(100% - 4px),
+    0% 4px
+  );
+  --theme-shell-clip-path: polygon(
+    6px 0%,
+    calc(100% - 6px) 0%,
+    100% 6px,
+    100% calc(100% - 6px),
+    calc(100% - 6px) 100%,
+    6px 100%,
+    0% calc(100% - 6px),
+    0% 6px
+  );
+  --theme-shell-bg: linear-gradient(180deg, #050a14 0%, #02050c 50%, #050a14 100%);
 }
 
-:root[data-theme="cyber"] {
-  --theme-bg:           #0f172a;
-  --theme-btn-bg:       rgba(2, 6, 14, 0.92);
-  --theme-btn-hover:    rgba(4, 12, 24, 0.96);
-  --theme-accent:       #00d4ff;
-  --theme-corner-a:     rgba(0, 200, 255, 0.6);
-  --theme-corner-b:     rgba(200, 0, 255, 0.6);
-  --theme-shell-top:    rgba(0, 240, 255, 0.04);
+:root[data-theme='cyber'] {
+  --theme-bg: #0f172a;
+  --theme-btn-bg: rgba(2, 6, 14, 0.92);
+  --theme-btn-hover: rgba(4, 12, 24, 0.96);
+  --theme-accent: #00d4ff;
+  --theme-corner-a: rgba(0, 200, 255, 0.6);
+  --theme-corner-b: rgba(200, 0, 255, 0.6);
+  --theme-shell-top: rgba(0, 240, 255, 0.04);
   --theme-shell-bottom: rgba(255, 0, 255, 0.03);
   --theme-shell-border: rgba(0, 240, 255, 0.08);
+  --theme-btn-radius: 0px;
+  --theme-font-family:
+    system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell,
+    sans-serif;
+  --theme-clip-path: polygon(
+    4px 0%,
+    calc(100% - 4px) 0%,
+    100% 4px,
+    100% calc(100% - 4px),
+    calc(100% - 4px) 100%,
+    4px 100%,
+    0% calc(100% - 4px),
+    0% 4px
+  );
+  --theme-shell-clip-path: polygon(
+    6px 0%,
+    calc(100% - 6px) 0%,
+    100% 6px,
+    100% calc(100% - 6px),
+    calc(100% - 6px) 100%,
+    6px 100%,
+    0% calc(100% - 6px),
+    0% 6px
+  );
+  --theme-shell-bg: linear-gradient(180deg, #050a14 0%, #02050c 50%, #050a14 100%);
 }
 
-:root[data-theme="midnight"] {
-  --theme-bg:           #0a0012;
-  --theme-btn-bg:       rgba(10, 0, 18, 0.92);
-  --theme-btn-hover:    rgba(16, 4, 28, 0.96);
-  --theme-accent:       #a855f7;
-  --theme-corner-a:     rgba(168, 85, 247, 0.6);
-  --theme-corner-b:     rgba(120, 40, 200, 0.6);
-  --theme-shell-top:    rgba(168, 85, 247, 0.04);
+:root[data-theme='midnight'] {
+  --theme-bg: #0a0012;
+  --theme-btn-bg: rgba(10, 0, 18, 0.92);
+  --theme-btn-hover: rgba(16, 4, 28, 0.96);
+  --theme-accent: #a855f7;
+  --theme-corner-a: rgba(168, 85, 247, 0.6);
+  --theme-corner-b: rgba(120, 40, 200, 0.6);
+  --theme-shell-top: rgba(168, 85, 247, 0.04);
   --theme-shell-bottom: rgba(168, 85, 247, 0.03);
   --theme-shell-border: rgba(168, 85, 247, 0.08);
+  --theme-btn-radius: 0px;
+  --theme-font-family:
+    system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell,
+    sans-serif;
+  --theme-clip-path: polygon(
+    4px 0%,
+    calc(100% - 4px) 0%,
+    100% 4px,
+    100% calc(100% - 4px),
+    calc(100% - 4px) 100%,
+    4px 100%,
+    0% calc(100% - 4px),
+    0% 4px
+  );
+  --theme-shell-clip-path: polygon(
+    6px 0%,
+    calc(100% - 6px) 0%,
+    100% 6px,
+    100% calc(100% - 6px),
+    calc(100% - 6px) 100%,
+    6px 100%,
+    0% calc(100% - 6px),
+    0% 6px
+  );
+  --theme-shell-bg: linear-gradient(180deg, #050a14 0%, #02050c 50%, #050a14 100%);
 }
 
-:root[data-theme="ember"] {
-  --theme-bg:           #100804;
-  --theme-btn-bg:       rgba(16, 8, 4, 0.92);
-  --theme-btn-hover:    rgba(24, 14, 6, 0.96);
-  --theme-accent:       #f97316;
-  --theme-corner-a:     rgba(249, 115, 22, 0.6);
-  --theme-corner-b:     rgba(220, 60, 0, 0.6);
-  --theme-shell-top:    rgba(249, 115, 22, 0.04);
+:root[data-theme='ember'] {
+  --theme-bg: #100804;
+  --theme-btn-bg: rgba(16, 8, 4, 0.92);
+  --theme-btn-hover: rgba(24, 14, 6, 0.96);
+  --theme-accent: #f97316;
+  --theme-corner-a: rgba(249, 115, 22, 0.6);
+  --theme-corner-b: rgba(220, 60, 0, 0.6);
+  --theme-shell-top: rgba(249, 115, 22, 0.04);
   --theme-shell-bottom: rgba(255, 60, 0, 0.03);
   --theme-shell-border: rgba(249, 115, 22, 0.08);
+  --theme-btn-radius: 0px;
+  --theme-font-family:
+    system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell,
+    sans-serif;
+  --theme-clip-path: polygon(
+    4px 0%,
+    calc(100% - 4px) 0%,
+    100% 4px,
+    100% calc(100% - 4px),
+    calc(100% - 4px) 100%,
+    4px 100%,
+    0% calc(100% - 4px),
+    0% 4px
+  );
+  --theme-shell-clip-path: polygon(
+    6px 0%,
+    calc(100% - 6px) 0%,
+    100% 6px,
+    100% calc(100% - 6px),
+    calc(100% - 6px) 100%,
+    6px 100%,
+    0% calc(100% - 6px),
+    0% 6px
+  );
+  --theme-shell-bg: linear-gradient(180deg, #050a14 0%, #02050c 50%, #050a14 100%);
+}
+
+:root[data-theme='genshin-01'] {
+  --theme-bg: #12161d;
+  --theme-btn-bg: transparent;
+  --theme-btn-hover: transparent;
+  --theme-accent: #d3bc8e;
+  --theme-corner-a: rgba(211, 188, 142, 0.6);
+  --theme-corner-b: rgba(236, 229, 216, 0.6);
+  --theme-shell-top: rgba(211, 188, 142, 0.05);
+  --theme-shell-bottom: rgba(236, 229, 216, 0.03);
+  --theme-shell-border: rgba(211, 188, 142, 0.15);
+  --theme-btn-radius: 0px;
+  --theme-font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --theme-clip-path: none;
+  --theme-shell-clip-path: none;
+  --theme-shell-bg: rgba(20, 24, 30, 0.45);
+
+  /* Set background image on root */
+  background-image: url('/themes/genshin/bg.jpg') !important;
+  background-size: cover !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  background-attachment: fixed !important;
+}
+
+/* Set body and cyber-dashboard backgrounds to transparent for genshin theme */
+:root[data-theme='genshin-01'] body,
+:root[data-theme='genshin-01'] main,
+:root[data-theme='genshin-01'] .cyber-dashboard {
+  background: transparent !important;
+}
+
+:root[data-theme='genshin-01'] .cyber-panel {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Base button style for theme-genshin-btn */
+.cyber-btn.theme-genshin-btn {
+  border: none !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  clip-path: none !important;
+  padding: 0 !important; /* Set padding to 0 so the absolute image can occupy 100% space */
+  position: relative !important;
+  transition:
+    transform 0.15s ease,
+    filter 0.15s ease !important;
+}
+
+/* Pseudo-element to render the border frame on top of the image */
+.cyber-btn.theme-genshin-btn::after {
+  content: '' !important;
+  position: absolute !important;
+  inset: 0 !important;
+  border: 26px solid transparent !important;
+  border-image-slice: 160 fill !important;
+  border-image-repeat: stretch !important;
+  pointer-events: none !important;
+  z-index: 10 !important; /* Renders above the custom image */
+}
+
+/* Individual frame backgrounds (applied on ::after) */
+.cyber-btn.theme-genshin-btn.genshin-frame-1::after {
+  border-image-source: url('/themes/genshin/frame-01.png') !important;
+}
+.cyber-btn.theme-genshin-btn.genshin-frame-2::after {
+  border-image-source: url('/themes/genshin/frame-02.png') !important;
+}
+.cyber-btn.theme-genshin-btn.genshin-frame-3::after {
+  border-image-source: url('/themes/genshin/frame-03.png') !important;
+}
+.cyber-btn.theme-genshin-btn.genshin-frame-4::after {
+  border-image-source: url('/themes/genshin/frame-04.png') !important;
+}
+
+/* Force custom uploaded images (img tags) to fill the button completely underneath the frame */
+:root[data-theme='genshin-01'] .cyber-btn.theme-genshin-btn img.icon-slot {
+  position: absolute !important;
+  /* inset: 0 !important; */
+  left: 50% !important;
+  top: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  width: calc(100% - 8px) !important;
+  height: calc(100% - 8px) !important;
+  z-index: 1 !important; /* Renders below ::after border frame */
+  max-width: none !important;
+  max-height: none !important;
+}
+
+/* Shift all other elements (standard icons, text, monitor arcs, indicators) to show on top of the frame */
+:root[data-theme='genshin-01'] .cyber-btn.theme-genshin-btn > *:not(img) {
+  z-index: 20 !important;
+  position: relative !important;
+}
+
+/* Interactive and selection effects for Genshin buttons */
+@media (hover: hover) {
+  .cyber-btn.theme-genshin-btn:hover {
+    filter: brightness(1.15) drop-shadow(0 0 6px rgba(211, 188, 142, 0.45)) !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+    animation: none !important;
+  }
+}
+
+.cyber-btn.theme-genshin-btn:active {
+  transform: scale(0.95) !important;
+  filter: brightness(0.9) !important;
+  box-shadow: none !important;
+}
+
+.cyber-btn.theme-genshin-btn.cyber-btn--selected {
+  background-color: transparent !important;
+  box-shadow: none !important;
+  filter: drop-shadow(0 0 8px rgba(211, 188, 142, 0.9)) !important;
 }
 
 body {
@@ -56,7 +274,7 @@ body {
   padding: 0;
   background-color: var(--theme-bg);
   color: #f8fafc; /* slate-50 */
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  font-family: var(--theme-font-family);
   overflow-x: hidden;
   user-select: none;
 }

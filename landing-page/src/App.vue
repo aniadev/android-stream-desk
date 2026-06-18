@@ -17,6 +17,7 @@ const themes: ThemeMap = {
   cyber: { name: 'Cyber', color: '#00d4ff', ring: 'focus:ring-[#00d4ff]' },
   midnight: { name: 'Midnight', color: '#a855f7', ring: 'focus:ring-[#a855f7]' },
   ember: { name: 'Ember', color: '#f97316', ring: 'focus:ring-[#f97316]' },
+  'genshin-01': { name: 'Genshin', color: '#d3bc8e', ring: 'focus:ring-[#d3bc8e]' },
 };
 
 const currentTheme = computed(() => themes[activeTheme.value]);
