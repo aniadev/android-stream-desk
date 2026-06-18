@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
+import { ref, watch, computed, onUnmounted } from 'vue';
 import { useLayoutStore } from '../../stores/layout';
-import { useConnectionStore } from '../../stores/connection';
 import type { ButtonConfig, ActionType } from '../../types';
 import { Icon, listIcons } from '@iconify/vue';
 import { normalizeHex } from '../../lib/color';
@@ -37,13 +36,11 @@ const emit = defineEmits<{
 }>();
 
 const layoutStore = useLayoutStore();
-const connectionStore = useConnectionStore();
 
 const activeTab = ref<'shortcut' | 'media' | 'app' | 'command' | 'link'>('shortcut');
 const qrSectionExpanded = ref(false);
 const activeQrTab = ref<'apk' | 'web'>('apk');
 
-const copyHint = ref<string>('');
 const webCopyHint = ref<string>('');
 const apkCopyHint = ref<string>('');
 const colorCopyHint = ref<string>('');

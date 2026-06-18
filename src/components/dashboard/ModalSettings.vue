@@ -24,6 +24,7 @@ const props = defineProps<{
   runningWsPort: number | null;
   webReady: boolean;
   webClientUrl: string;
+  webClientQrSvg: string;
   savedServerConfig: any;
   activeTheme: ThemeName;
   autostartOn: boolean;

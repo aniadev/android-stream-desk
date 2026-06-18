@@ -2,9 +2,8 @@
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
 import { useLayoutStore } from '../stores/layout';
 import { useConnectionStore } from '../stores/connection';
-import { useUpdaterStore } from '../stores/updater';
 import { Icon } from '@iconify/vue';
-import { applyTheme, isValidTheme, THEMES, type ThemeName } from '../lib/themes';
+import { applyTheme, isValidTheme, type ThemeName } from '../lib/themes';
 import { safeCreateQrSvg } from '../lib/qrSvg';
 import {
   buildApkEndpointPayload,
@@ -73,7 +72,6 @@ interface InputPermissionDiagnostics {
 }
 
 const layoutStore = useLayoutStore();
-const updaterStore = useUpdaterStore();
 
 // --- Modal/Dialog Controls ---
 const settingsOpen = ref(false);
@@ -1014,6 +1012,7 @@ onUnmounted(() => {
       :running-ws-port="runningWsPort"
       :web-ready="webReady"
       :web-client-url="webClientUrl"
+      :web-client-qr-svg="webClientQrSvg"
       :saved-server-config="savedServerConfig"
       :active-theme="activeTheme"
       :autostart-on="autostartOn"
