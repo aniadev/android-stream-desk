@@ -9,6 +9,7 @@ import FeaturesSection from '@/components/landing/FeaturesSection.vue';
 import HeroSection from '@/components/landing/HeroSection.vue';
 import HowItWorksSection from '@/components/landing/HowItWorksSection.vue';
 import SimulatorSection from '@/components/landing/SimulatorSection.vue';
+import UpdatesSection from '@/components/landing/UpdatesSection.vue';
 import type { ThemeMap, ThemeName } from '@/types/landing';
 
 const repoUrl = 'https://github.com/aniadev/android-stream-desk';
@@ -39,6 +40,7 @@ function setTheme(theme: ThemeName) {
     />
     <HeroSection :accent-color="currentTheme.color" />
     <FeaturesSection :accent-color="currentTheme.color" />
+    <UpdatesSection :accent-color="currentTheme.color" />
     <SimulatorSection :accent-color="currentTheme.color" />
     <HowItWorksSection :accent-color="currentTheme.color" />
     <DownloadsSection :accent-color="currentTheme.color" />
