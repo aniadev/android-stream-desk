@@ -204,6 +204,22 @@ pnpm tauri dev
 ```
 > The custom Dashboard will show at `http://localhost:1420/dashboard` or in the newly opened Desktop window. The mobile Client UI can be tested at `http://localhost:1420/`.
 
+### 1b. Rust without a host toolchain (Docker)
+
+If you don't want Rust, GTK and webkit2gtk dev headers on your machine, use the bundled Docker environment. Only Docker is needed on the host; the app itself still runs natively on the host.
+
+```bash
+pnpm rust:test    # Rust unit tests (cargo test --lib) inside the container
+pnpm rust:check   # cargo check
+pnpm rust:build   # full pnpm tauri build → src-tauri/target/release/bundle/ (deb + AppImage)
+pnpm rust:shell   # bash inside the container
+scripts/rust-env.sh android --debug --target aarch64 --apk   # Android APK (second image with SDK, NDK, JDK 17)
+```
+
+The image (`docker/rust-dev/Dockerfile`, Debian bookworm + Rust stable + Tauri deps + Node 22) is built on first use with your UID/GID so build output in `src-tauri/target/` is owned by you. Cargo's registry cache persists in the `android-stream-desk-cargo-home` Docker volume. `scripts/rust-env.sh --rebuild-image` forces a rebuild.
+
+The Android image (`docker/android-dev/Dockerfile`) layers JDK 17, Android SDK platform 36 / build-tools 36.0.0, NDK 27 and the Rust Android targets on top; APKs land in `src-tauri/gen/android/app/build/outputs/apk/`. Gradle's cache and `~/.android` (the debug signing keystore) persist in Docker volumes, so successive debug APKs stay upgrade-installable (`adb install -r`) instead of failing with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`.
+
 ### 2. Building & Packaging (Production Build)
 
 **Packaging the Windows Installer (`.msi` / `.exe`)**:
