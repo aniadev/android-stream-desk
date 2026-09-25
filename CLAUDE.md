@@ -22,7 +22,13 @@ pnpm tauri android dev        # run Client on Android emulator/device
 pnpm build                    # vue-tsc -b && vite build (frontend type-check + bundle)
 pnpm tauri build              # Windows/macOS installer → src-tauri/target/release/bundle/
 pnpm tauri android build      # APK → src-tauri/gen/android/app/build/outputs/apk/release/
-cargo check --manifest-path src-tauri/Cargo.toml   # fast Rust type-check without launching app
+cargo check --manifest-path src-tauri/Cargo.toml   # fast Rust type-check without launching app (needs host toolchain)
+
+# No Rust toolchain on the host? Use the Docker env (docker/rust-dev, wrapper scripts/rust-env.sh):
+pnpm rust:test                # cargo test --lib in the container (Rust unit tests)
+pnpm rust:check               # cargo check in the container
+pnpm rust:build               # pnpm tauri build in the container → src-tauri/target/release/bundle/ (deb/AppImage run on host)
+pnpm rust:shell               # bash in the container, cwd src-tauri
 ```
 
 Dev server runs on **fixed** port 1420 (`strictPort: true` in `vite.config.ts`) with HMR on 1421, bound to `0.0.0.0` so an Android dev build can reach the host. The WebSocket server is a **separate** port (`8089`) started by Rust in `setup()`.

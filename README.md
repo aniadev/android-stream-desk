@@ -204,6 +204,19 @@ pnpm tauri dev
 ```
 > The custom Dashboard will show at `http://localhost:1420/dashboard` or in the newly opened Desktop window. The mobile Client UI can be tested at `http://localhost:1420/`.
 
+### 1b. Rust without a host toolchain (Docker)
+
+If you don't want Rust, GTK and webkit2gtk dev headers on your machine, use the bundled Docker environment. Only Docker is needed on the host; the app itself still runs natively on the host.
+
+```bash
+pnpm rust:test    # Rust unit tests (cargo test --lib) inside the container
+pnpm rust:check   # cargo check
+pnpm rust:build   # full pnpm tauri build → src-tauri/target/release/bundle/ (deb + AppImage)
+pnpm rust:shell   # bash inside the container
+```
+
+The image (`docker/rust-dev/Dockerfile`, Debian bookworm + Rust stable + Tauri deps + Node 22) is built on first use with your UID/GID so build output in `src-tauri/target/` is owned by you. Cargo's registry cache persists in the `android-stream-desk-cargo-home` Docker volume. `scripts/rust-env.sh --rebuild-image` forces a rebuild.
+
 ### 2. Building & Packaging (Production Build)
 
 **Packaging the Windows Installer (`.msi` / `.exe`)**:

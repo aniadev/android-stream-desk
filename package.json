@@ -6,6 +6,10 @@
   "scripts": {
     "dev": "vite",
     "test": "pnpm test:qr && pnpm test:typography && pnpm test:link && pnpm test:settings",
+    "rust:test": "scripts/rust-env.sh test",
+    "rust:check": "scripts/rust-env.sh check",
+    "rust:build": "scripts/rust-env.sh build",
+    "rust:shell": "scripts/rust-env.sh shell",
     "test:qr": "node --experimental-strip-types src/lib/apkConnectQr.test.mjs && node --experimental-strip-types src/lib/qrDecodeRoundtrip.test.ts",
     "test:typography": "node --experimental-strip-types src/lib/typography.test.mjs",
     "test:link": "node --experimental-strip-types src/lib/linkUrl.test.ts",
