@@ -28,6 +28,13 @@ const props = defineProps<{
   webClientUrl: string;
   webClientQrSvg: string;
   savedServerConfig: any;
+  usbBridgeStatus: {
+    enabled: boolean;
+    adbPath: string | null;
+    state: string;
+    devices: Array<{ serial: string; state: string; reversed: boolean }>;
+    message: string | null;
+  } | null;
   activeTheme: ThemeName;
   autostartOn: boolean;
   autostartLoading: boolean;
@@ -35,6 +42,7 @@ const props = defineProps<{
     wsPort: string;
     webEnabled: boolean;
     webPort: string;
+    loopbackOnly: boolean;
   };
   serverConfigSaving: boolean;
   serverConfigError: string;
@@ -301,6 +309,64 @@ const visibleSettingsGroups = computed(() =>
 
 const activeWsPort = computed(() => props.runningWsPort ?? props.serverPort);
 
+const usbBridgeView = computed(() => {
+  const s = props.usbBridgeStatus;
+  if (!props.savedServerConfig?.loopbackOnly) return null;
+  if (!s || !s.enabled) {
+    return {
+      icon: 'lucide:usb',
+      classes: 'text-slate-500',
+      label: 'USB bridge starting…',
+      detail: 'Restart Companion if this does not change.',
+    };
+  }
+  const linked = s.devices.filter(d => d.reversed).map(d => d.serial);
+  switch (s.state) {
+    case 'linked':
+      return {
+        icon: 'lucide:usb',
+        classes: 'text-emerald-300',
+        label: `USB linked: ${linked.join(', ')}`,
+        detail: 'adb reverse active. Phone reconnects on its own.',
+      };
+    case 'unauthorized':
+      return {
+        icon: 'lucide:smartphone',
+        classes: 'text-amber-300',
+        label: 'Phone waiting for USB debugging approval',
+        detail: s.message ?? 'Accept the prompt on the phone and tick "Always allow".',
+      };
+    case 'installing':
+      return {
+        icon: 'lucide:download',
+        classes: 'text-cyan-300',
+        label: 'Installing the app on the phone…',
+        detail: s.message ?? '',
+      };
+    case 'adb-missing':
+      return {
+        icon: 'lucide:triangle-alert',
+        classes: 'text-rose-300',
+        label: 'adb not found',
+        detail: s.message ?? 'Install Android platform-tools or set adbPath in server.json.',
+      };
+    case 'error':
+      return {
+        icon: 'lucide:triangle-alert',
+        classes: 'text-rose-300',
+        label: 'USB bridge error',
+        detail: s.message ?? '',
+      };
+    default:
+      return {
+        icon: 'lucide:usb',
+        classes: 'text-slate-400',
+        label: 'Waiting for a phone on USB',
+        detail: s.adbPath ? `Using ${s.adbPath}` : (s.message ?? ''),
+      };
+  }
+});
+
 const updateStatusText = computed(() => {
   switch (updaterStore.state) {
     case 'checking':
@@ -555,6 +621,59 @@ const onSettingsScroll = (e: Event) => {
                     />
                     {{ serverConfigDraft.webEnabled ? t('network.webOn') : t('network.webOff') }}
                   </button>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-center">
+                  <div class="flex flex-col gap-1">
+                    <span class="cyber-input-label">Listen Scope</span>
+                    <p class="text-[10px] leading-relaxed text-slate-500">
+                      <template v-if="serverConfigDraft.loopbackOnly">
+                        Listeners bind <span class="font-mono text-slate-300">127.0.0.1</span> only.
+                        Nothing on the LAN can connect; use USB mode (<span class="font-mono">adb reverse</span>).
+                      </template>
+                      <template v-else>
+                        Listeners bind all interfaces so phones on the LAN can connect over Wi-Fi.
+                      </template>
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    class="cyber-action-btn h-[38px] min-w-[116px] font-bold cursor-pointer text-[10px] uppercase tracking-wider px-3 py-1.5 flex items-center justify-center gap-1.5"
+                    :class="
+                      serverConfigDraft.loopbackOnly
+                        ? 'border-cyan-400/70 text-cyan-300 bg-slate-900/80 shadow shadow-cyan-900/20'
+                        : 'border-slate-750 text-slate-400 hover:border-slate-600'
+                    "
+                    :title="
+                      serverConfigDraft.loopbackOnly
+                        ? 'USB only: bind 127.0.0.1, unreachable from the LAN'
+                        : 'LAN: bind 0.0.0.0, reachable over Wi-Fi'
+                    "
+                    @click="serverConfigDraft.loopbackOnly = !serverConfigDraft.loopbackOnly"
+                  >
+                    <Icon
+                      :icon="serverConfigDraft.loopbackOnly ? 'lucide:usb' : 'lucide:wifi'"
+                      class="text-sm"
+                    />
+                    {{ serverConfigDraft.loopbackOnly ? 'USB Only' : 'LAN' }}
+                  </button>
+                </div>
+
+                <div
+                  v-if="usbBridgeView"
+                  class="flex items-start gap-2 rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2"
+                  data-testid="usb-bridge-status"
+                >
+                  <Icon :icon="usbBridgeView.icon" class="text-sm mt-0.5 shrink-0" :class="usbBridgeView.classes" />
+                  <div class="flex flex-col gap-0.5 min-w-0">
+                    <span class="text-[10px] font-bold uppercase tracking-wider" :class="usbBridgeView.classes">
+                      {{ usbBridgeView.label }}
+                    </span>
+                    <span v-if="usbBridgeView.detail" class="text-[10px] leading-relaxed text-slate-500 break-words">
+                      {{ usbBridgeView.detail }}
+                    </span>
+                  </div>
                 </div>
 
                 <div class="flex flex-col gap-2 pt-2 cyber-divider">

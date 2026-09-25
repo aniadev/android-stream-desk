@@ -9,16 +9,39 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import android.webkit.JavascriptInterface
+import android.view.WindowManager
 import android.webkit.WebView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 
 class MainActivity : TauriActivity() {
   private var wifiLock: WifiManager.WifiLock? = null
+  // The frontend flips this off when it connects to 127.0.0.1 (USB mode via
+  // `adb reverse`), where a Wi-Fi performance lock is pure battery drain.
+  @Volatile private var wifiLockWanted = true
 
   override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
+    // A macro pad is useless behind a lock screen: keep the display on (and
+    // therefore unlocked) for as long as this activity is in the foreground.
+    // Window-scoped, so it needs no WAKE_LOCK permission and releases itself
+    // the moment the user switches away.
+    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    // Dedicated-deck behaviour: when the Companion launches us over USB the
+    // phone may be dark on the desk. Turn the screen on and show over the
+    // lock screen so the grid is immediately usable. Note this deliberately
+    // makes the grid reachable without unlocking the phone.
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+      setShowWhenLocked(true)
+      setTurnScreenOn(true)
+    } else {
+      @Suppress("DEPRECATION")
+      window.addFlags(
+        WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+          WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+      )
+    }
   }
 
   // Expose a native orientation toggle to the WebView. Runtime orientation can't
@@ -29,6 +52,15 @@ class MainActivity : TauriActivity() {
   // ClientView.vue (-1 unspecified, 0 landscape, 1 portrait, 8 reverse-landscape).
   override fun onWebViewCreate(webView: WebView) {
     webView.addJavascriptInterface(OrientationBridge(), "AndroidOrientation")
+    webView.addJavascriptInterface(WifiLockBridge(), "AndroidWifiLock")
+  }
+
+  inner class WifiLockBridge {
+    @JavascriptInterface
+    fun setEnabled(enabled: Boolean) {
+      wifiLockWanted = enabled
+      runOnUiThread { if (enabled) acquireWifiLock() else releaseWifiLock() }
+    }
   }
 
   inner class OrientationBridge {
@@ -57,6 +89,7 @@ class MainActivity : TauriActivity() {
   }
 
   private fun acquireWifiLock() {
+    if (!wifiLockWanted) return
     if (wifiLock?.isHeld == true) return
     try {
       val wm = applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager ?: return
@@ -88,7 +121,7 @@ class MainActivity : TauriActivity() {
     prefs.edit().putBoolean("battery_opt_asked", true).apply()
     Toast.makeText(
       this,
-      "Cho phép \"Không giới hạn pin\" để giữ kết nối WiFi khi dùng pin",
+      "Allow \"Unrestricted battery\" to keep the Wi-Fi connection alive on battery",
       Toast.LENGTH_LONG
     ).show()
     try {

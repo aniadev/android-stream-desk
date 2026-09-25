@@ -1,0 +1,6 @@
+{
+  "wsPort": 8089,
+  "webEnabled": false,
+  "webPort": 8090,
+  "loopbackOnly": false
+}

@@ -30,6 +30,26 @@ interface ServerConfig {
   wsPort: number;
   webEnabled: boolean;
   webPort: number;
+  /** Bind listeners to 127.0.0.1 only (USB / adb reverse mode). Default false = LAN. */
+  loopbackOnly: boolean;
+  /** Optional explicit adb path for the USB bridge; file-only setting, not edited in the UI. */
+  adbPath?: string | null;
+  /** Optional APK the USB bridge auto-installs on fresh phones; file-only setting. */
+  apkPath?: string | null;
+}
+
+interface UsbBridgeDevice {
+  serial: string;
+  state: string;
+  reversed: boolean;
+}
+
+interface UsbBridgeStatus {
+  enabled: boolean;
+  adbPath: string | null;
+  state: 'disabled' | 'adb-missing' | 'waiting' | 'linked' | 'unauthorized' | 'error';
+  devices: UsbBridgeDevice[];
+  message: string | null;
 }
 
 interface ListenerBindError {
@@ -45,6 +65,7 @@ interface ServerInfo {
   runningWsPort: number | null;
   webEnabled: boolean;
   webPort: number;
+  loopbackOnly: boolean;
   wsReady: boolean;
   wsBindError: ListenerBindError | null;
   webReady: boolean;
@@ -55,6 +76,7 @@ interface ServerConfigDraft {
   wsPort: string;
   webEnabled: boolean;
   webPort: string;
+  loopbackOnly: boolean;
 }
 
 type InputPermissionRecommendedAction =
@@ -263,6 +285,7 @@ const runningWsPort = ref<number | null>(null);
 const wsBindError = ref<ListenerBindError | null>(null);
 const webReady = ref(false);
 const webBindError = ref<ListenerBindError | null>(null);
+const usbBridgeStatus = ref<UsbBridgeStatus | null>(null);
 const serverIp = ref<string>('—');
 const serverPort = ref<number>(8089);
 const appVersion = ref<string>('1.6.1');
@@ -358,12 +381,14 @@ const serverConfigDraft = ref<ServerConfigDraft>({
   wsPort: '8089',
   webEnabled: false,
   webPort: '8090',
+  loopbackOnly: false,
 });
 
 const toServerConfigDraft = (config: ServerConfig): ServerConfigDraft => ({
   wsPort: String(config.wsPort),
   webEnabled: config.webEnabled,
   webPort: String(config.webPort),
+  loopbackOnly: Boolean(config.loopbackOnly),
 });
 
 const parsePortDraft = (raw: string, label: string) => {
@@ -401,6 +426,8 @@ const hasPendingServerChanges = computed(() => {
     webEnabledSaved: persisted?.webEnabled ?? false,
     webPortDraft: serverConfigDraft.value.webPort,
     webPortSaved: persisted?.webPort ?? null,
+    loopbackOnlyDraft: serverConfigDraft.value.loopbackOnly,
+    loopbackOnlySaved: persisted?.loopbackOnly ?? false,
   });
 });
 
@@ -532,9 +559,12 @@ const buildServerConfigPayload = (): ServerConfig | null => {
   if (ws.error || web.error || ws.value === undefined || web.value === undefined) return null;
 
   return {
+    // Spread first so file-only keys (adbPath, apkPath, …) survive a UI save.
+    ...(savedServerConfig.value ?? {}),
     wsPort: ws.value,
     webEnabled: serverConfigDraft.value.webEnabled,
     webPort: web.value,
+    loopbackOnly: serverConfigDraft.value.loopbackOnly,
   };
 };
 
@@ -978,6 +1008,9 @@ onMounted(async () => {
           }
         },
       );
+      const unlistenUsbBridge = await listen<UsbBridgeStatus>('usb-bridge-status', e => {
+        usbBridgeStatus.value = e.payload;
+      });
       const unlistenDeviceInfo = await listen<{
         width: number;
         height: number;
@@ -993,6 +1026,7 @@ onMounted(async () => {
         unlistenWebReady,
         unlistenWebError,
         unlistenActionError,
+        unlistenUsbBridge,
         unlistenDeviceInfo,
       );
 
@@ -1005,12 +1039,22 @@ onMounted(async () => {
       webReady.value = info.webReady;
       webBindError.value = info.webBindError;
       await loadServerConfig(invoke);
+      try {
+        usbBridgeStatus.value = await invoke<UsbBridgeStatus>('get_usb_bridge_status');
+      } catch (_) {
+        usbBridgeStatus.value = null;
+      }
 
       await probePermission();
       ensurePermissionPoll();
       window.addEventListener('focus', probePermission);
     } else {
-      const fallback = { wsPort: serverPort.value, webEnabled: false, webPort: 8090 };
+      const fallback = {
+        wsPort: serverPort.value,
+        webEnabled: false,
+        webPort: 8090,
+        loopbackOnly: false,
+      };
       wsReady.value = true;
       runningWsPort.value = serverPort.value;
       savedServerConfig.value = fallback;
@@ -1020,7 +1064,12 @@ onMounted(async () => {
   } catch (e) {
     console.error('Failed initialization:', e);
     if (!serverConfigLoaded.value) {
-      const fallback = { wsPort: serverPort.value, webEnabled: false, webPort: 8090 };
+      const fallback = {
+        wsPort: serverPort.value,
+        webEnabled: false,
+        webPort: 8090,
+        loopbackOnly: false,
+      };
       wsReady.value = true;
       runningWsPort.value = serverPort.value;
       savedServerConfig.value = fallback;
@@ -1160,6 +1209,7 @@ onUnmounted(() => {
       :web-client-url="webClientUrl"
       :web-client-qr-svg="webClientQrSvg"
       :saved-server-config="savedServerConfig"
+      :usb-bridge-status="usbBridgeStatus"
       :active-theme="activeTheme"
       :autostart-on="autostartOn"
       :autostart-loading="autostartLoading"

@@ -13,6 +13,8 @@ lazy_static::lazy_static! {
 
 #[derive(Clone, Debug)]
 pub struct WebServerConfig {
+    /// `0.0.0.0` (LAN) or `127.0.0.1` (loopback-only) — see `ServerConfig::bind_host`.
+    pub bind_host: String,
     pub web_port: u16,
     pub ws_port: u16,
 }
@@ -39,7 +41,7 @@ struct WebServerReadyPayload {
 
 pub fn start_web_server(config: WebServerConfig, app_handle: tauri::AppHandle) {
     set_web_bind_status(ListenerBindStatus::default());
-    let addr = format!("0.0.0.0:{}", config.web_port);
+    let addr = format!("{}:{}", config.bind_host, config.web_port);
     let server = match Server::http(&addr) {
         Ok(server) => server,
         Err(e) => {

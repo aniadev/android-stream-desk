@@ -13,6 +13,8 @@ assert.equal(
     webEnabledSaved: false,
     webPortDraft: '8090',
     webPortSaved: 8090,
+    loopbackOnlyDraft: false,
+    loopbackOnlySaved: false,
   }),
   true,
 );
@@ -25,8 +27,26 @@ assert.equal(
     webEnabledSaved: true,
     webPortDraft: '8090',
     webPortSaved: 8090,
+    loopbackOnlyDraft: false,
+    loopbackOnlySaved: false,
   }),
   false,
+);
+
+// Flipping only the listen scope (LAN <-> loopback) is a pending change:
+// it needs a relaunch to rebind the listeners.
+assert.equal(
+  hasPendingServerChanges({
+    draftWsPort: '8089',
+    runningWsPort: 8089,
+    webEnabledDraft: false,
+    webEnabledSaved: false,
+    webPortDraft: '8090',
+    webPortSaved: 8090,
+    loopbackOnlyDraft: true,
+    loopbackOnlySaved: false,
+  }),
+  true,
 );
 
 assert.equal(

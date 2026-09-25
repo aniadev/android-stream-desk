@@ -54,9 +54,9 @@ fn set_ws_bind_status(status: ListenerBindStatus) {
         .unwrap_or_else(|poisoned| poisoned.into_inner()) = status;
 }
 
-pub async fn start_ws_server(port: u16, app_handle: tauri::AppHandle) {
+pub async fn start_ws_server(bind_host: &str, port: u16, app_handle: tauri::AppHandle) {
     set_ws_bind_status(ListenerBindStatus::default());
-    let addr = format!("0.0.0.0:{}", port);
+    let addr = format!("{}:{}", bind_host, port);
     let listener = match TcpListener::bind(&addr).await {
         Ok(l) => l,
         Err(e) => {

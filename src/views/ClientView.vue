@@ -566,7 +566,12 @@ onMounted(async () => {
   }
 
   if (connectionStore.ipAddress) {
-    // connectionStore.connect();
+    // Cold start with a saved address: reconnect without waiting for a tap.
+    // USB mode relies on this — the Companion launches the app on plug-in.
+    connectionStore.connect();
+    return;
+  }
+  if (await connectionStore.tryLoopbackAutoConnect()) {
     return;
   }
   try {

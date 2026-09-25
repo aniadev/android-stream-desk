@@ -159,6 +159,8 @@ The app supports running directly via a `.deb` package or a portable `.AppImage`
 
 > **Tag note**: Releases with a `-linux` suffix (e.g. `v1.4.0-linux`) contain only the Linux build.
 
+> **USB instead of Wi-Fi** (any OS): switch **Settings → Network → Listen Scope** to **USB Only** and the Companion manages `adb reverse` itself; see [docs/USB_MODE.md](docs/USB_MODE.md). Companion settings live in `server.json`, documented in [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
+
 ### Android Client (phone / tablet)
 
 1. Go to the [Releases](https://github.com/aniadev/android-stream-desk/releases) page → pick the latest version.
@@ -240,6 +242,6 @@ pnpm tauri android build --apk --split-per-abi \
 
 ## 🔒 Non-Functional Requirements (NFR)
 
-- **Local Network Isolation**: The app makes **no** calls to any Internet API. All traffic stays entirely within the LAN over port `8089`.
+- **Local Network Isolation**: The app makes **no** calls to any Internet API. All traffic stays entirely within the LAN over port `8089`. With `loopbackOnly: true` in `server.json` (see [docs/CONFIGURATION.md](docs/CONFIGURATION.md)) the Companion binds `127.0.0.1` only, so nothing on the network can reach it at all; in USB mode the Companion drives `adb reverse` itself so the phone links over the cable, plug-and-play ([docs/USB_MODE.md](docs/USB_MODE.md)).
 - **Ideal Transmission Latency**: The latency from sending an action on the Android phone to the keystroke click on the Windows Companion OS averages `15ms` to `30ms` (over a standard 5GHz network connection).
 - **Hardened Enigo Logic**: A strict auto-release mechanism for Modifier keys (`Ctrl`, `Alt`, `Shift`, `Win`) after each press is implemented, completely eliminating the possibility of a stuck system hotkey after a click.
