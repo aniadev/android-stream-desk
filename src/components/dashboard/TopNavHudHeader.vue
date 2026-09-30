@@ -88,7 +88,7 @@ const emit = defineEmits<{
     <div class="flex flex-wrap items-center gap-2.5 md:gap-3 justify-end">
       <div class="cyber-hud flex items-center gap-3 px-4 py-2">
         <span
-          class="inline-flex h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_6px_#22d3ee] animate-pulse"
+          class="inline-flex h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_6px_#22d3ee]"
         ></span>
         <div class="flex flex-col">
           <label class="text-[9px] uppercase tracking-widest font-bold text-slate-500"
@@ -188,7 +188,7 @@ const emit = defineEmits<{
       </button>
 
       <button
-        class="cyber-icon-btn cursor-pointer flex items-center justify-center animate-pulse"
+        class="cyber-icon-btn cursor-pointer flex items-center justify-center"
         @click="emit('openSettings')"
         :title="t('header.settingsTitle')"
       >

@@ -850,7 +850,7 @@ const onSettingsScroll = (e: Event) => {
                     class="flex-1 flex flex-col gap-1 items-center sm:items-start text-center sm:text-left"
                   >
                     <div class="flex items-center gap-1.5 text-xs font-bold text-fuchsia-300">
-                      <Icon icon="mdi:coffee" class="text-sm shrink-0 animate-bounce" />
+                      <Icon icon="mdi:coffee" class="text-sm shrink-0" />
                       <span>{{ t('about.supportDeveloper') }}</span>
                     </div>
                     <p class="text-[9px] text-slate-400 max-w-[280px] leading-relaxed">

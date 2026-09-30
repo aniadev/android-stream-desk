@@ -20,7 +20,11 @@ pub fn collect_metrics(sys: &mut System) -> (f32, f32) {
 }
 
 pub async fn metrics_loop(config_dir: PathBuf) {
-    let mut sys = System::new_all();
+    // Only CPU and memory are ever read, so do not use `System::new_all()`:
+    // it enumerates every process and thread on the host (tens of thousands
+    // of /proc reads, several seconds on a busy machine) for data we drop.
+    let mut sys = System::new();
+    sys.refresh_memory();
 
     // First CPU refresh; sleep so next refresh has a meaningful delta.
     sys.refresh_cpu_usage();

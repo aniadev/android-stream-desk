@@ -111,11 +111,11 @@ const { t } = useI18n({
       },
       shortcutTab: {
         label: 'Keyboard shortcut:',
-        noKeyAssigned: 'No key assigned',
+        noKeyAssigned: 'No key assigned — type e.g. Ctrl+Shift+T or press Record',
         recording: 'Recording...',
         record: 'Record',
         holdingHint: '⚠ Press any key combination on your keyboard to record it... (Holding: {preview})',
-        assignManually: 'Or assign manually (for combinations blocked by macOS):',
+        assignManually: 'Or assign manually (for combinations your OS grabs first, e.g. desktop switching, macOS globals):',
         ctrl: 'Ctrl',
         shift: 'Shift',
         finalKeyPlaceholder: 'Final key (e.g. Q, F4, Space)',
@@ -253,11 +253,11 @@ const { t } = useI18n({
       },
       shortcutTab: {
         label: 'Tổ hợp phím tắt:',
-        noKeyAssigned: 'Chưa gán phím',
+        noKeyAssigned: 'Chưa gán phím — gõ ví dụ Ctrl+Shift+T hoặc bấm Ghi',
         recording: 'Thu...',
         record: 'Thu',
         holdingHint: '⚠ Nhấp tổ hợp phím bất kỳ trên bàn phím của bạn để ghi nhận... (Đang giữ: {preview})',
-        assignManually: 'Hoặc gán thủ công (cho tổ hợp bị macOS chặn):',
+        assignManually: 'Hoặc gán thủ công (cho tổ hợp bị hệ điều hành chặn trước, ví dụ chuyển desktop, phím macOS):',
         ctrl: 'Ctrl',
         shift: 'Shift',
         finalKeyPlaceholder: 'Phím cuối (vd: Q, F4, Space)',
@@ -1114,7 +1114,8 @@ const copyWebClientUrl = async () => {
             >
               <Icon
                 :icon="wsBindError ? 'lucide:wifi-off' : 'lucide:loader-2'"
-                class="text-lg animate-pulse text-rose-400"
+                class="text-lg text-rose-400"
+                :class="wsBindError ? '' : 'animate-spin'"
               />
               <span class="text-[9px] font-bold uppercase tracking-wider text-slate-400">
                 {{ wsBindError ? t('connection.bindError') : t('connection.notReady') }}
@@ -1187,7 +1188,7 @@ const copyWebClientUrl = async () => {
                       ? 'lucide:settings-2'
                       : 'lucide:loader-2'
                 "
-                class="text-lg animate-pulse text-amber-400"
+                class="text-lg text-amber-400"
               />
               <span class="text-[9px] font-bold uppercase tracking-wider text-slate-400">
                 {{
@@ -1570,12 +1571,20 @@ const copyWebClientUrl = async () => {
               <div class="flex flex-col gap-2">
                 <span class="text-[9px] font-bold uppercase text-slate-400">{{ t('shortcutTab.label') }}</span>
                 <div class="relative flex items-center cyber-input-group overflow-hidden">
+                  <!-- Typeable as well as recordable: combos the OS or window
+                       manager grabs (desktop switching, macOS globals) never
+                       reach the recorder, so typing e.g. "Shift+F1" is the
+                       only way to assign them. Saved on Enter / blur. -->
                   <Input
                     v-model="selectedButton.shortcutValue"
                     type="text"
                     :placeholder="t('shortcutTab.noKeyAssigned')"
-                    class="border-0 bg-transparent px-3 py-1.5 shadow-none"
-                    disabled
+                    class="border-0 bg-transparent px-3 py-1.5 shadow-none font-mono"
+                    :disabled="isRecording"
+                    spellcheck="false"
+                    autocomplete="off"
+                    @change="saveButtonSettings"
+                    @keydown.enter.prevent="saveButtonSettings"
                   />
                   <button
                     @click="toggleRecording"

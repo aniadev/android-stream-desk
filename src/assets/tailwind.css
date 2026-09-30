@@ -233,6 +233,22 @@
   position: relative !important;
 }
 
+/* Performance: WebKitGTK (the Companion's Linux webview) rasterises on the
+   CPU and repaints every frame of an infinite CSS animation. A single
+   always-visible animate-pulse pinned WebKitWebProcess at 100% CPU. Rule:
+   no infinite animations on elements that are visible in the idle
+   Dashboard; transient spinners (saving, checking) are fine. Honour the
+   OS reduced-motion preference for everything else. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* Interactive and selection effects for Genshin buttons */
 @media (hover: hover) {
   .cyber-btn.theme-genshin-btn:hover {
