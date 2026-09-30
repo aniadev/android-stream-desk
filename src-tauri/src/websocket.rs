@@ -208,7 +208,19 @@ async fn handle_connection(
                                 }
                                 "press" => {
                                     if let Some(payload_val) = parsed_msg.payload {
-                                        let _ = app_handle.emit("trigger-macro", payload_val);
+                                        let label = payload_val
+                                            .get("label")
+                                            .and_then(|v| v.as_str())
+                                            .unwrap_or("?");
+                                        match app_handle.emit("trigger-macro", payload_val.clone()) {
+                                            Ok(()) => println!("press received from {}: {}", addr, label),
+                                            Err(e) => eprintln!(
+                                                "press received from {} but emit failed: {}: {}",
+                                                addr, label, e
+                                            ),
+                                        }
+                                    } else {
+                                        eprintln!("press from {} had no payload", addr);
                                     }
                                 }
                                 "device_info" => {

@@ -870,6 +870,12 @@ fn enigo_settings() -> Settings {
     // guides the user through the UI instead.
     Settings {
         open_prompt_to_get_permissions: false,
+        // simulate_shortcut/simulate_media already release every key they press,
+        // on both the success and the failure paths, so enigo must not release
+        // them a second time when it is dropped. Note enigo 0.3 only honours
+        // this on Windows and macOS; its X11 backend releases regardless, so a
+        // duplicate modifier release is still observable on Linux.
+        release_keys_when_dropped: false,
         ..Settings::default()
     }
 }
@@ -911,6 +917,18 @@ fn get_input_permission_diagnostics(
     accessibility::get_input_permission_diagnostics(&app_handle)
 }
 
+/// Spacing between the modifier press, the base key, and their releases.
+///
+/// enigo only applies its `linux_delay` when a keymap remap is pending, so for
+/// already-mapped keys (Ctrl, Shift, F-keys...) every XTEST event is sent with
+/// delay 0. A window manager that holds a passive grab on the combo can then
+/// evaluate the base key before the modifier state has settled and ignore the
+/// shortcut entirely — observed as roughly 1-in-4 workspace switches being
+/// silently dropped under Mutter, while `xdotool` (which spaces keys by 12ms
+/// by default) never dropped one.
+#[cfg(desktop)]
+const KEY_EVENT_SPACING: std::time::Duration = std::time::Duration::from_millis(25);
+
 #[cfg(desktop)]
 fn simulate_shortcut(shortcut: &str) -> Result<(), String> {
     let (modifiers, base_keys) = parse_shortcut(shortcut)?;
@@ -921,6 +939,21 @@ fn simulate_shortcut(shortcut: &str) -> Result<(), String> {
     let settings = enigo_settings();
     let mut enigo = Enigo::new(&settings).map_err(enigo_init_err)?;
 
+    // X11 only: the first XTEST key event emitted after a period of inactivity
+    // is not acted on by the compositor. Our first event is the modifier press,
+    // so Shift is lost, the base key arrives bare, and the shortcut silently
+    // does nothing — which is why only the *first* press after an idle gap was
+    // dropped and the retry always worked. A throwaway Shift tap absorbs it.
+    // (`xdotool --clearmodifiers` is reliable for the same reason: it emits
+    // spare events first.) Measured against Mutter: without this, the first
+    // press after a 90s idle failed 4/4; with it, 0/4.
+    #[cfg(target_os = "linux")]
+    {
+        let _ = enigo.key(Key::Shift, Direction::Press);
+        let _ = enigo.key(Key::Shift, Direction::Release);
+        std::thread::sleep(KEY_EVENT_SPACING);
+    }
+
     // Press modifiers; on first failure release ones already pressed and bail.
     for (idx, m) in modifiers.iter().enumerate() {
         if let Err(e) = enigo.key(*m, Direction::Press) {
@@ -929,6 +962,11 @@ fn simulate_shortcut(shortcut: &str) -> Result<(), String> {
             }
             return Err(format!("Modifier press failed ({:?}): {}", m, e));
         }
+    }
+
+    // Let the server apply the modifier state before the base key arrives.
+    if !modifiers.is_empty() {
+        std::thread::sleep(KEY_EVENT_SPACING);
     }
 
     // Press base keys; on first failure release already pressed base keys and modifiers, then bail.
@@ -945,6 +983,9 @@ fn simulate_shortcut(shortcut: &str) -> Result<(), String> {
             return Err(format!("Base key press failed ({:?}): {}", b, e));
         }
     }
+
+    // Hold briefly so the combination is observed as held, not as a zero-length blip.
+    std::thread::sleep(KEY_EVENT_SPACING);
 
     // Release base keys in reverse order
     for b in base_keys.iter().rev() {
@@ -1315,11 +1356,25 @@ pub fn run() {
 
             // Proxy listen event triggered from WS client loop
             app.listen("trigger-macro", move |event| {
-                if let Ok(button) = serde_json::from_str::<ButtonConfig>(event.payload()) {
-                    let handle = app_handle_listener.clone();
-                    tauri::async_runtime::spawn(async move {
-                        let _ = execute_logic(handle, button).await;
-                    });
+                match serde_json::from_str::<ButtonConfig>(event.payload()) {
+                    Ok(button) => {
+                        let handle = app_handle_listener.clone();
+                        tauri::async_runtime::spawn(async move {
+                            let label = button.label.clone();
+                            let action = button.action_type.clone();
+                            match execute_logic(handle, button).await {
+                                Ok(()) => println!("macro ok: {} ({})", label, action),
+                                Err(e) => eprintln!("macro FAILED: {} ({}): {}", label, action, e),
+                            }
+                        });
+                    }
+                    // Previously an `if let Ok(..)` with no else: a payload that
+                    // failed to deserialise vanished with no log and no toast.
+                    Err(e) => eprintln!(
+                        "trigger-macro payload could not be parsed as ButtonConfig: {} -- payload was {}",
+                        e,
+                        event.payload()
+                    ),
                 }
             });
 
