@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "test": "pnpm test:qr && pnpm test:typography && pnpm test:link && pnpm test:settings",
+    "test": "pnpm test:qr && pnpm test:typography && pnpm test:link && pnpm test:settings && pnpm test:connection",
+    "test:connection": "node --experimental-strip-types src/stores/connection.test.mjs",
     "test:qr": "node --experimental-strip-types src/lib/apkConnectQr.test.mjs && node --experimental-strip-types src/lib/qrDecodeRoundtrip.test.ts",
     "test:typography": "node --experimental-strip-types src/lib/typography.test.mjs",
     "test:link": "node --experimental-strip-types src/lib/linkUrl.test.ts",

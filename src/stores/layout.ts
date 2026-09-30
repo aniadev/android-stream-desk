@@ -412,9 +412,20 @@ export const useLayoutStore = defineStore('layout', () => {
     });
   }
 
+  // The Android client can only ever reach the Companion over the socket, so
+  // it must queue rather than fall through to the local-execution branch
+  // below (which is meaningless on a phone and silently swallowed the press).
+  const isAndroidClient = () =>
+    typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
+
   const pressButton = (button: ButtonConfig) => {
+    if (isAndroidClient()) {
+      connectionStore.sendOrQueue({ type: 'press', payload: button });
+      return;
+    }
+
     if (connectionStore.status === 'connected') {
-      connectionStore.send({
+      connectionStore.sendOrQueue({
         type: 'press',
         payload: button,
       });

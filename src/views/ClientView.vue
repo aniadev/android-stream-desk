@@ -515,6 +515,12 @@ watch(
 );
 
 const handleVisibilityChange = async () => {
+  if (document.visibilityState === 'visible') {
+    // Screen was off: the WebView's timers were frozen, so the heartbeat has
+    // not run and the socket's real state is unknown. Re-check it now rather
+    // than letting the first tap after wake land on a stale socket.
+    connectionStore.revive();
+  }
   if (
     document.visibilityState === 'visible' &&
     keepScreenOn.value &&

@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import type { ConnectionState, WSMessage } from '../types';
-import { formatReconnectEndpoint } from '../lib/mobileReconnectState';
+import { formatReconnectEndpoint } from '../lib/mobileReconnectState.ts';
 
 export const useConnectionStore = defineStore('connection', () => {
   const MAX_RECONNECT_ATTEMPTS = 3;
@@ -16,6 +16,16 @@ export const useConnectionStore = defineStore('connection', () => {
   const isOnline = ref(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const hasConnectedOnce = ref(false);
   const attemptingEndpoint = ref('');
+
+  // A press must never vanish because the socket went stale while the screen
+  // was off. Android freezes the WebView's timers when the display sleeps, so
+  // the heartbeat stops and the socket can be unusable for several seconds
+  // before anything notices. Presses made in that window are parked here and
+  // replayed on the next open socket.
+  const PENDING_TTL_MS = 5000;
+  const MAX_PENDING = 8;
+  let pending: { message: WSMessage; at: number }[] = [];
+  let lastReviveAt = 0;
 
   let heartbeatInterval: number | null = null;
   let reconnectInterval: number | null = null;
@@ -119,6 +129,7 @@ export const useConnectionStore = defineStore('connection', () => {
         hasConnectedOnce.value = true;
         clearReconnect();
         startHeartbeat();
+        flushPending();
       };
 
       ws.onmessage = (event) => {
@@ -179,10 +190,71 @@ export const useConnectionStore = defineStore('connection', () => {
     status.value = 'disconnected';
   };
 
-  const send = (message: WSMessage) => {
+  const send = (message: WSMessage): boolean => {
     if (socket.value && socket.value.readyState === WebSocket.OPEN) {
       socket.value.send(JSON.stringify(message));
+      return true;
     }
+    return false;
+  };
+
+  const flushPending = () => {
+    if (!pending.length) return;
+    const now = Date.now();
+    const due = pending.filter((p) => now - p.at <= PENDING_TTL_MS);
+    pending = [];
+    // Older than the TTL is dropped on purpose: replaying a minute-old press
+    // would fire a macro the user has long stopped expecting.
+    for (const p of due) send(p.message);
+  };
+
+  /**
+   * Send, or park the message and repair the link immediately. Use for user
+   * actions; `send` alone silently discards when the socket is not OPEN.
+   */
+  const sendOrQueue = (message: WSMessage): boolean => {
+    if (send(message)) return true;
+    pending.push({ message, at: Date.now() });
+    if (pending.length > MAX_PENDING) pending.shift();
+    revive();
+    return false;
+  };
+
+  /**
+   * Re-check the link now instead of waiting up to 5s for the next heartbeat
+   * tick. Called when the app returns to the foreground and when a send finds
+   * the socket unusable.
+   */
+  const revive = () => {
+    if (userDisconnected) return;
+    const now = Date.now();
+    if (now - lastReviveAt < 1000) return; // a burst of taps must not spawn a burst of sockets
+    lastReviveAt = now;
+
+    const current = socket.value;
+    if (current && current.readyState === WebSocket.OPEN) {
+      // The socket still looks usable. The frozen timers left `isAlive` false,
+      // so the next tick would tear down a healthy connection — probe instead.
+      isAlive = true;
+      send({ type: 'ping' });
+      startHeartbeat();
+      flushPending();
+      return;
+    }
+
+    if (current) {
+      detachSocket(current);
+      try {
+        current.close();
+      } catch (_) {
+        /* already gone */
+      }
+      socket.value = null;
+    }
+    stopHeartbeat();
+    clearReconnect();
+    status.value = 'disconnected';
+    connect();
   };
 
   const startHeartbeat = () => {
@@ -297,5 +369,7 @@ export const useConnectionStore = defineStore('connection', () => {
     applyScannedEndpoint,
     cancelReconnect,
     send,
+    sendOrQueue,
+    revive,
   };
 });
