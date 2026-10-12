@@ -14,7 +14,9 @@ Buy me a coffee: https://ko-fi.com/ania9
 
 <!-- Drag landing-page/public/media/promo.mp4 into this README in the GitHub web editor, then paste the generated https://github.com/user-attachments/assets/... link on its own line here. -->
 
-▶ [Watch the promo video on the landing page](https://android-stream-desk.vercel.app/)
+[![Android Stream Desk promo video — click to watch](landing-page/public/media/promo-poster.jpg)](https://android-stream-desk.vercel.app/)
+
+▶ [Watch on the landing page](https://android-stream-desk.vercel.app/) · [Video file (MP4, 54s)](https://github.com/aniadev/android-stream-desk/blob/9f9d8bdf84fa61c3b2decf80b3c17d196ae17618/landing-page/public/media/promo.mp4)
 
 ### 📸 Screenshots
 

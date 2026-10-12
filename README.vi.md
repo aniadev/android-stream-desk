@@ -14,7 +14,9 @@ Buy me a coffee: https://ko-fi.com/ania9
 
 <!-- Kéo thả landing-page/public/media/promo.mp4 vào README này trên trình soạn thảo web của GitHub, rồi dán link https://github.com/user-attachments/assets/... được tạo ra thành một dòng riêng tại đây. -->
 
-▶ [Xem video giới thiệu trên landing page](https://android-stream-desk.vercel.app/)
+[![Video giới thiệu Android Stream Desk — bấm để xem](landing-page/public/media/promo-poster.jpg)](https://android-stream-desk.vercel.app/)
+
+▶ [Xem trên landing page](https://android-stream-desk.vercel.app/) · [File video (MP4, 54 giây)](https://github.com/aniadev/android-stream-desk/blob/9f9d8bdf84fa61c3b2decf80b3c17d196ae17618/landing-page/public/media/promo.mp4)
 
 ### 📸 Ảnh Chụp Giao Diện (Screenshots)
 
