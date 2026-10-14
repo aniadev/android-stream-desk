@@ -7,6 +7,9 @@
 #   scripts/rust-env.sh check           # cargo check
 #   scripts/rust-env.sh clippy          # cargo clippy --all-targets
 #   scripts/rust-env.sh build           # pnpm tauri build → src-tauri/target/release/bundle/
+#   scripts/rust-env.sh android [args]  # pnpm tauri android build (android image: SDK+NDK+JDK)
+#                                       #   e.g. android --debug --target aarch64 --apk
+#   scripts/rust-env.sh android-shell   # bash in the android image
 #   scripts/rust-env.sh shell           # interactive bash in the container
 #   scripts/rust-env.sh -- <cmd...>     # any command, cwd = src-tauri
 #   scripts/rust-env.sh --rebuild-image # force image rebuild, then bash
@@ -23,13 +26,16 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 IMAGE="android-stream-desk-rust-dev"
+ANDROID_IMAGE="android-stream-desk-android-dev"
 CARGO_VOLUME="android-stream-desk-cargo-home"
 NODE_MODULES_VOLUME="android-stream-desk-node-modules"
 PLATFORM="linux/amd64"
+GRADLE_VOLUME="android-stream-desk-gradle-home"
+ANDROID_HOME_VOLUME="android-stream-desk-android-home"   # ~/.android: debug keystore
 
 if [[ "${1:-}" == "--rebuild-image" ]]; then
   shift
-  docker image rm -f "$IMAGE" >/dev/null 2>&1 || true
+  docker image rm -f "$ANDROID_IMAGE" "$IMAGE" >/dev/null 2>&1 || true
 fi
 
 if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
@@ -47,6 +53,15 @@ docker volume create "$NODE_MODULES_VOLUME" >/dev/null
 # Mount point for the node_modules volume. Created here so Docker doesn't
 # create it root-owned in the host checkout when node_modules is absent.
 mkdir -p "$ROOT/node_modules"
+
+ensure_android_image() {
+  if ! docker image inspect "$ANDROID_IMAGE" >/dev/null 2>&1; then
+    echo ">> building $ANDROID_IMAGE (one-time, downloads Android SDK + NDK, several minutes)"
+    docker build --platform "$PLATFORM" -t "$ANDROID_IMAGE" "$ROOT/docker/android-dev"
+  fi
+  docker volume create "$GRADLE_VOLUME" >/dev/null
+  docker volume create "$ANDROID_HOME_VOLUME" >/dev/null
+}
 
 # webserver.rs embeds ../dist-client at compile time; build it if absent.
 if [[ ! -d "$ROOT/dist-client" ]]; then
@@ -70,11 +85,27 @@ run() {
     "$IMAGE" "$@"
 }
 
+run_android() {
+  local workdir="$1"; shift
+  ensure_android_image
+  exec docker run --rm "${tty_args[@]}" \
+    --platform "$PLATFORM" \
+    -v "$ROOT":/work \
+    -v "$NODE_MODULES_VOLUME":/work/node_modules \
+    -v "$CARGO_VOLUME":/home/dev/.cargo \
+    -v "$GRADLE_VOLUME":/home/dev/.gradle \
+    -v "$ANDROID_HOME_VOLUME":/home/dev/.android \
+    -w "$workdir" \
+    "$ANDROID_IMAGE" "$@"
+}
+
 case "${1:-shell}" in
   test)   shift; run /work/src-tauri cargo test --lib "$@" ;;
   check)  shift; run /work/src-tauri cargo check "$@" ;;
   clippy) shift; run /work/src-tauri cargo clippy --all-targets "$@" ;;
   build)  shift; run /work bash -c 'pnpm install --frozen-lockfile && exec pnpm tauri build "$@"' _ "$@" ;;
+  android) shift; run_android /work bash -c 'pnpm install --frozen-lockfile && exec pnpm tauri android build "$@"' _ "$@" ;;
+  android-shell) run_android /work bash ;;
   shell)  run /work/src-tauri bash ;;
   --)     shift; run /work/src-tauri "$@" ;;
   *)      echo "unknown subcommand: $1 (see header of $0)" >&2; exit 2 ;;

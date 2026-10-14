@@ -30,6 +30,7 @@ pnpm rust:test                # cargo test --lib in the container (Rust unit tes
 pnpm rust:check               # cargo check in the container
 pnpm rust:build               # pnpm tauri build in the container → src-tauri/target/release/bundle/ (deb/AppImage run on host)
 pnpm rust:shell               # bash in the container, cwd src-tauri
+scripts/rust-env.sh android --debug --target aarch64 --apk   # APK in the android container (SDK+NDK+JDK) → gen/android/app/build/outputs/apk/
 ```
 
 Dev server runs on **fixed** port 1420 (`strictPort: true` in `vite.config.ts`) with HMR on 1421, bound to `0.0.0.0` so an Android dev build can reach the host. The WebSocket server is a **separate** port (`8089`) started by Rust in `setup()`.
