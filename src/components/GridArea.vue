@@ -184,6 +184,7 @@ watch(fitMode, () => {
       <div
         ref="scrollerRef"
         class="scroller w-full h-full overflow-x-auto overflow-y-hidden relative z-10"
+        :class="{ 'scroller--single': (layoutStore.layout.pages || []).length <= 1 }"
         @scroll.passive="onScroll"
       >
         <!-- Horizontal track -->
@@ -267,10 +268,21 @@ watch(fitMode, () => {
 }
 
 .scroller {
+  /* Pages only ever scroll sideways. With the default `auto` a few px of
+     vertical finger drift during a tap started a (pointless) vertical pan:
+     the browser fired pointercancel and the press was lost. */
+  touch-action: pan-x;
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
   scrollbar-width: none;
+}
+
+/* One page: nothing to swipe to, so the browser must not claim a touch for
+   panning at all. Otherwise a few px of sideways drift during a tap is taken
+   as a swipe (pointercancel) and the press is lost. */
+.scroller--single {
+  touch-action: none;
 }
 
 .scroller::-webkit-scrollbar {

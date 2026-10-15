@@ -11,6 +11,7 @@
     "rust:build": "scripts/rust-env.sh build",
     "rust:shell": "scripts/rust-env.sh shell",
     "test:connection": "node --experimental-strip-types src/stores/connection.test.mjs && node --experimental-strip-types src/stores/connection.usb.test.mjs && node --experimental-strip-types src/lib/mobileReconnectState.test.mjs",
+    "test:tap": "node --experimental-strip-types src/lib/tapTracker.test.mjs",
     "test:network": "node --experimental-strip-types src/lib/networkEndpointState.test.mjs",
     "test:qr": "node --experimental-strip-types src/lib/apkConnectQr.test.mjs && node --experimental-strip-types src/lib/qrDecodeRoundtrip.test.ts && node --experimental-strip-types src/lib/pairingToken.test.mjs",
     "test:typography": "node --experimental-strip-types src/lib/typography.test.mjs",

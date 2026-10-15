@@ -5,6 +5,7 @@ import { Icon } from '@iconify/vue';
 import { hexToRgb, rgbToHsl } from '../lib/color';
 import { currentAccentH } from '../lib/themes';
 import { useLayoutStore } from '../stores/layout';
+import { createTapTracker } from '../lib/tapTracker';
 
 const layoutStore = useLayoutStore();
 
@@ -96,7 +97,29 @@ const genshinFrameClass = computed(() => {
   return `genshin-frame-${frame}`;
 });
 
+// Touch / pen presses are recognised from pointerdown -> pointerup (see
+// lib/tapTracker): the browser withholds `click` when the finger drifts a few
+// px during the tap, which silently dropped presses. Mouse keeps plain click.
+const tap = createTapTracker();
+
+function onPointerDown(e: PointerEvent) {
+  if (e.pointerType !== 'mouse') tap.down(e.pointerId, e.clientX, e.clientY);
+}
+
+function onPointerUp(e: PointerEvent) {
+  if (e.pointerType === 'mouse') return;
+  if (tap.up(e.pointerId, e.clientX, e.clientY, Date.now())) {
+    emit('press', props.button);
+  }
+}
+
+function onPointerCancel(e: PointerEvent) {
+  tap.cancel(e.pointerId);
+}
+
 function handleClick() {
+  // The click the browser may still send after a recognised tap.
+  if (tap.isClickEcho(Date.now())) return;
   emit('press', props.button);
 }
 </script>
@@ -104,6 +127,9 @@ function handleClick() {
 <template>
   <button
     @click="handleClick"
+    @pointerdown="onPointerDown"
+    @pointerup="onPointerUp"
+    @pointercancel="onPointerCancel"
     class="cyber-btn group relative w-full h-full min-w-0 min-h-0 flex flex-col items-center justify-center cursor-pointer select-none overflow-hidden transition-all duration-150 ease-out"
     :class="{
       'gap-1 p-1.5': !compact && !isMonitor,
